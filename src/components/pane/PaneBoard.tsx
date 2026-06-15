@@ -1,5 +1,6 @@
 /* Carrel full-pane board — toolbar (brand + search + filter chips + collapse),
-   category sections, and a JS column-balancing masonry of typed cards.
+   an optional drag-to-reorder pinned rail, category sections, and a JS
+   column-balancing masonry of typed cards with keyboard navigation.
 
    The masonry (ported from the design handoff's PaneWall): every card is
    absolutely positioned via transform and placed into the shortest-fit column
@@ -9,9 +10,8 @@
    placement, a heavy card (e.g. a Grapple flowchart) can never under-reserve
    and bleed under the next row (bug #2).
 
-   Phase 4 adds the pinned rail + keyboard nav; Phase 5 persists pins/checklist
-   per nook. */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+   Phase 5 persists pins/order/checklist per nook. */
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type CarrelPlugin from "../../main";
 import type { RuleDoc } from "../../rules/model";
 import { searchRules } from "../../rules/search";
@@ -53,6 +53,8 @@ function baseSpan(doc: RuleDoc): number {
   const w = contentWeight(doc);
   return w < 1.9 ? 1 : w < 3.7 ? 2 : 3;
 }
+
+const STAR_D = "M12 3.5l2.6 5.3 5.9.86-4.25 4.14 1 5.86L12 17.9l-5.25 2.76 1-5.86L3.5 9.66l5.9-.86z";
 
 function BookGlyph() {
   return (
@@ -152,13 +154,17 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
   const [types, setTypes] = useState<Set<string>>(() => new Set());
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const [open, setOpen] = useState<Set<string>>(() => new Set()); // multi-open
+  const [focusId, setFocusId] = useState<string | null>(null);
   const [autoCols, setAutoCols] = useState(3);
-  // Phase 2 transient state; Phase 5 persists these per nook.
+  // Phase 2/4 transient state; Phase 5 persists these per nook.
   const [pins, setPins] = useState<Set<string>>(() => new Set());
+  const [pinOrder, setPinOrder] = useState<string[]>([]);
+  const [dragId, setDragId] = useState<string | null>(null);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const filtersRef = useDragScroll<HTMLDivElement>();
 
   const docs = plugin.index.docs.value;
+  const docByPath = useMemo(() => new Map(docs.map((d) => [d.path, d])), [docs]);
   const spanOf = useMemo(() => {
     const m = new Map<string, number>();
     for (const d of docs) m.set(d.path, baseSpan(d));
@@ -214,6 +220,15 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
   const lastQuery = useRef(query);
   const firstLayout = useRef(true);
   const [, force] = useState(0);
+
+  // refs mirroring state for the (subscribe-once) keyboard handler
+  const focusRef = useRef(focusId);
+  focusRef.current = focusId;
+  const openRef = useRef(open);
+  openRef.current = open;
+  const visibleIds = useMemo(() => rankedDocs.map((d) => d.path), [ranked]);
+  const visibleRef = useRef(visibleIds);
+  visibleRef.current = visibleIds;
 
   const regCell = (id: string) => (el: HTMLElement | null) => {
     if (el) cells.current.set(id, el);
@@ -281,12 +296,10 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
         const cell = cells.current.get(d.path);
         if (!cell) continue;
         const span = Math.min(open.has(d.path) ? spanOf.get(d.path) ?? 1 : 1, cols);
-        // measure at the exact target width (no transition) so height is exact
         cell.style.transition = "none";
         cell.style.width = span * colW + (span - 1) * gap + "px";
         cell.dataset.span = String(span);
         const h = cell.offsetHeight;
-        // shortest-fit window
         let best = 0;
         let bestY = Infinity;
         for (let c = 0; c <= cols - span; c++) {
@@ -335,30 +348,249 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
     };
   }, []);
 
-  const toggle = (path: string) => {
-    lastToggled.current = path;
+  /* ---------- pinned rail ---------- */
+  const railCells = useRef(new Map<string, HTMLElement>());
+  const railPrev = useRef(new Map<string, DOMRect>());
+  const dragRef = useRef<{ id: string; el: HTMLElement; dx: number; dy: number; w: number; h: number } | null>(null);
+  const pinOrderRef = useRef(pinOrder);
+  pinOrderRef.current = pinOrder;
+  const regRail = (id: string) => (el: HTMLElement | null) => {
+    if (el) railCells.current.set(id, el);
+    else railCells.current.delete(id);
+  };
+
+  // keep pinOrder in sync with the live pin set (append new, drop removed)
+  useEffect(() => {
+    setPinOrder((prev) => {
+      const kept = prev.filter((id) => pins.has(id));
+      const added = [...pins].filter((id) => !kept.includes(id));
+      return added.length || kept.length !== prev.length ? [...kept, ...added] : prev;
+    });
+  }, [pins]);
+
+  // rail FLIP: any rail card that moved (not the dragged one) inverts then plays
+  useLayoutEffect(() => {
+    const map = railCells.current;
+    map.forEach((el, id) => {
+      const nr = el.getBoundingClientRect();
+      const old = railPrev.current.get(id);
+      if (old && id !== dragId) {
+        const dx = old.left - nr.left;
+        const dy = old.top - nr.top;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          el.style.transition = "none";
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = "transform .24s var(--ease-back)";
+            el.style.transform = "";
+          });
+        }
+      }
+    });
+    const m = new Map<string, DOMRect>();
+    map.forEach((el, id) => m.set(id, el.getBoundingClientRect()));
+    railPrev.current = m;
+  });
+
+  const onPinMove = useCallback((e: PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    Object.assign(d.el.style, {
+      position: "fixed",
+      left: e.clientX - d.dx + "px",
+      top: e.clientY - d.dy + "px",
+      width: d.w + "px",
+      zIndex: "60",
+      pointerEvents: "none",
+    });
+    let nearest: { id: string; cx: number } | null = null;
+    let nd = Infinity;
+    railCells.current.forEach((el, id) => {
+      if (id === d.id) return;
+      const rr = el.getBoundingClientRect();
+      const cx = rr.left + rr.width / 2;
+      const cy = rr.top + rr.height / 2;
+      const dist = (cx - e.clientX) ** 2 + (cy - e.clientY) ** 2;
+      if (dist < nd) {
+        nd = dist;
+        nearest = { id, cx };
+      }
+    });
+    if (nearest) {
+      const near = nearest as { id: string; cx: number };
+      const order = pinOrderRef.current.filter((x) => x !== d.id);
+      const ni = order.indexOf(near.id);
+      order.splice(e.clientX > near.cx ? ni + 1 : ni, 0, d.id);
+      if (order.join() !== pinOrderRef.current.join()) setPinOrder(order);
+    }
+  }, []);
+
+  const onPinUp = useCallback(() => {
+    const d = dragRef.current;
+    if (d) {
+      Object.assign(d.el.style, { position: "", left: "", top: "", width: "", zIndex: "", pointerEvents: "", transform: "", transition: "" });
+    }
+    dragRef.current = null;
+    setDragId(null);
+    window.removeEventListener("pointermove", onPinMove);
+    window.removeEventListener("pointerup", onPinUp);
+  }, [onPinMove]);
+
+  const onPinDown = (e: PointerEvent, id: string) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const grip = e.currentTarget as HTMLElement;
+    const el = grip.closest(".cr-railcard") as HTMLElement | null;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    dragRef.current = { id, el, dx: e.clientX - rect.left, dy: e.clientY - rect.top, w: rect.width, h: rect.height };
+    setDragId(id);
+    window.addEventListener("pointermove", onPinMove);
+    window.addEventListener("pointerup", onPinUp);
+  };
+
+  /* ---------- toggle + keyboard navigation ---------- */
+  const toggle = useCallback((id: string) => {
+    lastToggled.current = id;
     setOpen((o) => {
       const n = new Set(o);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+    setFocusId(id);
+  }, []);
+
+  useEffect(() => {
+    const scrollFocusIntoView = (id: string) => {
+      const cell = cells.current.get(id);
+      const sc = scrollRef.current;
+      if (!cell || !sc) return;
+      const cr = cell.getBoundingClientRect();
+      const sr = sc.getBoundingClientRect();
+      if (cr.top < sr.top + 70 || cr.bottom > sr.bottom - 8) {
+        sc.scrollTo({ top: cr.top - sr.top + sc.scrollTop - 90, behavior: "smooth" });
+      }
+    };
+    const moveFocus = (dir: "left" | "right" | "up" | "down") => {
+      const items: { id: string; r: DOMRect }[] = [];
+      cells.current.forEach((el, id) => {
+        if (visibleRef.current.includes(id)) items.push({ id, r: el.getBoundingClientRect() });
+      });
+      if (!items.length) return;
+      const cur = items.find((i) => i.id === focusRef.current);
+      if (!cur) {
+        setFocusId(items[0].id);
+        scrollFocusIntoView(items[0].id);
+        return;
+      }
+      const cx = cur.r.left + cur.r.width / 2;
+      const cy = cur.r.top + cur.r.height / 2;
+      let best: string | null = null;
+      let bestScore = Infinity;
+      for (const it of items) {
+        if (it.id === cur.id) continue;
+        const ix = it.r.left + it.r.width / 2;
+        const iy = it.r.top + it.r.height / 2;
+        const dx = ix - cx;
+        const dy = iy - cy;
+        let primary: number;
+        let cross: number;
+        if (dir === "left") {
+          if (dx > -4) continue;
+          primary = -dx;
+          cross = Math.abs(dy) * 2.2;
+        } else if (dir === "right") {
+          if (dx < 4) continue;
+          primary = dx;
+          cross = Math.abs(dy) * 2.2;
+        } else if (dir === "up") {
+          if (dy > -4) continue;
+          primary = -dy;
+          cross = Math.abs(dx) * 2.2;
+        } else {
+          if (dy < 4) continue;
+          primary = dy;
+          cross = Math.abs(dx) * 2.2;
+        }
+        const score = primary + cross;
+        if (score < bestScore) {
+          bestScore = score;
+          best = it.id;
+        }
+      }
+      if (best) {
+        setFocusId(best);
+        scrollFocusIntoView(best);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const ae = document.activeElement as HTMLElement | null;
+      const typing = !!ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT" || ae.isContentEditable);
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        (appRef.current?.querySelector(".cr-search__input") as HTMLElement | null)?.focus();
+        return;
+      }
+      if (typing) {
+        if (e.key === "Escape") ae?.blur();
+        return;
+      }
+      if (e.key === "ArrowLeft") { e.preventDefault(); moveFocus("left"); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); moveFocus("right"); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); moveFocus("up"); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); moveFocus("down"); }
+      else if (e.key === "Enter" || e.key === " ") {
+        if (focusRef.current) { e.preventDefault(); toggle(focusRef.current); }
+      } else if (e.key === "Escape") {
+        if (focusRef.current && openRef.current.has(focusRef.current)) toggle(focusRef.current);
+        else if (openRef.current.size) setOpen(new Set());
+        else setFocusId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggle]);
+
+  // keep a just-opened card visible
+  useEffect(() => {
+    const id = lastToggled.current;
+    if (id && open.has(id)) {
+      const cell = cells.current.get(id);
+      const sc = scrollRef.current;
+      if (cell && sc) {
+        const cr = cell.getBoundingClientRect();
+        const sr = sc.getBoundingClientRect();
+        if (cr.top < sr.top + 70 || cr.bottom > sr.bottom - 8) {
+          sc.scrollTo({ top: cr.top - sr.top + sc.scrollTop - 90, behavior: "smooth" });
+        }
+      }
+    }
+  }, [open]);
+
+  // functional updaters so rapid/batched toggles accumulate instead of each
+  // overwriting the prior (a stale-closure clobber when several fire per frame)
+  const togglePin = (path: string) => {
+    setPins((prev) => {
+      const n = new Set(prev);
       n.has(path) ? n.delete(path) : n.add(path);
       return n;
     });
   };
-  const togglePin = (path: string) => {
-    const next = new Set(pins);
-    next.has(path) ? next.delete(path) : next.add(path);
-    setPins(next);
-  };
   const onToggleCheck = (key: string, value: boolean) => {
-    const next = { ...checklist };
-    if (value) next[key] = true;
-    else delete next[key];
-    setChecklist(next);
+    setChecklist((prev) => {
+      const next = { ...prev };
+      if (value) next[key] = true;
+      else delete next[key];
+      return next;
+    });
   };
   const toggleSet = (set: Set<string>, setter: (s: Set<string>) => void, val: string) => {
     const n = new Set(set);
     n.has(val) ? n.delete(val) : n.add(val);
     setter(n);
   };
+
+  const pinnedDocs = pinOrder.map((p) => docByPath.get(p)).filter((d): d is RuleDoc => !!d);
 
   return (
     <div class="cr-app" ref={appRef}>
@@ -383,7 +615,7 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
         <div class="cr-filters" ref={filtersRef}>
           <button class={"cr-chip cr-chip--pin" + (pinnedOnly ? " is-on" : "")} onClick={() => setPinnedOnly((v) => !v)}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill={pinnedOnly ? "currentColor" : "none"} stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <path d="M12 3.5l2.6 5.3 5.9.86-4.25 4.14 1 5.86L12 17.9l-5.25 2.76 1-5.86L3.5 9.66l5.9-.86z" />
+              <path d={STAR_D} />
             </svg>
             {pins.size}
           </button>
@@ -410,6 +642,56 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
 
       <div class="cr-scroll" ref={scrollRef}>
         <div class="cr-inner">
+          {!isSearching && pinnedDocs.length > 0 && (
+            <>
+              <div class="cr-pinhead">
+                <span class="cr-pinhead__label">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d={STAR_D} />
+                  </svg>
+                  Pinned
+                </span>
+                <span class="cr-pinhead__hint">drag to reorder</span>
+                <span class="cr-pinhead__rule" />
+              </div>
+              <div class="cr-rail">
+                {pinnedDocs.map((d) => (
+                  <button
+                    key={d.path}
+                    ref={regRail(d.path)}
+                    class={"cr-railcard" + (dragId === d.path ? " is-drag" : "")}
+                    style={{ "--bc": CONTENT_TYPES[d.type].color }}
+                    onClick={() => {
+                      if (dragRef.current) return;
+                      setPinnedOnly(false);
+                      toggle(d.path);
+                    }}
+                  >
+                    <span
+                      class="cr-railcard__grip"
+                      title="Drag to reorder"
+                      onPointerDown={(e) => onPinDown(e, d.path)}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+                        <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+                        <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+                      </svg>
+                    </span>
+                    <span class="cr-railcard__ic">
+                      <Icon id={refIconId(d.icon)} />
+                    </span>
+                    <span class="cr-railcard__main">
+                      <span class="cr-railcard__title">{d.title}</span>
+                      <span class="cr-railcard__type">{CONTENT_TYPES[d.type].label}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
           {docs.length === 0 ? (
             <div class="r-empty">
               <Icon id="ra-book" class="r-empty__ic" />
@@ -428,7 +710,7 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
                 <div class={"cr-cat" + (sec.results ? " cr-cat--results" : "")}>
                   {sec.results && (
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 3.5l2.6 5.3 5.9.86-4.25 4.14 1 5.86L12 17.9l-5.25 2.76 1-5.86L3.5 9.66l5.9-.86z" />
+                      <path d={STAR_D} />
                     </svg>
                   )}
                   {sec.label}
@@ -436,7 +718,11 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
                 </div>
                 <div class="cr-masonry" ref={regSection(sec.label)}>
                   {sec.docs.map((d) => (
-                    <div class={"cr-cell" + (open.has(d.path) ? " is-open" : "")} key={d.path} ref={regCell(d.path)}>
+                    <div
+                      class={"cr-cell" + (open.has(d.path) ? " is-open" : "") + (focusId === d.path ? " is-focused" : "")}
+                      key={d.path}
+                      ref={regCell(d.path)}
+                    >
                       <Card
                         plugin={plugin}
                         doc={d}
@@ -455,6 +741,13 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
               </section>
             ))
           )}
+
+          <div class="cr-kbd">
+            <span><kbd>/</kbd> search</span>
+            <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> navigate</span>
+            <span><kbd>↵</kbd> expand</span>
+            <span><kbd>esc</kbd> collapse</span>
+          </div>
         </div>
       </div>
     </div>
