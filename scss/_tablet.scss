@@ -1,0 +1,35 @@
+// Tablet (iPad) defenses. Obsidian pins <button> geometry (height + center
+// align + nowrap) under .is-tablet, which can collapse content buttons — the
+// pinned-rail card (a <button> with stacked content) is the main risk. The
+// content cards themselves are <div>s (not buttons), so they're safe; these
+// rules re-assert geometry on the actual buttons. Verify by geometry on iPad.
+
+.is-tablet {
+  .carrel-pane-root,
+  .carrel-embed-root {
+    .cr-chip,
+    .cr-tbtn,
+    .cr-nooksel,
+    .r-dice__roll { height: auto; box-shadow: none; }
+
+    .cr-search__clear,
+    .cr-card__close,
+    .r-star { height: auto; padding: 3px; box-shadow: none; }
+
+    // the pinned-rail card is a button with a stacked icon/title/type — keep it
+    // growing to its content instead of collapsing to a pinned height
+    .cr-railcard {
+      height: auto;
+      align-items: center;
+      white-space: normal;
+      box-shadow: none;
+    }
+    .cr-railcard__title { white-space: normal; }
+    .cr-railcard__grip { min-width: 30px; min-height: 30px; }
+  }
+
+  // barebones-style settings buttons live in the modal/settings chrome already;
+  // the icon-grid buttons keep their aspect-ratio square.
+  .carrel-settings .ob-iconbtn,
+  .carrel-settings .ob-swatch { box-shadow: none; }
+}
