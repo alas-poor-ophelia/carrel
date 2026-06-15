@@ -91,7 +91,7 @@ export class CarrelIndex {
     const raw = await this.app.vault.cachedRead(file);
     // strip frontmatter from the body we render/search
     const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
-    const parsed = parseNote(body, cache?.frontmatter ?? {});
+    const parsed = parseNote(body, cache?.frontmatter ?? {}, this.plugin.store.customTypes());
     return {
       path: file.path,
       title: headings[0] ?? file.basename,

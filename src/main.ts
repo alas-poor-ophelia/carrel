@@ -34,6 +34,21 @@ export default class CarrelPlugin extends Plugin {
         this.index.setFolders(nook ? nook.folders : []);
       })
     );
+    // Custom-type declarations change how notes resolve their `type:` and icon,
+    // so re-index when the set changes. Guarded by array identity (other commits
+    // keep the same reference) so routine pin/checklist edits don't rebuild.
+    {
+      let prevTypes = this.store.customTypes();
+      this.register(
+        effect(() => {
+          const ct = this.store.customTypes();
+          if (ct !== prevTypes) {
+            prevTypes = ct;
+            void this.index.rebuild();
+          }
+        })
+      );
+    }
 
     this.registerView(VIEW_TYPE_CARREL_PANE, (leaf) => new PaneView(leaf, this));
 

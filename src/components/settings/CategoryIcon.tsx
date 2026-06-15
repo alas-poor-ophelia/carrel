@@ -1,7 +1,8 @@
-import { getIconIds, setIcon } from "obsidian";
-import { useEffect, useRef } from "preact/hooks";
+import { getIconIds } from "obsidian";
 import { ICONS } from "../../data/icons/registry";
-import { Icon } from "../common/Icon";
+import { GlyphIcon, LucideGlyph } from "../common/GlyphIcon";
+
+export { LucideGlyph };
 
 /** Obsidian's bundled Lucide icon ids (e.g. "lucide-book"). */
 export function lucideIds(): string[] {
@@ -22,25 +23,7 @@ export function iconDisplayName(icon: string): string {
   return icon.replace(/^lucide-/, "").replace(/^ra-/, "");
 }
 
-/** A Lucide glyph rendered via Obsidian's setIcon (real, themeable). */
-export function LucideGlyph({ id }: { id: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.textContent = "";
-    setIcon(el, id.startsWith("lucide-") ? id : "lucide-" + id);
-    const svg = el.querySelector("svg");
-    if (svg) {
-      svg.setAttribute("width", "100%");
-      svg.setAttribute("height", "100%");
-    }
-  }, [id]);
-  return <span class="cr-lucide" ref={ref} />;
-}
-
 /** Dispatch a category icon by its source set. Size comes from CSS context. */
 export function CategoryIcon({ iconSet, icon }: { iconSet: "lucide" | "rpg"; icon: string }) {
-  if (iconSet === "rpg") return <Icon id={icon} />;
-  return <LucideGlyph id={icon} />;
+  return <GlyphIcon iconSet={iconSet} icon={icon} />;
 }

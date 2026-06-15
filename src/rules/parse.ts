@@ -13,6 +13,7 @@
    never tags still render — they just lean on inference.
    ===================================================================== */
 
+import type { CustomType } from "../types/data";
 import type {
   ContentType,
   FlowNode,
@@ -20,7 +21,7 @@ import type {
   RuleBlock,
   RuleMeta,
 } from "./model";
-import { CONTENT_TYPES, isContentType } from "./registry";
+import { isKnownType, resolveType } from "./registry";
 
 const REF_RE = /^\s*<!--\s*ref:\s*([\s\S]*?)-->\s*/i;
 const BLOCK_RE = /^\s*<!--\s*block:\s*([\s\S]*?)-->\s*$/i;
@@ -297,7 +298,7 @@ function parseBlocks(text: string): RuleBlock[] {
 function inferType(blocks: RuleBlock[]): ContentType {
   if (blocks.some((b) => b.t === "flow")) return "flowchart";
   if (blocks.some((b) => b.t === "dice")) return "formula";
-  if (blocks.length && blocks[0].t === "callout") return "lore";
+  if (blocks.length && blocks[0].t === "callout") return "quote";
   if (blocks.some((b) => b.t === "checklist" || b.t === "steps")) return "process";
   const tables = blocks.filter((b) => b.t === "table").length;
   const prose = blocks.filter((b) => b.t === "p").length;
@@ -320,7 +321,8 @@ const HEADING_RE = /^\s*#{1,6}\s+.*(?:\r?\n|$)/;
 
 export function parseNote(
   body: string,
-  frontmatter: Record<string, unknown> = {}
+  frontmatter: Record<string, unknown> = {},
+  customTypes: CustomType[] = []
 ): ParsedNote {
   let text = body;
 
@@ -355,13 +357,23 @@ export function parseNote(
   const declared =
     (typeof frontmatter.type === "string" ? frontmatter.type.toLowerCase() : undefined) ??
     refAttrs.type;
-  const type: ContentType = isContentType(declared) ? declared : inferType(blocks);
+  const type: string =
+    declared && isKnownType(declared, customTypes) ? declared : inferType(blocks);
 
-  const fmIcon = typeof frontmatter.icon === "string" ? frontmatter.icon : undefined;
-  const icon = fmIcon || attr(refAttrs, "icon") || CONTENT_TYPES[type].glyph;
+  // A frontmatter/ref `icon:` override wins; otherwise inherit the type's icon
+  // (built-in glyph or the custom type's chosen lucide/rpg icon).
+  const resolved = resolveType(type, customTypes);
+  const iconOverride = (typeof frontmatter.icon === "string" ? frontmatter.icon : undefined) ||
+    attr(refAttrs, "icon");
+  const icon = iconOverride || resolved.icon;
+  const iconSet: "lucide" | "rpg" = iconOverride
+    ? iconOverride.startsWith("lucide-")
+      ? "lucide"
+      : "rpg"
+    : resolved.iconSet;
 
   const fmSummary = typeof frontmatter.summary === "string" ? frontmatter.summary : undefined;
   const summary = fmSummary ?? attr(refAttrs, "summary") ?? firstProseText(blocks);
 
-  return { type, icon, summary, meta, blocks };
+  return { type, icon, iconSet, summary, meta, blocks };
 }

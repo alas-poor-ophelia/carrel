@@ -6,15 +6,26 @@
 import { describe, expect, it } from "vitest";
 import { parseNote } from "../../../src/rules/parse";
 import type { RuleBlock } from "../../../src/rules/model";
+import type { CustomType } from "../../../src/types/data";
 
 function types(blocks: RuleBlock[]): string[] {
   return blocks.map((b) => b.t);
 }
 
+/** The TTRPG-flavored types that moved out of the defaults now live as custom
+ *  types (e.g. seeded in the character-sheet vault). */
+const CUSTOM: CustomType[] = [
+  { id: "ability", name: "Ability", color: "#cf9b54", iconSet: "rpg", icon: "ra-sunbeams", order: 0 },
+  { id: "deed", name: "Deed", color: "#c66b8e", iconSet: "rpg", icon: "ra-arcane-mask", order: 1 },
+  { id: "trait", name: "Trait", color: "#7aa86a", iconSet: "lucide", icon: "lucide-clover", order: 2 },
+];
+
 describe("parseNote — content type", () => {
-  it("honors a declared ref-comment type and its meta chips", () => {
+  it("honors a declared (custom) ref-comment type and its meta chips", () => {
     const p = parseNote(
-      `<!-- ref: ability cost:"Swift action" uses:"4/day" -->\n\n**Smite Evil** — choose one target to smite.`
+      `<!-- ref: ability cost:"Swift action" uses:"4/day" -->\n\n**Smite Evil** — choose one target to smite.`,
+      {},
+      CUSTOM
     );
     expect(p.type).toBe("ability");
     expect(p.meta).toEqual([{ k: "Swift action" }, { k: "4/day" }]);
@@ -22,7 +33,7 @@ describe("parseNote — content type", () => {
   });
 
   it("frontmatter type wins over the ref comment", () => {
-    const p = parseNote(`<!-- ref: ability -->\n\nplain text`, { type: "deed" });
+    const p = parseNote(`<!-- ref: ability -->\n\nplain text`, { type: "deed" }, CUSTOM);
     expect(p.type).toBe("deed");
   });
 
@@ -33,18 +44,24 @@ describe("parseNote — content type", () => {
   });
 
   it("strips a leading heading when the ref comment precedes it", () => {
-    const p = parseNote(`<!-- ref: ability -->\n# Smite\n\nbody`);
+    const p = parseNote(`<!-- ref: ability -->\n# Smite\n\nbody`, {}, CUSTOM);
     expect(p.type).toBe("ability");
     expect(p.blocks).toEqual([{ t: "p", text: "body" }]);
   });
 
-  it("infers flowchart / formula / process / table / lore when undeclared", () => {
+  it("infers flowchart / formula / process / table / quote when undeclared", () => {
     expect(parseNote("```ref-flow\nstart: go\n```").type).toBe("flowchart");
     expect(parseNote("<!-- block: dice expr:\"1d20\" mod:5 -->").type).toBe("formula");
     expect(parseNote("1. first\n2. second").type).toBe("process");
     expect(parseNote("| A | B |\n| - | - |\n| 1 | 2 |").type).toBe("table");
-    expect(parseNote("> a solemn oath").type).toBe("lore");
+    expect(parseNote("> a solemn oath").type).toBe("quote");
     expect(parseNote("just a sentence of prose.").type).toBe("reference");
+  });
+
+  it("ignores an unknown type and falls back to inference", () => {
+    // `deed` is no longer built-in; with no custom types it can't be honored
+    expect(parseNote(`<!-- ref: deed -->\n\njust prose.`).type).toBe("reference");
+    expect(parseNote(`plain prose.`, { type: "made-up" }).type).toBe("reference");
   });
 });
 
@@ -147,10 +164,26 @@ describe("parseNote — summary & icon", () => {
     const p = parseNote("body text", { summary: "Custom", icon: "shield" });
     expect(p.summary).toBe("Custom");
     expect(p.icon).toBe("shield");
+    expect(p.iconSet).toBe("rpg");
   });
 
-  it("defaults the icon to the content type's glyph", () => {
-    const p = parseNote("<!-- ref: trait -->\nyou were bullied as a child.");
-    expect(p.icon).toBe("clover");
+  it("treats a lucide- prefixed icon override as a lucide glyph", () => {
+    const p = parseNote("body text", { icon: "lucide-star" });
+    expect(p.icon).toBe("lucide-star");
+    expect(p.iconSet).toBe("lucide");
+  });
+
+  it("defaults a built-in type's icon to its resolved glyph", () => {
+    const p = parseNote("> a quoted line");
+    expect(p.type).toBe("quote");
+    expect(p.icon).toBe("ra-scroll-unfurled");
+    expect(p.iconSet).toBe("rpg");
+  });
+
+  it("inherits a custom type's icon and icon set", () => {
+    const p = parseNote("<!-- ref: trait -->\nyou were bullied as a child.", {}, CUSTOM);
+    expect(p.type).toBe("trait");
+    expect(p.icon).toBe("lucide-clover");
+    expect(p.iconSet).toBe("lucide");
   });
 });

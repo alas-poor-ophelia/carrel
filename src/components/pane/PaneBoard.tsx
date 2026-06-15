@@ -15,10 +15,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type CarrelPlugin from "../../main";
 import type { CarrelIndex } from "../../rules/index";
 import type { RuleDoc } from "../../rules/model";
+import type { CustomType } from "../../types/data";
 import { searchRules } from "../../rules/search";
-import { CONTENT_TYPES, FILTERABLE_TYPES } from "../../rules/registry";
-import { refIconId } from "../../rules/icons";
+import { FILTERABLE_TYPES, customTypeToken, resolveType } from "../../rules/registry";
 import { Icon } from "../common/Icon";
+import { GlyphIcon } from "../common/GlyphIcon";
 import { useDragScroll } from "../common/useDragScroll";
 import { CreateNookModal, NookSettingsModal } from "../../modals";
 import { Blocks, MetaChips, RENDERED_EVENT, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
@@ -105,6 +106,7 @@ function SearchBar({ value, onChange, count }: { value: string; onChange: (v: st
 interface CardProps {
   plugin: CarrelPlugin;
   doc: RuleDoc;
+  customTypes: CustomType[];
   isOpen: boolean;
   q: string;
   titlePos: number[] | undefined;
@@ -115,17 +117,17 @@ interface CardProps {
   onToggleCheck: (key: string, value: boolean) => void;
 }
 
-function Card({ plugin, doc, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck }: CardProps) {
-  const bc = CONTENT_TYPES[doc.type].color;
+function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck }: CardProps) {
+  const t = resolveType(doc.type, customTypes);
   return (
-    <div class={"cr-card" + (isOpen ? " is-open" : "")} style={{ "--bc": bc }} onClick={isOpen ? undefined : onToggle}>
+    <div class={"cr-card" + (isOpen ? " is-open" : "")} style={{ "--bc": t.color }} onClick={isOpen ? undefined : onToggle}>
       {isOpen && <span class="cr-card__accent" />}
       <div class="cr-card__head" onClick={isOpen ? onToggle : undefined}>
         <div class="cr-card__toprow">
           <span class="cr-card__ic">
-            <Icon id={refIconId(doc.icon)} />
+            <GlyphIcon iconSet={doc.iconSet} icon={doc.icon} />
           </span>
-          {!isOpen && <span class="cr-card__type">{CONTENT_TYPES[doc.type].label}</span>}
+          {!isOpen && <span class="cr-card__type">{t.label}</span>}
           <span class="cr-card__spacer" />
           <StarButton active={pinned} onToggle={onPin} />
           {isOpen && (
@@ -145,7 +147,7 @@ function Card({ plugin, doc, isOpen, q, titlePos, pinned, onToggle, onPin, check
           <div class="cr-card__title">{titlePos && titlePos.length ? hlFuzzy(doc.title, titlePos) : doc.title}</div>
           {isOpen && (
             <div class="cr-card__metarow">
-              <TypeBadge type={doc.type} mini />
+              <TypeBadge type={doc.type} customTypes={customTypes} mini />
             </div>
           )}
         </div>
@@ -193,6 +195,7 @@ export function PaneBoard({
   // order, and checklist state (saved to data.json via the store).
   const store = plugin.store;
   const data = store.data.value; // subscribe to store changes
+  const customTypes = data.customTypes;
   const nook = embed
     ? data.nooks.find((n) => n.id === embedNookId) ?? null
     : data.nooks.find((n) => n.id === data.activeNookId) ?? data.nooks[0] ?? null;
@@ -215,7 +218,14 @@ export function PaneBoard({
     for (const d of docs) if (!seen.includes(d.category)) seen.push(d.category);
     return seen.sort((a, b) => a.localeCompare(b));
   }, [docs]);
-  const presentTypes = useMemo(() => FILTERABLE_TYPES.filter((t) => docs.some((d) => d.type === t)), [docs]);
+  const presentTypes = useMemo(() => {
+    const builtins: string[] = FILTERABLE_TYPES.filter((t) => docs.some((d) => d.type === t));
+    const custom = [...customTypes]
+      .sort((a, b) => a.order - b.order)
+      .map(customTypeToken)
+      .filter((tok) => docs.some((d) => d.type === tok));
+    return [...builtins, ...custom];
+  }, [docs, customTypes]);
 
   const filtered = docs.filter((d) => {
     if (pinnedOnly && !pins.has(d.path)) return false;
@@ -723,17 +733,20 @@ export function PaneBoard({
             );
           })}
           {presentTypes.length > 0 && <span class="cr-filters__div" />}
-          {presentTypes.map((t) => (
-            <button
-              key={t}
-              class={"cr-chip cr-chip--type" + (types.has(t) ? " is-on" : "")}
-              style={{ "--bc": CONTENT_TYPES[t].color }}
-              onClick={() => toggleSet(types, setTypes, t)}
-            >
-              <Icon id={refIconId(CONTENT_TYPES[t].glyph)} class="cr-chip__ic" />
-              {CONTENT_TYPES[t].label}
-            </button>
-          ))}
+          {presentTypes.map((t) => {
+            const rt = resolveType(t, customTypes);
+            return (
+              <button
+                key={t}
+                class={"cr-chip cr-chip--type" + (types.has(t) ? " is-on" : "")}
+                style={{ "--bc": rt.color }}
+                onClick={() => toggleSet(types, setTypes, t)}
+              >
+                <GlyphIcon iconSet={rt.iconSet} icon={rt.icon} class="cr-chip__ic" />
+                {rt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
       )}
@@ -753,12 +766,14 @@ export function PaneBoard({
                 <span class="cr-pinhead__rule" />
               </div>
               <div class="cr-rail" ref={railScrollRef}>
-                {pinnedDocs.map((d) => (
+                {pinnedDocs.map((d) => {
+                  const rt = resolveType(d.type, customTypes);
+                  return (
                   <button
                     key={d.path}
                     ref={regRail(d.path)}
                     class={"cr-railcard" + (dragId === d.path ? " is-drag" : "")}
-                    style={{ "--bc": CONTENT_TYPES[d.type].color }}
+                    style={{ "--bc": rt.color }}
                     onClick={() => {
                       if (dragRef.current) return;
                       setPinnedOnly(false);
@@ -778,14 +793,15 @@ export function PaneBoard({
                       </svg>
                     </span>
                     <span class="cr-railcard__ic">
-                      <Icon id={refIconId(d.icon)} />
+                      <GlyphIcon iconSet={d.iconSet} icon={d.icon} />
                     </span>
                     <span class="cr-railcard__main">
                       <span class="cr-railcard__title">{d.title}</span>
-                      <span class="cr-railcard__type">{CONTENT_TYPES[d.type].label}</span>
+                      <span class="cr-railcard__type">{rt.label}</span>
                     </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
@@ -833,6 +849,7 @@ export function PaneBoard({
                       <Card
                         plugin={plugin}
                         doc={d}
+                        customTypes={customTypes}
                         isOpen={open.has(d.path)}
                         q={query}
                         titlePos={titlePos.get(d.path)}

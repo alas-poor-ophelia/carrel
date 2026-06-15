@@ -35,14 +35,28 @@ export interface Category {
   order: number;
 }
 
+/** A user-declared content type (managed in settings). Carries label/color/icon
+ *  only — no parsing logic; the built-in parsers stay compiled in. A note opts
+ *  into one via its frontmatter `type:` (matched case-insensitively against `id`).
+ *  Shares the Category shape, but `id` doubles as the matchable frontmatter token. */
+export interface CustomType {
+  id: string;
+  name: string;
+  color: string;
+  iconSet: "lucide" | "rpg";
+  icon: string;
+  order: number;
+}
+
 export interface CarrelData {
   schemaVersion: number;
   nooks: Nook[];
   categories: Category[];
+  customTypes: CustomType[];
   activeNookId: string | null;
 }
 
-export const CARREL_SCHEMA_VERSION = 1;
+export const CARREL_SCHEMA_VERSION = 2;
 
 export const DEFAULT_TWEAKS: NookTweaks = {
   columns: "auto",
@@ -56,5 +70,6 @@ export const DEFAULT_DATA: CarrelData = {
   schemaVersion: CARREL_SCHEMA_VERSION,
   nooks: [],
   categories: [],
+  customTypes: [],
   activeNookId: null,
 };

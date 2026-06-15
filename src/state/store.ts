@@ -6,6 +6,7 @@ import {
   DEFAULT_TWEAKS,
   type CarrelData,
   type Category,
+  type CustomType,
   type Nook,
 } from "../types/data";
 
@@ -122,5 +123,15 @@ export class CarrelStore {
 
   setCategories(categories: Category[]): void {
     this.commit({ ...this.data.value, categories });
+  }
+
+  /* ---------- custom types ---------- */
+
+  customTypes(): CustomType[] {
+    return this.data.value.customTypes;
+  }
+
+  setCustomTypes(customTypes: CustomType[]): void {
+    this.commit({ ...this.data.value, customTypes });
   }
 }

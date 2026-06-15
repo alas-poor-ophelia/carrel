@@ -79,6 +79,16 @@
   .ob-btn--ghost:hover { background: #ffffff0c; color: var(--tx); }
   .ob-addbtn { margin-top: 14px; }
 
+  // built-in types — read-only reference chips above the custom-type manager
+  .ob-builtins { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 14px; }
+  .ob-builtin {
+    display: flex; align-items: center; gap: 9px; padding: 7px 11px 7px 7px;
+    border: 1px solid var(--bd); border-radius: 9px; background: var(--bg1);
+  }
+  .ob-builtin .ob-cat__chip { width: 28px; height: 28px; border-radius: 7px; }
+  .ob-builtin__name { font-size: 13px; font-weight: 550; }
+  .ob-builtin__meta { font-size: 11.5px; color: var(--tx-faint); }
+
   // nook rows (Nooks section)
   .ob-nookempty {
     font-size: 12.5px; color: var(--tx-faint); padding: 14px 4px;

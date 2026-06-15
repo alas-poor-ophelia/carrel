@@ -32,6 +32,13 @@
   .r-table-cap__ic { width: 11px; height: 11px; }
   .r-empty__ic { width: 26px; height: 26px; }
 
+  // Custom types may use a Lucide icon: GlyphIcon wraps it in <span.cr-lucide>
+  // (inner <svg width=100%>). Give the span a box so the element-sized contexts
+  // above (badge/chip) and the descendant-sized ones (card/rail) both fill.
+  .cr-lucide { display: inline-flex; align-items: center; justify-content: center; }
+  .r-badge__ic.cr-lucide svg,
+  .cr-chip__ic.cr-lucide svg { width: 100%; height: 100%; }
+
   // ---- section header (Taroca gold) ----
   .cr-cat {
     font-family: var(--f-deco); font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em;

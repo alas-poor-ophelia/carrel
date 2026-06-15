@@ -6,10 +6,11 @@ import { MarkdownRenderer } from "obsidian";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { ComponentChildren, VNode } from "preact";
 import type CarrelPlugin from "../../main";
+import type { CustomType } from "../../types/data";
 import type { RuleBlock, RuleDoc } from "../../rules/model";
-import { CONTENT_TYPES } from "../../rules/registry";
-import { refIconId } from "../../rules/icons";
+import { resolveType } from "../../rules/registry";
 import { Icon } from "../common/Icon";
+import { GlyphIcon } from "../common/GlyphIcon";
 
 /** Dispatched (bubbling) by ProseBlock once Obsidian's async markdown render
  *  finishes — the masonry listens so it can recompute a grown card's slot. */
@@ -66,12 +67,19 @@ export function hlFuzzy(text: string, positions: number[] | undefined): Componen
 
 /* ---------- UI atoms ---------- */
 
-export function TypeBadge({ type, mini = false }: { type: RuleDoc["type"]; mini?: boolean }) {
-  const t = CONTENT_TYPES[type];
-  if (!t) return null;
+export function TypeBadge({
+  type,
+  customTypes,
+  mini = false,
+}: {
+  type: string;
+  customTypes?: CustomType[];
+  mini?: boolean;
+}) {
+  const t = resolveType(type, customTypes);
   return (
     <span class={"r-badge" + (mini ? " r-badge--mini" : "")} style={{ "--bc": t.color }}>
-      {!mini && <Icon id={refIconId(t.glyph)} class="r-badge__ic" />}
+      {!mini && <GlyphIcon iconSet={t.iconSet} icon={t.icon} class="r-badge__ic" />}
       <span>{t.label}</span>
     </span>
   );

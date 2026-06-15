@@ -9,15 +9,15 @@
    per-block `<!-- block: ... -->` comments. See `parse.ts`.
    ===================================================================== */
 
+/** The built-in, parser-backed content types. User-declared custom types are
+ *  plain strings matched at runtime (see registry.resolveType); a doc's `type`
+ *  is therefore widened to `string` below. */
 export type ContentType =
-  | "ability"
-  | "deed"
-  | "trait"
   | "flowchart"
   | "table"
   | "formula"
   | "process"
-  | "lore"
+  | "quote"
   | "reference";
 
 /** A small uppercase chip (action cost / range / uses). */
@@ -48,8 +48,10 @@ export type RuleBlock =
 /** The parser's output for one note body (the per-note fields beyond the
  *  index-level path/title/category/headings). */
 export interface ParsedNote {
-  type: ContentType;
+  /** A built-in ContentType or a user-declared custom-type id. */
+  type: string;
   icon: string;
+  iconSet: "lucide" | "rpg";
   summary: string;
   meta: RuleMeta[];
   blocks: RuleBlock[];
@@ -61,8 +63,10 @@ export interface RuleDoc {
   category: string;
   headings: string[];
   body: string;
-  type: ContentType;
+  /** A built-in ContentType or a user-declared custom-type id. */
+  type: string;
   icon: string;
+  iconSet: "lucide" | "rpg";
   summary: string;
   meta: RuleMeta[];
   blocks: RuleBlock[];
