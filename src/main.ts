@@ -6,9 +6,10 @@ import { CarrelApiImpl } from "./api";
 import type { CarrelApi } from "./types/api";
 import { CarrelIndex } from "./rules/index";
 import { CarrelStore } from "./state/store";
-import { CreateNookModal } from "./modals";
+import { CreateNookModal, InsertNookBlockModal } from "./modals";
 import { CarrelSettingTab } from "./settings";
 import { PaneView } from "./views/PaneView";
+import { registerInlineEmbed } from "./views/InlineEmbed";
 
 export default class CarrelPlugin extends Plugin {
   /** Persisted nooks + global categories. */
@@ -51,6 +52,19 @@ export default class CarrelPlugin extends Plugin {
       name: "Create nook from folders",
       callback: () => new CreateNookModal(this).open(),
     });
+
+    this.addCommand({
+      id: "insert-carrel-block",
+      name: "Insert Carrel block",
+      editorCallback: (editor) => {
+        new InsertNookBlockModal(this, (nook) => {
+          editor.replaceSelection("```carrel\nnook: " + nook.id + "\n```\n");
+        }).open();
+      },
+    });
+
+    // The inline `carrel` codeblock renders one nook's cards + pins in a note.
+    registerInlineEmbed(this);
 
     this.addSettingTab(new CarrelSettingTab(this));
 

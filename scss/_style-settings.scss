@@ -61,5 +61,20 @@ settings:
         description: Card summaries and rendered note text (default Crimson Text).
         type: variable-text
         default: '"Crimson Text", Georgia, serif'
+    -
+        id: carrel-inline-heading
+        title: Inline embed
+        type: heading
+        level: 2
+    -
+        id: cr-inline-max-height
+        title: Inline embed max height
+        description: Maximum height of an inline ```carrel block before its cards scroll. A note can still override a single block with its own CSS.
+        type: variable-number-slider
+        default: 500
+        min: 200
+        max: 1200
+        step: 20
+        format: px
 
 */

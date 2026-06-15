@@ -1,6 +1,6 @@
 {
 	"id": "carrel",
-	"name": "Carrel: a novel way to view your notes",
+	"name": "Carrel",
 	"version": "0.1.0",
 	"minAppVersion": "1.4.11",
 	"description": "A novel way to view, sort, and study any set of notes — a column-balancing board of typed reference cards. Integrates with the MiniSheet character sheet.",

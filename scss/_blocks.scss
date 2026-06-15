@@ -22,7 +22,8 @@
 }
 
 .carrel-pane-root,
-.carrel-embed-root {
+.carrel-embed-root,
+.carrel-inline-root {
   // icon sizing — the bundled Icon renders an <svg class="cr-icon"> with no
   // intrinsic size; give each context an explicit box.
   .r-badge__ic { width: 11px; height: 11px; }

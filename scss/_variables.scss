@@ -3,7 +3,8 @@
 // rest of Obsidian.
 
 .carrel-pane-root,
-.carrel-embed-root {
+.carrel-embed-root,
+.carrel-inline-root {
   // Brand seam chain. We read three layers, first-defined wins:
   //   1. Carrel's OWN Style Settings (--cr-accent-* / --cr-font-* on body),
   //   2. MiniSheet's seam (--ms-accent-* / --ms-font-*) when that plugin is

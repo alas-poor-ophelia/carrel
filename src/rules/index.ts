@@ -1,5 +1,5 @@
 import { signal, type Signal } from "@preact/signals";
-import { TFile, type App } from "obsidian";
+import { Component, TFile, type App } from "obsidian";
 import type CarrelPlugin from "../main";
 import { parseNote } from "./parse";
 
@@ -39,17 +39,29 @@ export class CarrelIndex {
 
   init(): void {
     this.plugin.app.workspace.onLayoutReady(() => void this.rebuild());
-    this.plugin.registerEvent(
+    this.registerWatchers(this.plugin);
+  }
+
+  /** Like init(), but registers the file-change watchers on a disposable owner
+   *  (e.g. an inline embed's MarkdownRenderChild) so they're torn down with it,
+   *  and rebuilds immediately (callers in reading mode are past layout-ready). */
+  initOn(owner: Component): void {
+    this.registerWatchers(owner);
+    void this.rebuild();
+  }
+
+  private registerWatchers(owner: Component): void {
+    owner.registerEvent(
       this.app.metadataCache.on("changed", (file) => {
         if (this.inFolders(file.path)) void this.rebuild();
       })
     );
-    this.plugin.registerEvent(
+    owner.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         if (this.inFolders(file.path) || this.inFolders(oldPath)) void this.rebuild();
       })
     );
-    this.plugin.registerEvent(
+    owner.registerEvent(
       this.app.vault.on("delete", (file) => {
         if (this.inFolders(file.path)) void this.rebuild();
       })

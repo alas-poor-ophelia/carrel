@@ -1,0 +1,30 @@
+// Carrel inline embed — rendered by the `carrel` markdown codeblock processor
+// inside a reading-mode note. The board chrome is suppressed in PaneBoard (the
+// `chromeless` prop drops the whole .cr-top toolbar), so this shows only the
+// pinned rail + cards. It takes the note's full content width — vault CSS can
+// override .carrel-inline-root freely — and caps its height at a
+// Style-Settings-adjustable variable so long nooks scroll inside the block.
+
+.carrel-inline-root {
+  width: 100%;
+  max-height: var(--cr-inline-max-height, 500px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-primary);
+
+  // .cr-app is flex:1 + min-height:0; .cr-scroll owns overflow-y, so the cards
+  // scroll within the capped box now that the toolbar is gone.
+  .cr-scroll { padding: 12px clamp(12px, 2.5vw, 24px) 16px; }
+  .cr-inner { max-width: none; }
+}
+
+.carrel-inline-error {
+  padding: 12px 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}

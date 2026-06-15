@@ -1,6 +1,7 @@
-import { Modal, Notice, Setting, TFolder } from "obsidian";
+import { FuzzySuggestModal, Modal, Notice, Setting } from "obsidian";
 import type CarrelPlugin from "./main";
 import type { Nook, NookTweaks } from "./types/data";
+import { listVaultFolders } from "./util/folders";
 
 /** Create a nook by naming it and selecting one or more source folders to
  *  index (the mass-import flow that replaces one-by-one note linking). */
@@ -8,7 +9,9 @@ export class CreateNookModal extends Modal {
   private name = "";
   private readonly selected = new Set<string>();
 
-  constructor(private readonly plugin: CarrelPlugin) {
+  /** onCreated, when given, receives the new nook instead of the default
+   *  behaviour (opening the pane) — used by the insert-block flow. */
+  constructor(private readonly plugin: CarrelPlugin, private readonly onCreated?: (nook: Nook) => void) {
     super(plugin.app);
   }
 
@@ -26,7 +29,7 @@ export class CreateNookModal extends Modal {
 
     contentEl.createEl("p", { text: "Index these folders:", cls: "cr-modal__hint" });
     const list = contentEl.createDiv({ cls: "cr-folderlist" });
-    const folders = this.allFolders();
+    const folders = listVaultFolders(this.plugin.app);
     if (!folders.length) {
       list.createEl("div", { text: "No folders in this vault.", cls: "cr-modal__empty" });
     }
@@ -48,23 +51,16 @@ export class CreateNookModal extends Modal {
     );
   }
 
-  private allFolders(): string[] {
-    const out: string[] = [];
-    for (const f of this.plugin.app.vault.getAllLoadedFiles()) {
-      if (f instanceof TFolder && f.path && f.path !== "/") out.push(f.path);
-    }
-    return out.sort((a, b) => a.localeCompare(b));
-  }
-
   private create(): void {
     const folders = [...this.selected];
     if (!folders.length) {
       new Notice("Pick at least one folder for the nook.");
       return;
     }
-    this.plugin.store.createNook({ name: this.name, folders });
+    const nook = this.plugin.store.createNook({ name: this.name, folders });
     this.close();
-    void this.plugin.activatePaneView();
+    if (this.onCreated) this.onCreated(nook);
+    else void this.plugin.activatePaneView();
   }
 
   onClose(): void {
@@ -116,6 +112,25 @@ export class NookSettingsModal extends Modal {
           .onChange((v) => this.plugin.store.updateNook(nook.id, { theme: v as Nook["theme"] }))
       );
 
+    contentEl.createEl("p", { text: "Source folders — the notes this nook reads from:", cls: "cr-modal__hint" });
+    const list = contentEl.createDiv({ cls: "cr-folderlist" });
+    const selected = new Set(nook.folders);
+    const folders = listVaultFolders(this.plugin.app);
+    if (!folders.length) {
+      list.createEl("div", { text: "No folders in this vault.", cls: "cr-modal__empty" });
+    }
+    for (const f of folders) {
+      const row = list.createEl("label", { cls: "cr-folderrow" });
+      const cb = row.createEl("input", { type: "checkbox" });
+      cb.checked = selected.has(f);
+      cb.addEventListener("change", () => {
+        if (cb.checked) selected.add(f);
+        else selected.delete(f);
+        this.plugin.store.updateNook(nook.id, { folders: [...selected] });
+      });
+      row.createSpan({ text: f });
+    }
+
     new Setting(contentEl).setName("Density").addDropdown((d) =>
       d
         .addOption("compact", "Compact")
@@ -151,5 +166,33 @@ export class NookSettingsModal extends Modal {
 
   onClose(): void {
     this.contentEl.empty();
+  }
+}
+
+type PickItem = { kind: "nook"; nook: Nook } | { kind: "new" };
+
+/** Fuzzy picker for the "Insert Carrel block" command: choose an existing nook
+ *  to embed, or create a new one. Resolves to the chosen nook via onPick. */
+export class InsertNookBlockModal extends FuzzySuggestModal<PickItem> {
+  constructor(private readonly plugin: CarrelPlugin, private readonly onPick: (nook: Nook) => void) {
+    super(plugin.app);
+    this.setPlaceholder("Pick a nook to embed, or create a new one…");
+  }
+
+  getItems(): PickItem[] {
+    return [{ kind: "new" }, ...this.plugin.store.nooks().map((nook) => ({ kind: "nook" as const, nook }))];
+  }
+
+  getItemText(item: PickItem): string {
+    if (item.kind === "new") return "＋ Create new nook…";
+    return `${item.nook.name}  ·  ${item.nook.folders.join(", ") || "whole vault"}`;
+  }
+
+  onChooseItem(item: PickItem): void {
+    if (item.kind === "new") {
+      new CreateNookModal(this.plugin, (nook) => this.onPick(nook)).open();
+    } else {
+      this.onPick(item.nook);
+    }
   }
 }

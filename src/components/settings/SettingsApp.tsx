@@ -9,6 +9,7 @@ import type CarrelPlugin from "../../main";
 import type { Category } from "../../types/data";
 import { getPlugin } from "../../util/plugins";
 import { CategoryIcon, LucideGlyph, iconDisplayName, lucideIds, rpgIds } from "./CategoryIcon";
+import { NooksSection } from "./NooksSection";
 
 const PALETTE = [
   "#cf9b54", "#d8893f", "#cd6a5a", "#c0594c", "#c66b8e", "#b07cc6",
@@ -362,6 +363,8 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }) {
           Add category
         </button>
       )}
+
+      <NooksSection plugin={plugin} />
 
       <div class="ob-h">
         <h3 class="ob-h__t">Icons</h3>

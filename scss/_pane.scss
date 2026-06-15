@@ -18,7 +18,8 @@
 }
 
 .carrel-pane-root,
-.carrel-embed-root {
+.carrel-embed-root,
+.carrel-inline-root {
   display: flex;
   height: 100%;
   background: var(--bg);
@@ -179,12 +180,15 @@
     transform-origin: center; animation: cr-accent-sweep 0.6s var(--ease) both;
   }
 
-  // BUG FIX #1: title must never overlap the star. The head is a flex row with
-  // a fixed-width icon, a flex-shrinkable title column (min-width:0 so it can
-  // shrink and wrap), then the star/close in their own non-shrinking lane.
-  // overflow-wrap lets long single tokens break instead of bleeding past.
-  .cr-card__head { display: flex; align-items: flex-start; gap: 8px; }
-  .cr-card.is-open .cr-card__head { align-items: center; margin-bottom: 10px; cursor: pointer; }
+  // The title rides its OWN full-width tier BELOW the icon/star top row, so it
+  // wraps to the card's width instead of being squeezed into the narrow gap
+  // between a fixed icon and the star (which forced ~4-char-wide wrapping).
+  // The top row holds the icon + type label on the left and the star/close on
+  // the right; the spacer pushes them apart.
+  .cr-card__head { display: flex; flex-direction: column; gap: 6px; }
+  .cr-card.is-open .cr-card__head { margin-bottom: 10px; cursor: pointer; }
+  .cr-card__toprow { display: flex; align-items: center; gap: 8px; }
+  .cr-card__spacer { flex: 1 1 auto; min-width: 0; }
   .cr-card__ic {
     flex: 0 0 auto; width: 28px; height: 28px; border-radius: 7px;
     display: flex; align-items: center; justify-content: center;
@@ -194,14 +198,14 @@
   .cr-card__ic svg { width: 16px; height: 16px; }
   .cr-card.is-open .cr-card__ic { width: 36px; height: 36px; border-radius: 9px; }
   .cr-card.is-open .cr-card__ic svg { width: 20px; height: 20px; }
-  .cr-card__headmain { flex: 1 1 auto; min-width: 0; }
+  .cr-card__headmain { min-width: 0; }
   .cr-card__title {
     font-family: var(--f-title); font-size: 15px; letter-spacing: 0.02em; color: #ece9e2; line-height: 1.16;
-    overflow-wrap: anywhere; word-break: break-word; hyphens: auto;
+    overflow-wrap: break-word;
   }
   .cr-card.is-open .cr-card__title { font-size: 21px; }
   .cr-card__type {
-    display: inline-block; margin-top: 4px; font: 700 9.5px/1 var(--f-ui);
+    flex: 0 0 auto; font: 700 9.5px/1 var(--f-ui);
     letter-spacing: 0.08em; text-transform: uppercase; color: var(--bc); opacity: 0.92;
   }
   .cr-card__metarow { margin-top: 6px; }

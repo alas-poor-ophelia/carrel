@@ -13,6 +13,7 @@
    Phase 5 persists pins/order/checklist per nook. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type CarrelPlugin from "../../main";
+import type { CarrelIndex } from "../../rules/index";
 import type { RuleDoc } from "../../rules/model";
 import { searchRules } from "../../rules/search";
 import { CONTENT_TYPES, FILTERABLE_TYPES } from "../../rules/registry";
@@ -110,32 +111,34 @@ function Card({ plugin, doc, isOpen, q, titlePos, pinned, onToggle, onPin, check
     <div class={"cr-card" + (isOpen ? " is-open" : "")} style={{ "--bc": bc }} onClick={isOpen ? undefined : onToggle}>
       {isOpen && <span class="cr-card__accent" />}
       <div class="cr-card__head" onClick={isOpen ? onToggle : undefined}>
-        <span class="cr-card__ic">
-          <Icon id={refIconId(doc.icon)} />
-        </span>
+        <div class="cr-card__toprow">
+          <span class="cr-card__ic">
+            <Icon id={refIconId(doc.icon)} />
+          </span>
+          {!isOpen && <span class="cr-card__type">{CONTENT_TYPES[doc.type].label}</span>}
+          <span class="cr-card__spacer" />
+          <StarButton active={pinned} onToggle={onPin} />
+          {isOpen && (
+            <button
+              class="cr-card__close"
+              title="Collapse"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle();
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
         <div class="cr-card__headmain">
           <div class="cr-card__title">{titlePos && titlePos.length ? hlFuzzy(doc.title, titlePos) : doc.title}</div>
-          {isOpen ? (
+          {isOpen && (
             <div class="cr-card__metarow">
               <TypeBadge type={doc.type} mini />
             </div>
-          ) : (
-            <span class="cr-card__type">{CONTENT_TYPES[doc.type].label}</span>
           )}
         </div>
-        <StarButton active={pinned} onToggle={onPin} />
-        {isOpen && (
-          <button
-            class="cr-card__close"
-            title="Collapse"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle();
-            }}
-          >
-            ✕
-          </button>
-        )}
       </div>
       {isOpen ? (
         <div class="cr-card__body">
@@ -149,7 +152,23 @@ function Card({ plugin, doc, isOpen, q, titlePos, pinned, onToggle, onPin, check
   );
 }
 
-export function PaneBoard({ plugin, embed = false, embedNookId }: { plugin: CarrelPlugin; embed?: boolean; embedNookId?: string }) {
+export function PaneBoard({
+  plugin,
+  embed = false,
+  embedNookId,
+  chromeless = false,
+  index,
+}: {
+  plugin: CarrelPlugin;
+  embed?: boolean;
+  embedNookId?: string;
+  /** Hide all chrome (toolbar, search, filters, controls) — cards + pins only.
+   *  Used by the inline `carrel` codeblock embed. */
+  chromeless?: boolean;
+  /** Index override (the inline embed runs its own per-nook index so it can show
+   *  a nook other than the active one). Defaults to the plugin's shared index. */
+  index?: CarrelIndex;
+}) {
   const [query, setQuery] = useState("");
   const [cats, setCats] = useState<Set<string>>(() => new Set());
   const [types, setTypes] = useState<Set<string>>(() => new Set());
@@ -170,7 +189,7 @@ export function PaneBoard({ plugin, embed = false, embedNookId }: { plugin: Carr
   const nookRef = useRef(nook);
   nookRef.current = nook;
 
-  const docs = plugin.index.docs.value;
+  const docs = (index ?? plugin.index).docs.value;
   const pins = useMemo(() => new Set(nook?.pins ?? []), [nook?.pins]);
   const pinOrder = nook?.pinOrder ?? [];
   const checklist = nook?.checklist ?? {};
@@ -607,6 +626,7 @@ export function PaneBoard({ plugin, embed = false, embedNookId }: { plugin: Carr
 
   return (
     <div class={appClass} ref={appRef}>
+      {!chromeless && (
       <div class="cr-top">
         <div class="cr-topbar">
           <div class="cr-brand">
@@ -687,6 +707,7 @@ export function PaneBoard({ plugin, embed = false, embedNookId }: { plugin: Carr
           ))}
         </div>
       </div>
+      )}
 
       <div class="cr-scroll" ref={scrollRef}>
         <div class="cr-inner">
