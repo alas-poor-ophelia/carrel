@@ -103,10 +103,10 @@ export class NookSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName("Theme")
-      .setDesc("Character Sheet uses the Wayfinder brand; Obsidian inherits your active theme.")
+      .setDesc("Ember uses the Wayfinder brand; Obsidian inherits your active theme.")
       .addDropdown((d) =>
         d
-          .addOption("brand", "Character Sheet")
+          .addOption("brand", "Ember")
           .addOption("obsidian", "Obsidian")
           .setValue(nook.theme)
           .onChange((v) => this.plugin.store.updateNook(nook.id, { theme: v as Nook["theme"] }))

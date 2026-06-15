@@ -3,10 +3,16 @@ import { useEffect, useRef } from "preact/hooks";
 
 /**
  * Make a horizontally-overflowing strip (the pinned rail, the filter chips)
- * scroll by mouse wheel and by click/touch drag. Vertical wheel deltas are
- * mapped to horizontal scroll; a drag past a small threshold pans the strip and
- * its trailing click is swallowed so cards/chips aren't accidentally activated.
- * Pair with `touch-action: pan-y` so vertical page scroll still passes through.
+ * scroll by mouse wheel and by mouse/pen drag, with a momentum fling on release.
+ * Vertical wheel deltas are mapped to horizontal scroll; a drag past a small
+ * threshold pans the strip and its trailing click is swallowed so cards/chips
+ * aren't accidentally activated.
+ *
+ * Touch is left ENTIRELY to the browser: pair with `touch-action: pan-x` so the
+ * platform's native horizontal momentum scrolling (and proper tap-vs-scroll
+ * disambiguation) runs on iPad/touchscreens, while a vertical gesture still
+ * falls through to page scroll. Hijacking touch in JS killed that momentum and
+ * made drags halt the instant a finger lifted.
  */
 export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
   deps: unknown[] = []
@@ -16,13 +22,38 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
     const el = ref.current;
     if (!el) return;
     const overflows = () => el.scrollWidth > el.clientWidth + 1;
+    const maxLeft = () => el.scrollWidth - el.clientWidth;
 
+    // ---- wheel: glide toward a target instead of snapping per notch ----
+    let wheelTarget = 0;
+    let wheelRaf = 0;
+    const stopWheel = () => {
+      if (wheelRaf) {
+        cancelAnimationFrame(wheelRaf);
+        wheelRaf = 0;
+      }
+    };
+    const easeWheel = () => {
+      const diff = wheelTarget - el.scrollLeft;
+      if (Math.abs(diff) < 0.5) {
+        el.scrollLeft = wheelTarget;
+        wheelRaf = 0;
+        return;
+      }
+      el.scrollLeft += diff * 0.22; // glide ~22% of the gap each frame
+      wheelRaf = requestAnimationFrame(easeWheel);
+    };
     const onWheel = (e: WheelEvent) => {
       if (!overflows()) return;
-      const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      if (!d) return;
-      el.scrollLeft += d;
+      // horizontal-dominant gestures (trackpad swipe, horizontal wheel) scroll
+      // natively — smoother than anything we'd reproduce in JS
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      if (!e.deltaY) return;
+      // a vertical wheel/swipe over the strip pans it horizontally, eased
+      if (!wheelRaf) wheelTarget = el.scrollLeft; // re-sync on a fresh gesture
+      wheelTarget = Math.max(0, Math.min(wheelTarget + e.deltaY, maxLeft()));
       e.preventDefault();
+      if (!wheelRaf) wheelRaf = requestAnimationFrame(easeWheel);
     };
 
     let down = false;
@@ -30,15 +61,34 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
     let startX = 0;
     let startLeft = 0;
     let pid = -1;
+    // velocity tracking (px/ms of pointer travel) for the release fling
+    let lastX = 0;
+    let lastT = 0;
+    let vx = 0;
+    let raf = 0;
+
+    const stopFling = () => {
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    };
 
     const onDown = (e: PointerEvent) => {
+      // touch scrolls natively (touch-action: pan-x) — don't intercept it
+      if (e.pointerType === "touch") return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       if (!overflows()) return;
+      stopFling();
+      stopWheel();
       down = true;
       moved = false;
       startX = e.clientX;
       startLeft = el.scrollLeft;
       pid = e.pointerId;
+      lastX = e.clientX;
+      lastT = e.timeStamp;
+      vx = 0;
     };
     const onMove = (e: PointerEvent) => {
       if (!down) return;
@@ -52,6 +102,13 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
         } catch {
           /* capture is best-effort */
         }
+      }
+      const dt = e.timeStamp - lastT;
+      if (dt > 0) {
+        // exponential smoothing so a brief pause before release damps the fling
+        vx = vx * 0.4 + ((e.clientX - lastX) / dt) * 0.6;
+        lastX = e.clientX;
+        lastT = e.timeStamp;
       }
       el.scrollLeft = startLeft - dx;
       e.preventDefault();
@@ -74,6 +131,24 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       };
       el.addEventListener("click", swallow, true);
       setTimeout(() => el.removeEventListener("click", swallow, true), 60);
+
+      // carry the release velocity and decelerate (scrollLeft moves opposite the pointer)
+      let vel = -vx;
+      if (Math.abs(vel) < 0.05) return;
+      let prevT = 0;
+      const step = (t: number) => {
+        if (!prevT) {
+          prevT = t;
+          raf = requestAnimationFrame(step);
+          return;
+        }
+        const dt = t - prevT;
+        prevT = t;
+        el.scrollLeft += vel * dt;
+        vel *= Math.pow(0.94, dt / 16.67); // ~frame-rate-independent friction
+        raf = Math.abs(vel) > 0.02 ? requestAnimationFrame(step) : 0;
+      };
+      raf = requestAnimationFrame(step);
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -82,6 +157,8 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onUp);
     return () => {
+      stopFling();
+      stopWheel();
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);

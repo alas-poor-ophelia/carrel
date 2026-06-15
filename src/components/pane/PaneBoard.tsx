@@ -465,6 +465,7 @@ export function PaneBoard({
     setDragId(null);
     window.removeEventListener("pointermove", onPinMove);
     window.removeEventListener("pointerup", onPinUp);
+    window.removeEventListener("pointercancel", onPinUp);
   }, [onPinMove]);
 
   const onPinDown = (e: PointerEvent, id: string) => {
@@ -480,6 +481,9 @@ export function PaneBoard({
     setDragId(id);
     window.addEventListener("pointermove", onPinMove);
     window.addEventListener("pointerup", onPinUp);
+    // a cancelled gesture (Alt+Tab, OS dialog, palm rejection) never fires
+    // pointerup; without this the ghost card stays stuck until reload.
+    window.addEventListener("pointercancel", onPinUp);
   };
 
   /* ---------- toggle + keyboard navigation ---------- */

@@ -22,7 +22,8 @@
     // scrollbar is the desktop scroll affordance; touch uses pan-x.
     .cr-rail {
       flex-wrap: nowrap; overflow-x: auto;
-      touch-action: pan-y; padding: 7px 0 4px;
+      touch-action: pan-x; padding: 7px 0 4px;
+      overscroll-behavior: contain;
     }
     .cr-rail::-webkit-scrollbar { height: 6px; }
     .cr-rail::-webkit-scrollbar-thumb { background: #ffffff26; border-radius: 3px; }

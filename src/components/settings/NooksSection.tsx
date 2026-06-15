@@ -50,7 +50,7 @@ export function NooksSection({ plugin }: { plugin: CarrelPlugin }) {
               </div>
               <div class="ob-nook__meta">
                 {n.folders.length} {n.folders.length === 1 ? "folder" : "folders"} · {sourceSummary(n.folders)} ·{" "}
-                {n.theme === "brand" ? "Character Sheet" : "Obsidian"} theme
+                {n.theme === "brand" ? "Ember" : "Obsidian"} theme
               </div>
             </div>
             <div class="ob-nook__btns">

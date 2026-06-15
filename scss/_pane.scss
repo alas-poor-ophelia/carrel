@@ -83,7 +83,8 @@
   // ---- filter chips ----
   .cr-filters {
     display: flex; align-items: center; gap: 5px; overflow-x: auto;
-    padding-bottom: 2px; scrollbar-width: none; touch-action: pan-y;
+    padding-bottom: 2px; scrollbar-width: none; touch-action: pan-x;
+    overscroll-behavior: contain;
   }
   .cr-filters::-webkit-scrollbar { display: none; }
   .cr-filters.is-dragging { cursor: grabbing; user-select: none; }
@@ -132,7 +133,12 @@
   .cr-nooksel:hover { border-color: #4a4a4c; }
 
   // ---- scroll body ----
-  .cr-scroll { flex: 1; overflow-y: auto; padding: 8px clamp(16px, 3vw, 36px) 64px; }
+  // overflow-x:hidden is load-bearing: the JS masonry transform-positions cells
+  // to a clientWidth measured before a vertical scrollbar appears, so the
+  // rightmost cells can transiently protrude ~scrollbar-width past the edge.
+  // Without this clamp, overflow-y:auto silently promotes overflow-x to auto and
+  // that protrusion becomes a real (intermittent) horizontal scroll surface.
+  .cr-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 8px clamp(16px, 3vw, 36px) 64px; }
   .cr-inner { max-width: 1680px; margin: 0 auto; }
 
   // ---- masonry (JS column-balancing pack; cells are transform-positioned) ----
