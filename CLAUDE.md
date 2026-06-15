@@ -30,21 +30,21 @@ Active plan: `C:\Users\whipl\.claude\plans\swirling-leaping-flame.md`.
 | `src/components/` | Preact components (pane board, cards, typed blocks, settings) |
 | `src/bridge/mcp-bridge.ts` | `window.__carrel` — DEV TOOLING ONLY (not the integration path) |
 | `scss/` | SCSS partials → `styles.css` (never hand-edit styles.css) |
-| `mcp/` | Carrel MCP server (Obsidian CLI transport, targets the test-vault) |
+| `mcp/` | Carrel MCP server (Obsidian CLI transport, targets the carrel-test-vault) |
 | `tests/unit/` | vitest; parse characterization suite |
-| `test-vault/` | Isolated clean-room Obsidian vault (Carrel alone) |
+| `carrel-test-vault/` | Isolated clean-room Obsidian vault (Carrel alone) |
 
 ## Build / Deploy / Loop
 
 ```
 bun run build        # sass + esbuild -> main.js/styles.css
-bun run deploy       # build + copy to BOTH test-vault and MiniSheet Dev
+bun run deploy       # build + copy to BOTH carrel-test-vault and MiniSheet Dev
 bun run typecheck    # tsc --noEmit
 bun run test:unit    # vitest (tests/unit)
 ```
 
 `deploy` copies `main.js`/`styles.css`/`manifest.json` to two plugin dirs:
-`test-vault/.obsidian/plugins/carrel` (clean-room) and the `MiniSheet Dev` vault's
+`carrel-test-vault/.obsidian/plugins/carrel` (clean-room) and the `MiniSheet Dev` vault's
 `carrel` plugin dir (integration). A target whose vault is missing is skipped; the
 Sync tripwire fires only on the MiniSheet Dev target.
 
@@ -62,7 +62,7 @@ Sync tripwire fires only on the MiniSheet Dev target.
   `MiniSheet Dev` vault, then use `minisheet_eval` (poke `window.__carrel`),
   `minisheet_screenshot`, `minisheet_errors`, and reload Carrel via an eval
   (`app.plugins.disablePlugin("carrel"); app.plugins.enablePlugin("carrel")`).
-  Carrel's own MCP + the isolated test-vault give the standalone loop (Phase 9).
+  Carrel's own MCP + the isolated carrel-test-vault give the standalone loop (Phase 9).
 - **Eval gotchas** (inherited from MiniSheet): the CLI eval context truncates at
   the first newline — write payloads as one line; avoid `>`/`<`/`|`/`&` in inline
   eval text (cmd.exe quoting). The MCP helpers base64-transport payloads.

@@ -18,8 +18,8 @@ const FILES = ["main.js", "styles.css", "manifest.json"];
 /** @type {{ name: string, dir: string, syncTripwire?: boolean }[]} */
 const TARGETS = [
   {
-    name: "test-vault",
-    dir: path.join(repoRoot, "test-vault", ".obsidian", "plugins", "carrel"),
+    name: "carrel-test-vault",
+    dir: path.join(repoRoot, "carrel-test-vault", ".obsidian", "plugins", "carrel"),
   },
   {
     name: "MiniSheet Dev",

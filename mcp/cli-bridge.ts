@@ -20,7 +20,7 @@ const OBSIDIAN_CLI = path.join(
   "Obsidian.com"
 );
 
-const VAULT = process.env.CARREL_VAULT || "test-vault";
+const VAULT = process.env.CARREL_VAULT || "carrel-test-vault";
 
 const DEFAULT_TIMEOUT = 15_000;
 const EVAL_TIMEOUT = 30_000;

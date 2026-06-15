@@ -8,9 +8,9 @@ mcp/screenshots/
 
 # test-vault: keep the seed notes + community-plugins.json, ignore the
 # deployed plugin build and Obsidian's per-machine runtime state.
-test-vault/.obsidian/plugins/
-test-vault/.obsidian/workspace.json
-test-vault/.obsidian/workspace-mobile.json
-test-vault/.obsidian/app.json
-test-vault/.obsidian/appearance.json
-test-vault/.obsidian/core-plugins.json
+carrel-test-vault/.obsidian/plugins/
+carrel-test-vault/.obsidian/workspace.json
+carrel-test-vault/.obsidian/workspace-mobile.json
+carrel-test-vault/.obsidian/app.json
+carrel-test-vault/.obsidian/appearance.json
+carrel-test-vault/.obsidian/core-plugins.json
