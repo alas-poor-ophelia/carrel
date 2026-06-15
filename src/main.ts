@@ -4,6 +4,7 @@ import { VIEW_TYPE_CARREL_PANE } from "./constants";
 import { CarrelApiImpl } from "./api";
 import type { CarrelApi } from "./types/api";
 import { DEFAULT_DATA, type CarrelData } from "./types/data";
+import { CarrelIndex } from "./rules/index";
 import { PaneView } from "./views/PaneView";
 
 export default class CarrelPlugin extends Plugin {
@@ -11,10 +12,17 @@ export default class CarrelPlugin extends Plugin {
   data!: CarrelData;
   /** Public, typed API another plugin consumes (see src/types/api.ts). */
   api!: CarrelApi;
+  /** Multi-folder note index. Phase 5 swaps the default for the active nook. */
+  index!: CarrelIndex;
 
   async onload(): Promise<void> {
     this.data = { ...DEFAULT_DATA, ...((await this.loadData()) as Partial<CarrelData> | null) };
     this.api = new CarrelApiImpl(this);
+
+    this.index = new CarrelIndex(this);
+    this.index.init();
+    // Phase 1 default: index the "Rules" folder. Nooks (Phase 5) take over.
+    this.index.setFolders(["Rules"]);
 
     this.registerView(VIEW_TYPE_CARREL_PANE, (leaf) => new PaneView(leaf, this));
 

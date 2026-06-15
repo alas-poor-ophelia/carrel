@@ -13,6 +13,10 @@ export interface CarrelBridge {
   getState(): unknown;
   listNooks(): { id: string; name: string }[];
   openPane(): Promise<void>;
+  /** Index health: folders watched, doc count, and the indexed titles. */
+  indexStats(): { folders: string[]; count: number; titles: string[] };
+  /** Parsed RuleDoc for a path (for verifying the parser end-to-end). */
+  getDoc(path: string): unknown;
 }
 
 declare global {
@@ -28,6 +32,18 @@ export function installBridge(plugin: CarrelPlugin): void {
     getState: () => JSON.parse(JSON.stringify(plugin.data)),
     listNooks: () => [], // Phase 5
     openPane: () => plugin.activatePaneView(),
+    indexStats: () => {
+      const docs = plugin.index.docs.value;
+      return {
+        folders: plugin.index.getFolders(),
+        count: docs.length,
+        titles: docs.map((d) => d.title),
+      };
+    },
+    getDoc: (path) => {
+      const doc = plugin.index.byPath(path);
+      return doc ? JSON.parse(JSON.stringify(doc)) : null;
+    },
   };
 }
 
