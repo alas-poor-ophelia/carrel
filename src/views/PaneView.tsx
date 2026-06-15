@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import { render } from "preact";
-import { App } from "../components/App";
+import { PaneBoard } from "../components/pane/PaneBoard";
 import { VIEW_TYPE_CARREL_PANE } from "../constants";
 import type CarrelPlugin from "../main";
 
@@ -27,7 +27,7 @@ export class PaneView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.root = this.contentEl.createDiv({ cls: "carrel-pane-root" });
-    render(<App plugin={this.plugin} />, this.root);
+    render(<PaneBoard plugin={this.plugin} />, this.root);
   }
 
   async onClose(): Promise<void> {

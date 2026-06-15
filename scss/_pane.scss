@@ -1,94 +1,184 @@
-// Carrel full-pane shell. Phase 0 ships the minimal brand frame + a stub
-// body; the column-balancing masonry and cards arrive in later phases.
+// Carrel full-pane chrome: shell, brand toolbar, search + filter chips,
+// category sections, the (Phase 2 static) masonry grid, and the slate cards.
+// The JS column-balancing packing replaces the grid in Phase 3 on this same
+// .cr-cell / .cr-card DOM. Card styling ported from MiniSheet's _rules-tab.scss.
+
+@keyframes cr-card-pop {
+  0% { transform: scale(0.975); }
+  58% { transform: scale(1.012); }
+  100% { transform: scale(1); }
+}
+@keyframes cr-accent-sweep {
+  from { transform: scaleX(0.2); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+@keyframes cr-body-in {
+  from { opacity: 0.4; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
 
 .carrel-pane-root {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #1a1a1b;
-  color: #dadada;
-  font-family: var(--cr-f-body);
-}
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--f-body);
 
-.carrel-pane__top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 13px clamp(16px, 3vw, 36px) 11px;
-  border-bottom: 1px solid #2c2c33;
-  background: #16161799;
-  backdrop-filter: blur(8px);
-}
+  // ---- sticky brand toolbar ----
+  .cr-top {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 13px clamp(16px, 3vw, 36px) 9px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .cr-topbar { display: flex; align-items: center; gap: 12px; }
 
-.carrel-brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
+  .cr-brand { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+  .cr-brand__mark {
+    width: 30px; height: 30px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--cr-gold) 20%, transparent);
+    color: var(--cr-gold);
+    border: 1px solid color-mix(in srgb, var(--cr-gold) 40%, transparent);
+  }
+  .cr-brand__mark svg { width: 18px; height: 18px; }
+  .cr-brand__name { font-family: var(--f-title); font-size: 16px; letter-spacing: 0.02em; color: #efe9df; line-height: 1.1; }
+  .cr-brand__sub { font: 700 9.5px/1 var(--f-deco); letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--cr-gold) 72%, #888); margin-top: 2px; }
 
-.carrel-brand__mark {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--cr-gold) 20%, transparent);
-  color: var(--cr-gold);
-  border: 1px solid color-mix(in srgb, var(--cr-gold) 40%, transparent);
-}
+  // ---- search ----
+  .cr-search {
+    display: flex; align-items: center; gap: 7px;
+    background: #0e0e0fcc; border: 1px solid var(--border); border-radius: 8px;
+    padding: 0 9px; height: 38px; flex: 1; max-width: 520px; margin-left: auto;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .cr-search:focus-within { border-color: var(--gold-dim); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cr-gold) 13%, transparent); }
+  .cr-search__icon { color: var(--faint); flex: 0 0 auto; }
+  .cr-search__input {
+    flex: 1; min-width: 0; background: none; border: none; outline: none;
+    color: var(--text); font-family: var(--f-body); font-size: 16px;
+  }
+  .cr-search__input::placeholder { color: var(--faint); }
+  .cr-search__count { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .cr-search__clear {
+    background: none; border: none; color: var(--faint); cursor: pointer;
+    font-size: 13px; padding: 2px 4px; border-radius: 4px; height: auto;
+  }
+  .cr-search__clear:hover { color: var(--text); background: #ffffff10; }
 
-.carrel-brand__mark svg {
-  width: 18px;
-  height: 18px;
-}
+  // ---- filter chips ----
+  .cr-filters {
+    display: flex; align-items: center; gap: 5px; overflow-x: auto;
+    padding-bottom: 2px; scrollbar-width: none; touch-action: pan-y;
+  }
+  .cr-filters::-webkit-scrollbar { display: none; }
+  .cr-filters.is-dragging { cursor: grabbing; user-select: none; }
+  .cr-filters.is-dragging .cr-chip { pointer-events: none; }
+  .cr-filters__div { flex: 0 0 1px; align-self: stretch; background: var(--border); margin: 3px; }
+  .cr-chip {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
+    background: #ffffff0a; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 999px; padding: 4px 10px; height: auto; font-size: 11.5px; cursor: pointer;
+    white-space: nowrap; font-family: var(--f-ui);
+    transition: background 0.16s, color 0.16s, border-color 0.16s, transform 0.12s;
+  }
+  .cr-chip:hover { color: var(--text); border-color: #4a4a4c; }
+  .cr-chip:active { transform: scale(0.94); }
+  .cr-chip.is-on { background: var(--gold); border-color: var(--gold); color: #1a1a1b; font-weight: 600; }
+  .cr-chip--type.is-on { background: var(--bc); border-color: var(--bc); color: #15151a; }
+  .cr-chip svg { flex: 0 0 auto; }
+  .cr-chip--pin { color: var(--gold-dim); }
+  .cr-chip--pin.is-on { background: var(--gold); color: #1a1a1b; }
 
-.carrel-brand__name {
-  font-family: var(--cr-f-display);
-  font-size: 16px;
-  letter-spacing: 0.02em;
-  color: #efe9df;
-  line-height: 1.1;
-}
+  // ---- scroll body ----
+  .cr-scroll { flex: 1; overflow-y: auto; padding: 8px clamp(16px, 3vw, 36px) 64px; }
+  .cr-inner { max-width: 1680px; margin: 0 auto; }
 
-.carrel-brand__sub {
-  font: 700 9.5px/1 var(--cr-f-label);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--cr-gold) 70%, #888);
-  margin-top: 2px;
-}
+  // ---- masonry (Phase 2: responsive grid; Phase 3 swaps in JS packing) ----
+  .cr-masonry {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    align-items: start;
+    margin-bottom: 6px;
+  }
+  .cr-cell { min-width: 0; }
+  .cr-cell.is-open { grid-column: 1 / -1; }
 
-.carrel-pane__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 22px clamp(16px, 3vw, 36px);
-}
+  // ---- card ----
+  .cr-card {
+    position: relative; overflow: hidden; box-sizing: border-box; width: 100%;
+    background: #1a1a1e; border: 1px solid #2c2c33; border-radius: 12px; padding: 11px;
+    box-shadow: inset 0 1px 0 #ffffff07;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, transform 0.18s var(--ease-back);
+  }
+  .cr-cell:not(.is-open) .cr-card { cursor: pointer; }
+  .cr-card:not(.is-open):hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--bc) 55%, #2c2c33); box-shadow: 0 12px 24px -12px #000c;
+  }
+  .cr-card.is-open {
+    background: radial-gradient(130% 80% at 100% 0%, color-mix(in srgb, var(--bc) 15%, transparent), transparent 58%), #1c1c22;
+    border-color: color-mix(in srgb, var(--bc) 48%, #2c2c33);
+    box-shadow: 0 22px 50px -22px #000f, 0 0 0 1px color-mix(in srgb, var(--bc) 20%, transparent);
+    animation: cr-card-pop 0.52s var(--ease-back) both;
+  }
+  .cr-card__accent {
+    position: absolute; top: 0; left: 0; right: 0; height: 2.5px;
+    background: linear-gradient(90deg, transparent, var(--bc) 28%, var(--bc) 72%, transparent);
+    transform-origin: center; animation: cr-accent-sweep 0.6s var(--ease) both;
+  }
 
-.carrel-stub {
-  max-width: 640px;
-  margin: 8vh auto 0;
-  text-align: center;
-  color: #9b9b9d;
-}
+  // BUG FIX #1: title must never overlap the star. The head is a flex row with
+  // a fixed-width icon, a flex-shrinkable title column (min-width:0 so it can
+  // shrink and wrap), then the star/close in their own non-shrinking lane.
+  // overflow-wrap lets long single tokens break instead of bleeding past.
+  .cr-card__head { display: flex; align-items: flex-start; gap: 8px; }
+  .cr-card.is-open .cr-card__head { align-items: center; margin-bottom: 10px; cursor: pointer; }
+  .cr-card__ic {
+    flex: 0 0 auto; width: 28px; height: 28px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--bc) 18%, transparent); color: var(--bc);
+    border: 1px solid color-mix(in srgb, var(--bc) 36%, transparent); transition: width 0.2s, height 0.2s;
+  }
+  .cr-card__ic svg { width: 16px; height: 16px; }
+  .cr-card.is-open .cr-card__ic { width: 36px; height: 36px; border-radius: 9px; }
+  .cr-card.is-open .cr-card__ic svg { width: 20px; height: 20px; }
+  .cr-card__headmain { flex: 1 1 auto; min-width: 0; }
+  .cr-card__title {
+    font-family: var(--f-title); font-size: 15px; letter-spacing: 0.02em; color: #ece9e2; line-height: 1.16;
+    overflow-wrap: anywhere; word-break: break-word; hyphens: auto;
+  }
+  .cr-card.is-open .cr-card__title { font-size: 21px; }
+  .cr-card__type {
+    display: inline-block; margin-top: 4px; font: 700 9.5px/1 var(--f-ui);
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--bc); opacity: 0.92;
+  }
+  .cr-card__metarow { margin-top: 6px; }
+  .cr-card__sum {
+    margin: 9px 0 1px; font-family: var(--f-body); font-size: 14.5px; line-height: 1.4; color: #a7a7ac;
+    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .cr-card__body { animation: cr-body-in 0.4s var(--ease) both; }
+  // the star + close ride in their own fixed lane (flex:0 0 auto) so they never
+  // get squeezed by, or overlapped by, a long title.
+  .cr-card__head .r-star,
+  .cr-card__close { flex: 0 0 auto; }
+  .cr-card__close {
+    width: 25px; height: 25px; border-radius: 6px; border: 1px solid #ffffff14;
+    background: #ffffff08; color: var(--muted); cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s;
+  }
+  .cr-card__close:hover { color: var(--text); background: #ffffff16; }
 
-.carrel-stub__title {
-  font-family: var(--cr-f-display);
-  font-size: 26px;
-  color: var(--cr-gold);
-  letter-spacing: 0.02em;
-}
-
-.carrel-stub__note {
-  margin-top: 10px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.carrel-stub__stamp {
-  margin-top: 18px;
-  font-family: monospace;
-  font-size: 11px;
-  color: #6d6d70;
+  // ---- keyboard hint footer (Phase 4) ----
+  .cr-kbd { display: flex; justify-content: center; gap: 10px; padding: 18px 0 0; color: var(--faint); font-size: 11px; }
 }
