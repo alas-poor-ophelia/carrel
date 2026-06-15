@@ -1,28 +1,37 @@
 import { Plugin, WorkspaceLeaf } from "obsidian";
+import { effect } from "@preact/signals";
 import { installBridge, removeBridge } from "./bridge/mcp-bridge";
 import { VIEW_TYPE_CARREL_PANE } from "./constants";
 import { CarrelApiImpl } from "./api";
 import type { CarrelApi } from "./types/api";
-import { DEFAULT_DATA, type CarrelData } from "./types/data";
 import { CarrelIndex } from "./rules/index";
+import { CarrelStore } from "./state/store";
+import { CreateNookModal } from "./modals";
 import { PaneView } from "./views/PaneView";
 
 export default class CarrelPlugin extends Plugin {
   /** Persisted nooks + global categories. */
-  data!: CarrelData;
+  store!: CarrelStore;
   /** Public, typed API another plugin consumes (see src/types/api.ts). */
   api!: CarrelApi;
-  /** Multi-folder note index. Phase 5 swaps the default for the active nook. */
+  /** Multi-folder note index, kept pointed at the active nook's folders. */
   index!: CarrelIndex;
 
   async onload(): Promise<void> {
-    this.data = { ...DEFAULT_DATA, ...((await this.loadData()) as Partial<CarrelData> | null) };
+    this.store = new CarrelStore(this);
+    await this.store.load();
     this.api = new CarrelApiImpl(this);
 
     this.index = new CarrelIndex(this);
     this.index.init();
-    // Phase 1 default: index the "Rules" folder. Nooks (Phase 5) take over.
-    this.index.setFolders(["Rules"]);
+    // The index always reflects the active nook's folders. setFolders no-ops
+    // when the folder set is unchanged, so pin/checklist edits don't rebuild.
+    this.register(
+      effect(() => {
+        const nook = this.store.activeNook();
+        this.index.setFolders(nook ? nook.folders : []);
+      })
+    );
 
     this.registerView(VIEW_TYPE_CARREL_PANE, (leaf) => new PaneView(leaf, this));
 
@@ -36,6 +45,12 @@ export default class CarrelPlugin extends Plugin {
       callback: () => void this.activatePaneView(),
     });
 
+    this.addCommand({
+      id: "create-nook",
+      name: "Create nook from folders",
+      callback: () => new CreateNookModal(this).open(),
+    });
+
     // Let the Style Settings plugin (if installed) scan our styles.css for the
     // `/* @settings */` block once our CSS is in the DOM.
     this.app.workspace.onLayoutReady(() => {
@@ -47,6 +62,7 @@ export default class CarrelPlugin extends Plugin {
 
   onunload(): void {
     removeBridge();
+    void this.store.flush();
   }
 
   /** Open (or reveal) the Carrel full pane in the main workspace. */

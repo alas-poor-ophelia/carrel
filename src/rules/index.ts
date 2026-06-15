@@ -27,9 +27,13 @@ export class CarrelIndex {
     return [...this.folders];
   }
 
-  /** Replace the watched folder set and rebuild. "" means the whole vault. */
+  /** Replace the watched folder set and rebuild. "" means the whole vault.
+   *  No-ops when the normalized set is unchanged (avoids needless rebuilds when
+   *  driven by a signal effect that also fires on unrelated state changes). */
   setFolders(folders: string[]): void {
-    this.folders = folders.map((f) => f.replace(/\/$/, "")).filter((f, i, a) => a.indexOf(f) === i);
+    const next = folders.map((f) => f.replace(/\/$/, "")).filter((f, i, a) => a.indexOf(f) === i);
+    if (next.length === this.folders.length && next.every((f, i) => f === this.folders[i])) return;
+    this.folders = next;
     void this.rebuild();
   }
 

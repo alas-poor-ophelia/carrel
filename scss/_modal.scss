@@ -1,0 +1,31 @@
+// Carrel modals (e.g. Create nook). These render inside Obsidian's own modal
+// chrome — NOT under a .carrel-*-root — so they read native Obsidian theme
+// variables and only add layout for our custom bits.
+
+.carrel-modal {
+  .cr-modal__title { margin: 0 0 12px; }
+  .cr-modal__hint { margin: 14px 0 6px; color: var(--text-muted); font-size: 13px; }
+  .cr-modal__empty { color: var(--text-muted); font-size: 13px; padding: 8px 4px; }
+
+  .cr-folderlist {
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .cr-folderrow {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 7px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13.5px;
+  }
+  .cr-folderrow:hover { background: var(--background-modifier-hover); }
+  .cr-folderrow input { margin: 0; cursor: pointer; }
+}

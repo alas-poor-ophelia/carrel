@@ -111,6 +111,17 @@
   }
   .cr-tbtn:hover:not(:disabled) { color: var(--text); border-color: #4a4a4c; background: #ffffff12; }
   .cr-tbtn:disabled { opacity: 0.4; cursor: default; }
+  .cr-tbtn--icon { padding: 0; width: 34px; justify-content: center; font-size: 18px; line-height: 1; }
+  .cr-empty__cta { margin: 14px auto 0; }
+
+  // ---- nook switcher ----
+  .cr-nooksel {
+    flex: 0 0 auto; height: 34px; max-width: 190px; border-radius: 8px;
+    border: 1px solid var(--border); background: #ffffff0a; color: var(--text);
+    font: 600 12px/1 var(--f-ui); padding: 0 8px; cursor: pointer;
+    transition: border-color 0.16s;
+  }
+  .cr-nooksel:hover { border-color: #4a4a4c; }
 
   // ---- scroll body ----
   .cr-scroll { flex: 1; overflow-y: auto; padding: 8px clamp(16px, 3vw, 36px) 64px; }

@@ -19,6 +19,7 @@ import { CONTENT_TYPES, FILTERABLE_TYPES } from "../../rules/registry";
 import { refIconId } from "../../rules/icons";
 import { Icon } from "../common/Icon";
 import { useDragScroll } from "../common/useDragScroll";
+import { CreateNookModal } from "../../modals";
 import { Blocks, MetaChips, RENDERED_EVENT, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
 
 interface Section {
@@ -156,14 +157,21 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
   const [open, setOpen] = useState<Set<string>>(() => new Set()); // multi-open
   const [focusId, setFocusId] = useState<string | null>(null);
   const [autoCols, setAutoCols] = useState(3);
-  // Phase 2/4 transient state; Phase 5 persists these per nook.
-  const [pins, setPins] = useState<Set<string>>(() => new Set());
-  const [pinOrder, setPinOrder] = useState<string[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const filtersRef = useDragScroll<HTMLDivElement>();
 
+  // The active nook drives the indexed docs and owns the persisted pins, pin
+  // order, and checklist state (saved to data.json via the store).
+  const store = plugin.store;
+  const data = store.data.value; // subscribe to store changes
+  const nook = data.nooks.find((n) => n.id === data.activeNookId) ?? data.nooks[0] ?? null;
+  const nookRef = useRef(nook);
+  nookRef.current = nook;
+
   const docs = plugin.index.docs.value;
+  const pins = useMemo(() => new Set(nook?.pins ?? []), [nook?.pins]);
+  const pinOrder = nook?.pinOrder ?? [];
+  const checklist = nook?.checklist ?? {};
   const docByPath = useMemo(() => new Map(docs.map((d) => [d.path, d])), [docs]);
   const spanOf = useMemo(() => {
     const m = new Map<string, number>();
@@ -359,15 +367,6 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
     else railCells.current.delete(id);
   };
 
-  // keep pinOrder in sync with the live pin set (append new, drop removed)
-  useEffect(() => {
-    setPinOrder((prev) => {
-      const kept = prev.filter((id) => pins.has(id));
-      const added = [...pins].filter((id) => !kept.includes(id));
-      return added.length || kept.length !== prev.length ? [...kept, ...added] : prev;
-    });
-  }, [pins]);
-
   // rail FLIP: any rail card that moved (not the dragged one) inverts then plays
   useLayoutEffect(() => {
     const map = railCells.current;
@@ -421,7 +420,8 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
       const order = pinOrderRef.current.filter((x) => x !== d.id);
       const ni = order.indexOf(near.id);
       order.splice(e.clientX > near.cx ? ni + 1 : ni, 0, d.id);
-      if (order.join() !== pinOrderRef.current.join()) setPinOrder(order);
+      const cur = nookRef.current;
+      if (cur && order.join() !== pinOrderRef.current.join()) store.setNookPins(cur.id, cur.pins, order);
     }
   }, []);
 
@@ -567,22 +567,22 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
     }
   }, [open]);
 
-  // functional updaters so rapid/batched toggles accumulate instead of each
-  // overwriting the prior (a stale-closure clobber when several fire per frame)
+  // pins + pinOrder are persisted together on the nook; toggling a pin keeps the
+  // existing order (filtered) and appends a new pin to the end.
   const togglePin = (path: string) => {
-    setPins((prev) => {
-      const n = new Set(prev);
-      n.has(path) ? n.delete(path) : n.add(path);
-      return n;
-    });
+    if (!nook) return;
+    const set = new Set(nook.pins);
+    set.has(path) ? set.delete(path) : set.add(path);
+    const kept = nook.pinOrder.filter((id) => set.has(id));
+    const added = [...set].filter((id) => !kept.includes(id));
+    store.setNookPins(nook.id, [...set], [...kept, ...added]);
   };
   const onToggleCheck = (key: string, value: boolean) => {
-    setChecklist((prev) => {
-      const next = { ...prev };
-      if (value) next[key] = true;
-      else delete next[key];
-      return next;
-    });
+    if (!nook) return;
+    const next = { ...nook.checklist };
+    if (value) next[key] = true;
+    else delete next[key];
+    store.setNookChecklist(nook.id, next);
   };
   const toggleSet = (set: Set<string>, setter: (s: Set<string>) => void, val: string) => {
     const n = new Set(set);
@@ -602,13 +602,29 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
             </span>
             <div>
               <div class="cr-brand__name">Carrel</div>
-              <div class="cr-brand__sub">References</div>
+              <div class="cr-brand__sub">{nook ? nook.name : "References"}</div>
             </div>
           </div>
+          {data.nooks.length > 0 && (
+            <select
+              class="cr-nooksel"
+              value={nook?.id ?? ""}
+              onChange={(e) => store.setActiveNook((e.target as HTMLSelectElement).value)}
+            >
+              {data.nooks.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.name}
+                </option>
+              ))}
+            </select>
+          )}
           <SearchBar value={query} onChange={setQuery} count={filtered.length} />
           <div class="cr-toolbtns">
             <button class="cr-tbtn" disabled={!open.size} onClick={() => setOpen(new Set())}>
               Collapse{open.size ? " " + open.size : ""}
+            </button>
+            <button class="cr-tbtn cr-tbtn--icon" title="New nook" onClick={() => new CreateNookModal(plugin).open()}>
+              +
             </button>
           </div>
         </div>
@@ -692,11 +708,20 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
             </>
           )}
 
-          {docs.length === 0 ? (
+          {!nook ? (
             <div class="r-empty">
               <Icon id="ra-book" class="r-empty__ic" />
-              <div>No notes indexed</div>
-              <div class="r-empty__sub">Point a nook at one or more folders to populate the board.</div>
+              <div>No nooks yet</div>
+              <div class="r-empty__sub">Create a nook from one or more folders to start a board.</div>
+              <button class="cr-tbtn cr-empty__cta" onClick={() => new CreateNookModal(plugin).open()}>
+                + Create nook
+              </button>
+            </div>
+          ) : docs.length === 0 ? (
+            <div class="r-empty">
+              <Icon id="ra-book" class="r-empty__ic" />
+              <div>This nook is empty</div>
+              <div class="r-empty__sub">No notes found in {nook.folders.join(", ") || "its folders"}.</div>
             </div>
           ) : filtered.length === 0 ? (
             <div class="r-empty">
