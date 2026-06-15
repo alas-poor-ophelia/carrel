@@ -1,0 +1,23 @@
+// Carrel embed (mounted by MiniSheet into its References tab). The shared board
+// chrome (toolbar, masonry, cards) comes from _pane.scss which targets both
+// roots; this partial only tightens spacing for the ~321px sidebar.
+
+.carrel-embed-root {
+  width: 100%;
+
+  .cr-app.is-embed {
+    .cr-top { padding: 10px 10px 7px; }
+    .cr-topbar { gap: 8px; flex-wrap: wrap; }
+    .cr-brand { flex: 1 1 auto; }
+    .cr-brand__mark { width: 26px; height: 26px; }
+    .cr-brand__mark svg { width: 15px; height: 15px; }
+    .cr-brand__name { font-size: 14px; }
+    .cr-search { height: 32px; max-width: none; flex-basis: 100%; margin-left: 0; }
+    .cr-toolbtns { margin-left: auto; }
+    .cr-tbtn { height: 30px; padding: 0 9px; font-size: 11px; }
+    .cr-scroll { padding: 8px 10px 40px; }
+    .cr-inner { max-width: none; }
+    // sidebar is narrow — give cards a touch more room by easing card padding
+    --cardpad: 11px;
+  }
+}

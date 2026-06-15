@@ -149,7 +149,7 @@ function Card({ plugin, doc, isOpen, q, titlePos, pinned, onToggle, onPin, check
   );
 }
 
-export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
+export function PaneBoard({ plugin, embed = false, embedNookId }: { plugin: CarrelPlugin; embed?: boolean; embedNookId?: string }) {
   const [query, setQuery] = useState("");
   const [cats, setCats] = useState<Set<string>>(() => new Set());
   const [types, setTypes] = useState<Set<string>>(() => new Set());
@@ -164,7 +164,9 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
   // order, and checklist state (saved to data.json via the store).
   const store = plugin.store;
   const data = store.data.value; // subscribe to store changes
-  const nook = data.nooks.find((n) => n.id === data.activeNookId) ?? data.nooks[0] ?? null;
+  const nook = embed
+    ? data.nooks.find((n) => n.id === embedNookId) ?? null
+    : data.nooks.find((n) => n.id === data.activeNookId) ?? data.nooks[0] ?? null;
   const nookRef = useRef(nook);
   nookRef.current = nook;
 
@@ -596,6 +598,7 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
   const tw = nook?.tweaks;
   const appClass =
     "cr-app" +
+    (embed ? " is-embed" : "") +
     " theme-" + (nook?.theme ?? "brand") +
     " dense-" + (tw?.density ?? "regular") +
     (tw && tw.animations === false ? " anim-off" : "") +
@@ -615,7 +618,7 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
               <div class="cr-brand__sub">{nook ? nook.name : "References"}</div>
             </div>
           </div>
-          {data.nooks.length > 0 && (
+          {!embed && data.nooks.length > 0 && (
             <select
               class="cr-nooksel"
               value={nook?.id ?? ""}
@@ -641,9 +644,11 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
                 </svg>
               </button>
             )}
-            <button class="cr-tbtn cr-tbtn--icon" title="New nook" onClick={() => new CreateNookModal(plugin).open()}>
-              +
-            </button>
+            {!embed && (
+              <button class="cr-tbtn cr-tbtn--icon" title="New nook" onClick={() => new CreateNookModal(plugin).open()}>
+                +
+              </button>
+            )}
           </div>
         </div>
         <div class="cr-filters" ref={filtersRef}>
@@ -794,12 +799,14 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
             ))
           )}
 
-          <div class="cr-kbd">
-            <span><kbd>/</kbd> search</span>
-            <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> navigate</span>
-            <span><kbd>↵</kbd> expand</span>
-            <span><kbd>esc</kbd> collapse</span>
-          </div>
+          {!embed && (
+            <div class="cr-kbd">
+              <span><kbd>/</kbd> search</span>
+              <span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> navigate</span>
+              <span><kbd>↵</kbd> expand</span>
+              <span><kbd>esc</kbd> collapse</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

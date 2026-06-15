@@ -17,7 +17,8 @@
   to { opacity: 1; transform: none; }
 }
 
-.carrel-pane-root {
+.carrel-pane-root,
+.carrel-embed-root {
   display: flex;
   height: 100%;
   background: var(--bg);
