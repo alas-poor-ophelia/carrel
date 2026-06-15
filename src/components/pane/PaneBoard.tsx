@@ -636,11 +636,20 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
             {pins.size}
           </button>
           {presentCats.length > 0 && <span class="cr-filters__div" />}
-          {presentCats.map((c) => (
-            <button key={c} class={"cr-chip" + (cats.has(c) ? " is-on" : "")} onClick={() => toggleSet(cats, setCats, c)}>
-              {c}
-            </button>
-          ))}
+          {presentCats.map((c) => {
+            const cc = data.categories.find((cat) => cat.name === c)?.color;
+            return (
+              <button
+                key={c}
+                class={"cr-chip" + (cc ? " cr-chip--cat" : "") + (cats.has(c) ? " is-on" : "")}
+                style={cc ? { "--cc": cc } : undefined}
+                onClick={() => toggleSet(cats, setCats, c)}
+              >
+                {cc && <span class="cr-chip__dot" />}
+                {c}
+              </button>
+            );
+          })}
           {presentTypes.length > 0 && <span class="cr-filters__div" />}
           {presentTypes.map((t) => (
             <button

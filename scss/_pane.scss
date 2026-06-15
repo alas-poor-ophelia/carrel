@@ -100,6 +100,11 @@
   .cr-chip svg { flex: 0 0 auto; }
   .cr-chip--pin { color: var(--gold-dim); }
   .cr-chip--pin.is-on { background: var(--gold); color: #1a1a1b; }
+  // category chips carry a colored dot from the registry, and tint to the
+  // category color when active (categories drive the filter chips)
+  .cr-chip__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cc); flex: 0 0 auto; }
+  .cr-chip--cat.is-on { background: var(--cc); border-color: var(--cc); color: #15151a; }
+  .cr-chip--cat.is-on .cr-chip__dot { background: #15151a; }
 
   // ---- collapse-all button ----
   .cr-toolbtns { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }

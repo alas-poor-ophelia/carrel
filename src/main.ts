@@ -7,6 +7,7 @@ import type { CarrelApi } from "./types/api";
 import { CarrelIndex } from "./rules/index";
 import { CarrelStore } from "./state/store";
 import { CreateNookModal } from "./modals";
+import { CarrelSettingTab } from "./settings";
 import { PaneView } from "./views/PaneView";
 
 export default class CarrelPlugin extends Plugin {
@@ -50,6 +51,8 @@ export default class CarrelPlugin extends Plugin {
       name: "Create nook from folders",
       callback: () => new CreateNookModal(this).open(),
     });
+
+    this.addSettingTab(new CarrelSettingTab(this));
 
     // Let the Style Settings plugin (if installed) scan our styles.css for the
     // `/* @settings */` block once our CSS is in the DOM.
