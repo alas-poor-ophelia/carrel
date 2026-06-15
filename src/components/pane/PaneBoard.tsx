@@ -1,9 +1,17 @@
-/* Carrel full-pane board — toolbar (brand + search + filter chips), category
-   sections, and typed cards. Phase 2 uses a static responsive grid and
-   single-open cards; Phase 3 swaps in the JS column-balancing masonry +
-   multi-open, Phase 4 adds the pinned rail + keyboard nav, Phase 5 persists
-   pins/checklist per nook. */
-import { useMemo, useState } from "preact/hooks";
+/* Carrel full-pane board — toolbar (brand + search + filter chips + collapse),
+   category sections, and a JS column-balancing masonry of typed cards.
+
+   The masonry (ported from the design handoff's PaneWall): every card is
+   absolutely positioned via transform and placed into the shortest-fit column
+   window. Opened cards span 1–N columns by content weight and their body flows
+   into reading-width text columns; siblings reflow with a staggered FLIP slide.
+   Because each card's exact height is measured at its target span width BEFORE
+   placement, a heavy card (e.g. a Grapple flowchart) can never under-reserve
+   and bleed under the next row (bug #2).
+
+   Phase 4 adds the pinned rail + keyboard nav; Phase 5 persists pins/checklist
+   per nook. */
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type CarrelPlugin from "../../main";
 import type { RuleDoc } from "../../rules/model";
 import { searchRules } from "../../rules/search";
@@ -11,12 +19,39 @@ import { CONTENT_TYPES, FILTERABLE_TYPES } from "../../rules/registry";
 import { refIconId } from "../../rules/icons";
 import { Icon } from "../common/Icon";
 import { useDragScroll } from "../common/useDragScroll";
-import { Blocks, MetaChips, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
+import { Blocks, MetaChips, RENDERED_EVENT, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
 
 interface Section {
   label: string;
   docs: RuleDoc[];
   results: boolean;
+}
+
+const DEFAULT_GAP = 14;
+const COL_STEP = 330; // ~one column per 330px of width
+const SPRING = "cubic-bezier(.33,1.32,.5,1)";
+
+/** How wide an opened card wants to be (content weight → 1–3 base columns). */
+function contentWeight(doc: RuleDoc): number {
+  let w = 0;
+  for (const b of doc.blocks) {
+    switch (b.t) {
+      case "p": w += 0.6 + (b.text ? b.text.length : 0) / 230; break;
+      case "table": w += 1.5 + b.rows.length * 0.32 + b.cols.length * 0.14; break;
+      case "flow": w += 2.7; break;
+      case "steps": w += 0.8 + b.items.length * 0.42; break;
+      case "bullets": w += 0.6 + b.items.length * 0.34; break;
+      case "checklist": w += 0.6 + b.items.length * 0.32; break;
+      case "dice": w += 0.7; break;
+      case "callout": w += 1.4; break;
+      default: w += 0.8;
+    }
+  }
+  return w;
+}
+function baseSpan(doc: RuleDoc): number {
+  const w = contentWeight(doc);
+  return w < 1.9 ? 1 : w < 3.7 ? 2 : 3;
 }
 
 function BookGlyph() {
@@ -116,13 +151,19 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
   const [cats, setCats] = useState<Set<string>>(() => new Set());
   const [types, setTypes] = useState<Set<string>>(() => new Set());
   const [pinnedOnly, setPinnedOnly] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(() => new Set()); // multi-open
+  const [autoCols, setAutoCols] = useState(3);
   // Phase 2 transient state; Phase 5 persists these per nook.
   const [pins, setPins] = useState<Set<string>>(() => new Set());
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const filtersRef = useDragScroll<HTMLDivElement>();
 
   const docs = plugin.index.docs.value;
+  const spanOf = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of docs) m.set(d.path, baseSpan(d));
+    return m;
+  }, [docs]);
 
   const presentCats = useMemo(() => {
     const seen: string[] = [];
@@ -161,6 +202,147 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
     }
   }
 
+  /* ---------- masonry refs + packing ---------- */
+  const appRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const cells = useRef(new Map<string, HTMLElement>());
+  const sectionEls = useRef(new Map<string, HTMLElement>());
+  const renderedSections = useRef<Section[]>([]);
+  renderedSections.current = sections;
+  const lastToggled = useRef<string | null>(null);
+  const lastKey = useRef("");
+  const lastQuery = useRef(query);
+  const firstLayout = useRef(true);
+  const [, force] = useState(0);
+
+  const regCell = (id: string) => (el: HTMLElement | null) => {
+    if (el) cells.current.set(id, el);
+    else cells.current.delete(id);
+  };
+  const regSection = (name: string) => (el: HTMLElement | null) => {
+    if (el) sectionEls.current.set(name, el);
+    else sectionEls.current.delete(name);
+  };
+
+  // auto column count from the scroll container width. Crucially, re-pack on
+  // EVERY container resize (force), not only when the column count changes — in
+  // Obsidian a leaf resizes without firing a window 'resize', and a re-pack at
+  // the correct width is what corrects an early measurement taken too narrow.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const calc = () => {
+      const w = el.clientWidth - 2 * 36;
+      setAutoCols(Math.max(2, Math.min(5, Math.floor(w / COL_STEP))));
+      force((x) => x + 1);
+    };
+    calc();
+    // Defer the re-pack out of the observer's delivery cycle so mutating cell
+    // sizes in the layout effect can't retrigger the observer in the same frame
+    // ("ResizeObserver loop completed with undelivered notifications").
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(calc);
+    });
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, []);
+
+  const colCount = autoCols;
+
+  // The column-balancing pack + reflow. Runs after every render so async prose
+  // growth (cr-rendered → force) and open/close both re-pack; only an open/close
+  // (key change with unchanged query) animates the slide.
+  useLayoutEffect(() => {
+    const app = appRef.current;
+    if (!app) return;
+    const gap = parseFloat(getComputedStyle(app).getPropertyValue("--gap")) || DEFAULT_GAP;
+    const cols = colCount;
+    const key = [...open].sort().join(",") + "|" + cols;
+    const animate =
+      !firstLayout.current &&
+      lastKey.current !== key &&
+      lastQuery.current === query &&
+      !app.classList.contains("anim-off");
+
+    const positions: { cell: HTMLElement; id: string; x: number; y: number }[] = [];
+    for (const sec of renderedSections.current) {
+      const container = sectionEls.current.get(sec.label);
+      if (!container) continue;
+      const cw = container.clientWidth;
+      if (cw <= 0) continue;
+      const colW = (cw - (cols - 1) * gap) / cols;
+      const heights = new Array(cols).fill(0);
+      for (const d of sec.docs) {
+        const cell = cells.current.get(d.path);
+        if (!cell) continue;
+        const span = Math.min(open.has(d.path) ? spanOf.get(d.path) ?? 1 : 1, cols);
+        // measure at the exact target width (no transition) so height is exact
+        cell.style.transition = "none";
+        cell.style.width = span * colW + (span - 1) * gap + "px";
+        cell.dataset.span = String(span);
+        const h = cell.offsetHeight;
+        // shortest-fit window
+        let best = 0;
+        let bestY = Infinity;
+        for (let c = 0; c <= cols - span; c++) {
+          let y = 0;
+          for (let k = 0; k < span; k++) y = Math.max(y, heights[c + k]);
+          if (y < bestY - 0.5) {
+            bestY = y;
+            best = c;
+          }
+        }
+        positions.push({ cell, id: d.path, x: best * (colW + gap), y: bestY });
+        for (let k = 0; k < span; k++) heights[best + k] = bestY + h + gap;
+      }
+      container.style.height = Math.max(0, Math.max(0, ...heights) - gap) + "px";
+    }
+
+    const tg = positions.find((p) => p.id === lastToggled.current);
+    const ty = tg ? tg.y : 0;
+    for (const { cell, x, y } of positions) {
+      if (animate) {
+        const delay = Math.min(220, Math.abs(y - ty) * 0.05);
+        cell.style.transition = `transform .6s ${SPRING} ${delay}ms`;
+      } else {
+        cell.style.transition = "none";
+      }
+      cell.style.transform = `translate(${x}px, ${y}px)`;
+    }
+
+    lastKey.current = key;
+    lastQuery.current = query;
+    firstLayout.current = false;
+  });
+
+  // re-pack when async prose finishes rendering, on font load, and on resize
+  useEffect(() => {
+    const f = () => force((x) => x + 1);
+    let alive = true;
+    const onRendered = () => f();
+    document.addEventListener(RENDERED_EVENT, onRendered);
+    if (document.fonts) void document.fonts.ready.then(() => alive && f());
+    window.addEventListener("resize", f);
+    return () => {
+      alive = false;
+      document.removeEventListener(RENDERED_EVENT, onRendered);
+      window.removeEventListener("resize", f);
+    };
+  }, []);
+
+  const toggle = (path: string) => {
+    lastToggled.current = path;
+    setOpen((o) => {
+      const n = new Set(o);
+      n.has(path) ? n.delete(path) : n.add(path);
+      return n;
+    });
+  };
   const togglePin = (path: string) => {
     const next = new Set(pins);
     next.has(path) ? next.delete(path) : next.add(path);
@@ -179,7 +361,7 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
   };
 
   return (
-    <>
+    <div class="cr-app" ref={appRef}>
       <div class="cr-top">
         <div class="cr-topbar">
           <div class="cr-brand">
@@ -192,6 +374,11 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
             </div>
           </div>
           <SearchBar value={query} onChange={setQuery} count={filtered.length} />
+          <div class="cr-toolbtns">
+            <button class="cr-tbtn" disabled={!open.size} onClick={() => setOpen(new Set())}>
+              Collapse{open.size ? " " + open.size : ""}
+            </button>
+          </div>
         </div>
         <div class="cr-filters" ref={filtersRef}>
           <button class={"cr-chip cr-chip--pin" + (pinnedOnly ? " is-on" : "")} onClick={() => setPinnedOnly((v) => !v)}>
@@ -221,7 +408,7 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
         </div>
       </div>
 
-      <div class="cr-scroll">
+      <div class="cr-scroll" ref={scrollRef}>
         <div class="cr-inner">
           {docs.length === 0 ? (
             <div class="r-empty">
@@ -247,17 +434,17 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
                   {sec.label}
                   <span class="cr-cat__count">{sec.docs.length}</span>
                 </div>
-                <div class="cr-masonry">
-                  {sec.docs.map((d, i) => (
-                    <div class={"cr-cell cr-anim" + (open === d.path ? " is-open" : "")} style={{ "--i": i }} key={d.path}>
+                <div class="cr-masonry" ref={regSection(sec.label)}>
+                  {sec.docs.map((d) => (
+                    <div class={"cr-cell" + (open.has(d.path) ? " is-open" : "")} key={d.path} ref={regCell(d.path)}>
                       <Card
                         plugin={plugin}
                         doc={d}
-                        isOpen={open === d.path}
+                        isOpen={open.has(d.path)}
                         q={query}
                         titlePos={titlePos.get(d.path)}
                         pinned={pins.has(d.path)}
-                        onToggle={() => setOpen(open === d.path ? null : d.path)}
+                        onToggle={() => toggle(d.path)}
                         onPin={() => togglePin(d.path)}
                         checklistState={checklist}
                         onToggleCheck={onToggleCheck}
@@ -270,6 +457,6 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
