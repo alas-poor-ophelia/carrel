@@ -19,7 +19,7 @@ import { CONTENT_TYPES, FILTERABLE_TYPES } from "../../rules/registry";
 import { refIconId } from "../../rules/icons";
 import { Icon } from "../common/Icon";
 import { useDragScroll } from "../common/useDragScroll";
-import { CreateNookModal } from "../../modals";
+import { CreateNookModal, NookSettingsModal } from "../../modals";
 import { Blocks, MetaChips, RENDERED_EVENT, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
 
 interface Section {
@@ -592,8 +592,18 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
 
   const pinnedDocs = pinOrder.map((p) => docByPath.get(p)).filter((d): d is RuleDoc => !!d);
 
+  // per-nook theme + density + tweak classes on the board root
+  const tw = nook?.tweaks;
+  const appClass =
+    "cr-app" +
+    " theme-" + (nook?.theme ?? "brand") +
+    " dense-" + (tw?.density ?? "regular") +
+    (tw && tw.animations === false ? " anim-off" : "") +
+    (tw && tw.showBadges === false ? " no-badges" : "");
+  const showRail = !tw || tw.showRail !== false;
+
   return (
-    <div class="cr-app" ref={appRef}>
+    <div class={appClass} ref={appRef}>
       <div class="cr-top">
         <div class="cr-topbar">
           <div class="cr-brand">
@@ -623,6 +633,14 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
             <button class="cr-tbtn" disabled={!open.size} onClick={() => setOpen(new Set())}>
               Collapse{open.size ? " " + open.size : ""}
             </button>
+            {nook && (
+              <button class="cr-tbtn cr-tbtn--icon" title="Nook settings" onClick={() => new NookSettingsModal(plugin, nook.id).open()}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              </button>
+            )}
             <button class="cr-tbtn cr-tbtn--icon" title="New nook" onClick={() => new CreateNookModal(plugin).open()}>
               +
             </button>
@@ -667,7 +685,7 @@ export function PaneBoard({ plugin }: { plugin: CarrelPlugin }) {
 
       <div class="cr-scroll" ref={scrollRef}>
         <div class="cr-inner">
-          {!isSearching && pinnedDocs.length > 0 && (
+          {showRail && !isSearching && pinnedDocs.length > 0 && (
             <>
               <div class="cr-pinhead">
                 <span class="cr-pinhead__label">

@@ -1,5 +1,6 @@
 import { Modal, Notice, Setting, TFolder } from "obsidian";
 import type CarrelPlugin from "./main";
+import type { Nook, NookTweaks } from "./types/data";
 
 /** Create a nook by naming it and selecting one or more source folders to
  *  index (the mass-import flow that replaces one-by-one note linking). */
@@ -64,6 +65,88 @@ export class CreateNookModal extends Modal {
     this.plugin.store.createNook({ name: this.name, folders });
     this.close();
     void this.plugin.activatePaneView();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/** Edit the active nook: name, per-nook theme + density + tweak toggles, and a
+ *  delete affordance. Changes write through the store and reflect live in the
+ *  open pane behind the modal. */
+export class NookSettingsModal extends Modal {
+  constructor(private readonly plugin: CarrelPlugin, private readonly nookId: string) {
+    super(plugin.app);
+  }
+
+  private nook(): Nook | undefined {
+    return this.plugin.store.nooks().find((n) => n.id === this.nookId);
+  }
+
+  private setTweak<K extends keyof NookTweaks>(key: K, value: NookTweaks[K]): void {
+    const nook = this.nook();
+    if (!nook) return;
+    this.plugin.store.updateNook(nook.id, { tweaks: { ...nook.tweaks, [key]: value } });
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("carrel-modal");
+    const nook = this.nook();
+    if (!nook) {
+      this.close();
+      return;
+    }
+    contentEl.createEl("h3", { text: "Nook settings", cls: "cr-modal__title" });
+
+    new Setting(contentEl).setName("Name").addText((t) =>
+      t.setValue(nook.name).onChange((v) => this.plugin.store.updateNook(nook.id, { name: v }))
+    );
+
+    new Setting(contentEl)
+      .setName("Theme")
+      .setDesc("Character Sheet uses the MiniSheet brand; Obsidian inherits your active theme.")
+      .addDropdown((d) =>
+        d
+          .addOption("brand", "Character Sheet")
+          .addOption("obsidian", "Obsidian")
+          .setValue(nook.theme)
+          .onChange((v) => this.plugin.store.updateNook(nook.id, { theme: v as Nook["theme"] }))
+      );
+
+    new Setting(contentEl).setName("Density").addDropdown((d) =>
+      d
+        .addOption("compact", "Compact")
+        .addOption("regular", "Regular")
+        .addOption("comfy", "Comfortable")
+        .setValue(nook.tweaks.density)
+        .onChange((v) => this.setTweak("density", v as NookTweaks["density"]))
+    );
+
+    new Setting(contentEl).setName("Pinned rail").addToggle((t) =>
+      t.setValue(nook.tweaks.showRail).onChange((v) => this.setTweak("showRail", v))
+    );
+    new Setting(contentEl).setName("Type badges & meta").addToggle((t) =>
+      t.setValue(nook.tweaks.showBadges).onChange((v) => this.setTweak("showBadges", v))
+    );
+    new Setting(contentEl).setName("Reflow animation").addToggle((t) =>
+      t.setValue(nook.tweaks.animations).onChange((v) => this.setTweak("animations", v))
+    );
+
+    new Setting(contentEl)
+      .setName("Delete this nook")
+      .setDesc("Removes the nook (notes are untouched).")
+      .addButton((b) =>
+        b
+          .setButtonText("Delete")
+          .setWarning()
+          .onClick(() => {
+            this.plugin.store.deleteNook(nook.id);
+            this.close();
+          })
+      );
   }
 
   onClose(): void {

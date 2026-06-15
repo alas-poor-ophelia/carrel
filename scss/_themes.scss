@@ -1,0 +1,49 @@
+// Per-nook theme + density. Classes are applied to .cr-app (the board root the
+// PaneBoard controls); since the design-token block lives on .carrel-*-root,
+// re-declaring tokens on the .cr-app descendant overrides them for the subtree.
+
+// ---- Obsidian theme: remap the brand seam + prototype tokens to native vars
+// so the board genuinely inherits the user's active Obsidian theme. ----
+.cr-app.theme-obsidian {
+  --cr-red: var(--interactive-accent);
+  --cr-gold: var(--text-accent, var(--interactive-accent));
+  --cr-f-display: var(--font-interface);
+  --cr-f-label: var(--font-interface);
+  --cr-f-body: var(--font-text, var(--font-interface));
+
+  --bg: var(--background-primary);
+  --bg2: var(--background-secondary);
+  --panel: var(--background-secondary-alt, var(--background-secondary));
+  --border: var(--background-modifier-border);
+  --text: var(--text-normal);
+  --muted: var(--text-muted);
+  --faint: var(--text-faint);
+  --gold: var(--text-accent, var(--interactive-accent));
+  --gold-dim: var(--text-accent, var(--interactive-accent));
+  --red: var(--interactive-accent);
+  --term: var(--text-accent, var(--interactive-accent));
+  --line: var(--background-modifier-border);
+  --steel: var(--text-faint);
+  --hl: var(--text-highlight-bg, #4a4327);
+  --f-title: var(--font-interface);
+  --f-deco: var(--font-interface);
+  --f-body: var(--font-text, var(--font-interface));
+
+  // drop the brand display treatment for a neutral, theme-native read
+  .cr-cat { text-transform: none; letter-spacing: 0.01em; font-weight: 650; }
+  .cr-card__title { letter-spacing: 0; }
+  .cr-brand__sub { text-transform: none; letter-spacing: 0.02em; }
+  .cr-card { background: var(--background-secondary); border-color: var(--background-modifier-border); }
+  .cr-card.is-open { background: var(--background-secondary-alt, var(--background-secondary)); }
+}
+
+// ---- density: drive the masonry gap + card padding ----
+.cr-app.dense-compact { --gap: 10px; --cardpad: 10px; }
+.cr-app.dense-regular { --gap: 14px; --cardpad: 13px; }
+.cr-app.dense-comfy { --gap: 18px; --cardpad: 16px; }
+
+// ---- tweak toggles ----
+.cr-app.no-badges .cr-card__type,
+.cr-app.no-badges .r-badge,
+.cr-app.no-badges .r-meta,
+.cr-app.no-badges .cr-railcard__type { display: none; }
