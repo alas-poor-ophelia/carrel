@@ -1,0 +1,65 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Style Settings integration (mgmeyers/obsidian-style-settings)
+//
+// Carrel exposes its own brand accents + fonts so a standalone vault (no
+// MiniSheet) can still customize the brand theme. When MiniSheet IS present,
+// a character-linked nook falls through to MiniSheet's seam (see _variables).
+//
+// CONTRACT: nothing here ever *defines* a seam token on a class root; every
+// consumer reads it with a fallback (see _variables). The sass build emits
+// expanded output (no --style flag), so this comment survives into styles.css
+// where Style Settings can read it. The id MUST differ from MiniSheet's
+// (`minisheet`) to avoid collision.
+// ─────────────────────────────────────────────────────────────────────────
+
+/* @settings
+
+name: Carrel
+id: carrel
+settings:
+    -
+        id: carrel-accents-heading
+        title: Accent colors
+        type: heading
+        level: 2
+    -
+        id: cr-accent-red
+        title: Primary accent (red)
+        description: The dominant brand color for the Character Sheet theme. Ignored when a nook inherits the MiniSheet plugin's accents.
+        type: variable-color
+        format: hex
+        opacity: false
+        default: '#8b0000'
+    -
+        id: cr-accent-gold
+        title: Secondary accent (gold)
+        description: Labels, trim, category cues, and interactive accents.
+        type: variable-color
+        format: hex
+        opacity: false
+        default: '#ca9759'
+    -
+        id: carrel-fonts-heading
+        title: Fonts
+        type: heading
+        level: 2
+    -
+        id: cr-font-display
+        title: Display font
+        description: Card titles and the brand mark (default Norwester).
+        type: variable-text
+        default: '"Norwester", sans-serif'
+    -
+        id: cr-font-label
+        title: Label font
+        description: Small-caps category labels and badges (default Taroca).
+        type: variable-text
+        default: '"Taroca", sans-serif'
+    -
+        id: cr-font-body
+        title: Body font
+        description: Card summaries and rendered note text (default Crimson Text).
+        type: variable-text
+        default: '"Crimson Text", Georgia, serif'
+
+*/

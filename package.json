@@ -1,0 +1,27 @@
+{
+  "name": "carrel",
+  "version": "0.1.0",
+  "description": "Carrel: a novel way to view your notes — an Obsidian plugin",
+  "type": "module",
+  "scripts": {
+    "build:css": "sass scss/main.scss styles.css --no-source-map --no-charset",
+    "build:css:watch": "sass scss/main.scss styles.css --no-source-map --no-charset --watch",
+    "build": "bun run build:css && bun esbuild.config.mjs",
+    "build:prod": "bun run build:css && bun esbuild.config.mjs production",
+    "build:watch": "bun esbuild.config.mjs --watch",
+    "deploy": "bun run build && bun scripts/deploy.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run --config vitest.unit.config.ts"
+  },
+  "devDependencies": {
+    "@preact/signals": "^2.0.0",
+    "esbuild": "^0.25.0",
+    "node-html-parser": "^7.1.0",
+    "obsidian": "^1.11.0",
+    "preact": "^10.26.0",
+    "sass": "^1.83.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.4"
+  },
+  "license": "MIT"
+}

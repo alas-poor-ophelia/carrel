@@ -1,0 +1,25 @@
+// Design tokens. Every selector in this plugin is scoped under a Carrel root
+// class (.carrel-pane-root / .carrel-embed-root) so nothing leaks into the
+// rest of Obsidian.
+
+.carrel-pane-root,
+.carrel-embed-root {
+  // Brand seam chain. We read three layers, first-defined wins:
+  //   1. Carrel's OWN Style Settings (--cr-accent-* / --cr-font-* on body),
+  //   2. MiniSheet's seam (--ms-accent-* / --ms-font-*) when that plugin is
+  //      loaded — so a character-linked nook inherits the sheet's brand,
+  //   3. the hard-coded brand default.
+  // CONTRACT (same as MiniSheet): we NEVER *define* a seam token on a class
+  // root — that 0,1,0 specificity would beat Style Settings' 0,0,1 body write
+  // and silently break customization. We only define local --cr-red/--cr-gold
+  // aliases that READ the seam, and read the font seam inline at each use.
+  --cr-red: var(--cr-accent-red, var(--ms-accent-red, #8b0000));
+  --cr-gold: var(--cr-accent-gold, var(--ms-accent-gold, #ca9759));
+
+  // Font seam reads (chained) for inline use:
+  --cr-f-display: var(--cr-font-display, var(--ms-font-display, "Norwester", sans-serif));
+  --cr-f-label: var(--cr-font-label, var(--ms-font-label, "Taroca", sans-serif));
+  --cr-f-body: var(--cr-font-body, var(--ms-font-body, "Crimson Text", Georgia, serif));
+
+  --cr-touch: 45px; // minimum touch target (iPad)
+}

@@ -1,0 +1,94 @@
+// Carrel full-pane shell. Phase 0 ships the minimal brand frame + a stub
+// body; the column-balancing masonry and cards arrive in later phases.
+
+.carrel-pane-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1a1a1b;
+  color: #dadada;
+  font-family: var(--cr-f-body);
+}
+
+.carrel-pane__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px clamp(16px, 3vw, 36px) 11px;
+  border-bottom: 1px solid #2c2c33;
+  background: #16161799;
+  backdrop-filter: blur(8px);
+}
+
+.carrel-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.carrel-brand__mark {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cr-gold) 20%, transparent);
+  color: var(--cr-gold);
+  border: 1px solid color-mix(in srgb, var(--cr-gold) 40%, transparent);
+}
+
+.carrel-brand__mark svg {
+  width: 18px;
+  height: 18px;
+}
+
+.carrel-brand__name {
+  font-family: var(--cr-f-display);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: #efe9df;
+  line-height: 1.1;
+}
+
+.carrel-brand__sub {
+  font: 700 9.5px/1 var(--cr-f-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cr-gold) 70%, #888);
+  margin-top: 2px;
+}
+
+.carrel-pane__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px clamp(16px, 3vw, 36px);
+}
+
+.carrel-stub {
+  max-width: 640px;
+  margin: 8vh auto 0;
+  text-align: center;
+  color: #9b9b9d;
+}
+
+.carrel-stub__title {
+  font-family: var(--cr-f-display);
+  font-size: 26px;
+  color: var(--cr-gold);
+  letter-spacing: 0.02em;
+}
+
+.carrel-stub__note {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.carrel-stub__stamp {
+  margin-top: 18px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #6d6d70;
+}

@@ -1,0 +1,16 @@
+node_modules/
+main.js
+styles.css
+*.log
+.DS_Store
+mcp/node_modules/
+mcp/screenshots/
+
+# test-vault: keep the seed notes + community-plugins.json, ignore the
+# deployed plugin build and Obsidian's per-machine runtime state.
+test-vault/.obsidian/plugins/
+test-vault/.obsidian/workspace.json
+test-vault/.obsidian/workspace-mobile.json
+test-vault/.obsidian/app.json
+test-vault/.obsidian/appearance.json
+test-vault/.obsidian/core-plugins.json
