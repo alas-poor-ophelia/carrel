@@ -67,6 +67,16 @@ function BookGlyph() {
   );
 }
 
+/** Chevrons meeting at the center — the standard "collapse all" glyph. */
+function CollapseGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m7 4 5 5 5-5" />
+      <path d="m7 20 5-5 5 5" />
+    </svg>
+  );
+}
+
 function SearchBar({ value, onChange, count }: { value: string; onChange: (v: string) => void; count: number }) {
   return (
     <div class="cr-search">
@@ -460,6 +470,8 @@ export function PaneBoard({
   const onPinDown = (e: PointerEvent, id: string) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    // keep this on the grip: don't let it bubble to the rail's drag-to-scroll.
+    e.stopPropagation();
     const grip = e.currentTarget as HTMLElement;
     const el = grip.closest(".cr-railcard") as HTMLElement | null;
     if (!el) return;
@@ -623,21 +635,29 @@ export function PaneBoard({
     (tw && tw.animations === false ? " anim-off" : "") +
     (tw && tw.showBadges === false ? " no-badges" : "");
   const showRail = !tw || tw.showRail !== false;
+  // wheel + drag-to-pan for the pinned rail (acts only when it overflows — the
+  // nowrap embed; the wrapped full-pane rail never overflows, so this no-ops).
+  // Keyed on the rail's render conditions: pins load after first render, so an
+  // empty-deps effect would capture a null ref and never bind the wheel handler.
+  const railVisible = showRail && !isSearching && pinnedDocs.length > 0;
+  const railScrollRef = useDragScroll<HTMLDivElement>([railVisible, pinnedDocs.length]);
 
   return (
     <div class={appClass} ref={appRef}>
       {!chromeless && (
       <div class="cr-top">
         <div class="cr-topbar">
-          <div class="cr-brand">
-            <span class="cr-brand__mark">
-              <BookGlyph />
-            </span>
-            <div>
-              <div class="cr-brand__name">Carrel</div>
-              <div class="cr-brand__sub">{nook ? nook.name : "References"}</div>
+          {!embed && (
+            <div class="cr-brand">
+              <span class="cr-brand__mark">
+                <BookGlyph />
+              </span>
+              <div>
+                <div class="cr-brand__name">Carrel</div>
+                <div class="cr-brand__sub">{nook ? nook.name : "References"}</div>
+              </div>
             </div>
-          </div>
+          )}
           {!embed && data.nooks.length > 0 && (
             <select
               class="cr-nooksel"
@@ -653,8 +673,13 @@ export function PaneBoard({
           )}
           <SearchBar value={query} onChange={setQuery} count={filtered.length} />
           <div class="cr-toolbtns">
-            <button class="cr-tbtn" disabled={!open.size} onClick={() => setOpen(new Set())}>
-              Collapse{open.size ? " " + open.size : ""}
+            <button
+              class={"cr-tbtn" + (embed ? " cr-tbtn--icon" : "")}
+              disabled={!open.size}
+              title={"Collapse all" + (open.size ? " (" + open.size + ")" : "")}
+              onClick={() => setOpen(new Set())}
+            >
+              {embed ? <CollapseGlyph /> : <>Collapse{open.size ? " " + open.size : ""}</>}
             </button>
             {nook && (
               <button class="cr-tbtn cr-tbtn--icon" title="Nook settings" onClick={() => new NookSettingsModal(plugin, nook.id).open()}>
@@ -723,7 +748,7 @@ export function PaneBoard({
                 <span class="cr-pinhead__hint">drag to reorder</span>
                 <span class="cr-pinhead__rule" />
               </div>
-              <div class="cr-rail">
+              <div class="cr-rail" ref={railScrollRef}>
                 {pinnedDocs.map((d) => (
                   <button
                     key={d.path}

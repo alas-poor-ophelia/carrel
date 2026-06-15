@@ -1,7 +1,7 @@
 import { render } from "preact";
 import type CarrelPlugin from "./main";
 import { CARREL_API_VERSION, type CarrelApi, type ReferenceHandle, type ReferenceMountOptions } from "./types/api";
-import { getPlugin } from "./util/plugins";
+import { getWayfinder } from "./util/plugins";
 import { PF1E_CATEGORIES } from "./data/pf1e-categories";
 import { PaneBoard } from "./components/pane/PaneBoard";
 
@@ -54,7 +54,7 @@ export class CarrelApiImpl implements CarrelApi {
     const existing = this.getNookForCharacter(characterId);
     if (existing) return existing;
     this.seedPf1eCategories();
-    const ms = getPlugin(this.plugin.app, "minisheet") as unknown as MiniSheetLike | null;
+    const ms = getWayfinder(this.plugin.app) as unknown as MiniSheetLike | null;
     const folder = ms?.store?.data?.value?.settings?.rulesFolder || "Rules";
     const charName = ms?.store?.getCharacter?.(characterId)?.name;
     const name = charName ? `${charName} — Rules` : "Character rules";

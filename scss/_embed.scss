@@ -7,16 +7,27 @@
 
   .cr-app.is-embed {
     .cr-top { padding: 10px 10px 7px; }
-    .cr-topbar { gap: 8px; flex-wrap: wrap; }
-    .cr-brand { flex: 1 1 auto; }
-    .cr-brand__mark { width: 26px; height: 26px; }
-    .cr-brand__mark svg { width: 15px; height: 15px; }
-    .cr-brand__name { font-size: 14px; }
-    .cr-search { height: 32px; max-width: none; flex-basis: 100%; margin-left: 0; }
-    .cr-toolbtns { margin-left: auto; }
-    .cr-tbtn { height: 30px; padding: 0 9px; font-size: 11px; }
+    // brand is hidden in the embed (PaneBoard omits it); search + collapse + cog
+    // share a single compact row.
+    .cr-topbar { gap: 6px; flex-wrap: nowrap; }
+    .cr-search { height: 32px; max-width: none; flex: 1; min-width: 0; margin-left: 0; }
+    .cr-toolbtns { margin-left: 0; }
+    .cr-tbtn { height: 32px; padding: 0 9px; font-size: 11px; }
+    .cr-tbtn--icon { width: 32px; padding: 0; }
     .cr-scroll { padding: 8px 10px 40px; }
     .cr-inner { max-width: none; }
+    // the pinned rail scrolls horizontally instead of wrapping into a tall stack.
+    // overflow-x:auto forces overflow-y to auto (it clips), so pad the scroll box
+    // to leave room for the hover lift (top) and drop-shadow (bottom). A slim
+    // scrollbar is the desktop scroll affordance; touch uses pan-x.
+    .cr-rail {
+      flex-wrap: nowrap; overflow-x: auto;
+      touch-action: pan-y; padding: 7px 0 4px;
+    }
+    .cr-rail::-webkit-scrollbar { height: 6px; }
+    .cr-rail::-webkit-scrollbar-thumb { background: #ffffff26; border-radius: 3px; }
+    .cr-rail::-webkit-scrollbar-track { background: transparent; }
+    .cr-railcard { flex: 0 0 auto; width: 150px; }
     // sidebar is narrow — give cards a touch more room by easing card padding
     --cardpad: 11px;
   }

@@ -103,7 +103,7 @@ export class NookSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName("Theme")
-      .setDesc("Character Sheet uses the MiniSheet brand; Obsidian inherits your active theme.")
+      .setDesc("Character Sheet uses the Wayfinder brand; Obsidian inherits your active theme.")
       .addDropdown((d) =>
         d
           .addOption("brand", "Character Sheet")

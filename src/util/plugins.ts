@@ -14,3 +14,11 @@ export function getPlugin(app: App, id: string): Plugin | null {
 export function isPluginEnabled(app: App, id: string): boolean {
   return !!(app as unknown as { plugins?: PluginsApi }).plugins?.enabledPlugins?.has(id);
 }
+
+/** The partner character-sheet plugin. It was renamed MiniSheet → Wayfinder
+ *  (new manifest id "wayfinder"); detect either id, preferring the new one, so
+ *  Carrel's RPG-icon source and character-linked seam work across the rename
+ *  transition regardless of which build the user still has enabled. */
+export function getWayfinder(app: App): Plugin | null {
+  return getPlugin(app, "wayfinder") ?? getPlugin(app, "minisheet");
+}

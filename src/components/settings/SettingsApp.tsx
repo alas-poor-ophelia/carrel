@@ -7,7 +7,7 @@ import { Notice } from "obsidian";
 import { useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type CarrelPlugin from "../../main";
 import type { Category } from "../../types/data";
-import { getPlugin } from "../../util/plugins";
+import { getWayfinder } from "../../util/plugins";
 import { CategoryIcon, LucideGlyph, iconDisplayName, lucideIds, rpgIds } from "./CategoryIcon";
 import { NooksSection } from "./NooksSection";
 
@@ -117,14 +117,14 @@ function Editor({
               class={tab === "rpg" ? "is-on" : ""}
               disabled={!rpgAvailable}
               onClick={() => rpgAvailable && setTab("rpg")}
-              title={rpgAvailable ? "" : "Requires the MiniSheet character-sheet plugin"}
+              title={rpgAvailable ? "" : "Requires the Wayfinder character-sheet plugin"}
             >
               {!rpgAvailable && <span class="ob-iconsrc__lock">🔒</span>}RPG Awesome
             </button>
           </div>
           <p class="ob-iconnote">
             {tab === "rpg"
-              ? "Provided by the MiniSheet character-sheet plugin."
+              ? "Provided by the Wayfinder character-sheet plugin."
               : "Obsidian's built-in icon set — always available."}
           </p>
           <div class="ob-iconsearch">
@@ -174,7 +174,7 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }) {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
-  const rpgAvailable = !!getPlugin(plugin.app, "minisheet");
+  const rpgAvailable = !!getWayfinder(plugin.app);
 
   const rows = useRef(new Map<string, HTMLElement>());
   const prev = useRef(new Map<string, DOMRect>());
@@ -371,8 +371,8 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }) {
       </div>
       <p class="ob-h__desc">
         {rpgAvailable
-          ? "The RPG Awesome glyph set is unlocked because the MiniSheet character-sheet plugin is installed."
-          : "Install the MiniSheet character-sheet plugin to unlock the RPG Awesome glyph set in the icon picker."}
+          ? "The RPG Awesome glyph set is unlocked because the Wayfinder character-sheet plugin is installed."
+          : "Install the Wayfinder character-sheet plugin to unlock the RPG Awesome glyph set in the icon picker."}
         <span class="ob-iconnote" style={{ marginTop: "6px" }}>
           <LucideGlyph id="lucide-info" />
           {lucideIds().length} Lucide icons available.

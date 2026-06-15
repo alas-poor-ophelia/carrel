@@ -218,6 +218,23 @@
   // get squeezed by, or overlapped by, a long title.
   .cr-card__head .r-star,
   .cr-card__close { flex: 0 0 auto; }
+
+  // Closed cards: a long type/category label is flex:0 0 auto and would shove the
+  // star past the card's clipped edge. Pin the star to the top-right corner
+  // (out of flow), reveal it on hover — and keep it shown when pinned so the
+  // pin-state still reads — and let the now-unblocked label truncate.
+  .cr-card:not(.is-open) .cr-card__spacer { display: none; }
+  .cr-card:not(.is-open) .cr-card__type {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cr-card:not(.is-open) .cr-card__toprow { padding-right: 24px; }
+  .cr-card:not(.is-open) .r-star {
+    position: absolute; top: 8px; right: 8px; z-index: 2;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .cr-card:not(.is-open):hover .r-star,
+  .cr-card:not(.is-open):focus-within .r-star,
+  .cr-card:not(.is-open) .r-star.is-on { opacity: 1; }
   .cr-card__close {
     width: 25px; height: 25px; border-radius: 6px; border: 1px solid #ffffff14;
     background: #ffffff08; color: var(--muted); cursor: pointer; font-size: 12px;
@@ -243,7 +260,10 @@
 
   .cr-rail { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .cr-railcard {
-    position: relative; width: 178px; height: auto; cursor: pointer; text-align: left; color: var(--text);
+    // height:auto + white-space:normal defuse Obsidian's button collapse (it pins
+    // a fixed height and white-space:nowrap, which otherwise spills long titles).
+    position: relative; width: 178px; height: auto; white-space: normal;
+    cursor: pointer; text-align: left; color: var(--text);
     background: linear-gradient(150deg, color-mix(in srgb, var(--bc) 22%, #18181c), #161619);
     border: 1px solid color-mix(in srgb, var(--bc) 40%, transparent); border-radius: 11px; padding: 9px 10px;
     display: flex; align-items: center; gap: 9px;
