@@ -9,6 +9,7 @@ import type CarrelPlugin from "../../main";
 import type { CustomType } from "../../types/data";
 import type { RuleBlock, RuleDoc } from "../../rules/model";
 import { resolveType } from "../../rules/registry";
+import { getRollEngine, type RollResult } from "../../rules/rollEngine";
 import { Icon } from "../common/Icon";
 import { GlyphIcon } from "../common/GlyphIcon";
 
@@ -247,22 +248,22 @@ function FlowBlock({ block, q }: { block: Extract<RuleBlock, { t: "flow" }>; q: 
   );
 }
 
-function DiceBlock({ block, q }: { block: Extract<RuleBlock, { t: "dice" }>; q: string }) {
-  const [roll, setRoll] = useState<{ dice: number[]; mod: number; total: number } | null>(null);
+function DiceBlock({
+  block,
+  q,
+  plugin,
+}: {
+  block: Extract<RuleBlock, { t: "dice" }>;
+  q: string;
+  plugin: CarrelPlugin;
+}) {
+  const [roll, setRoll] = useState<RollResult | null>(null);
   const [spin, setSpin] = useState(false);
-  const doRoll = () => {
-    const m = (block.expr || "").match(/(\d*)d(\d+)/i);
-    const dice: number[] = [];
-    if (m) {
-      const n = parseInt(m[1] || "1", 10);
-      const faces = parseInt(m[2], 10);
-      for (let i = 0; i < n; i++) dice.push(1 + Math.floor(Math.random() * faces));
-    }
-    const sum = dice.reduce((a, b) => a + b, 0);
-    const mod = block.mod || 0;
+  const doRoll = async () => {
     setSpin(true);
     setTimeout(() => setSpin(false), 360);
-    setRoll({ dice, mod, total: sum + mod });
+    const result = await getRollEngine(plugin.app).roll(block.expr, block.mod || 0);
+    setRoll(result);
   };
   return (
     <div class="r-dice">
@@ -277,16 +278,22 @@ function DiceBlock({ block, q }: { block: Extract<RuleBlock, { t: "dice" }>; q: 
         </button>
       </div>
       {roll && (
-        <div class={"r-dice__out" + (spin ? " is-spin" : "")}>
-          <span class="r-dice__dice">
-            {roll.dice.map((d, i) => (
-              <span class="r-dice__die" key={i}>
-                {d}
+        <div class={"r-dice__out" + (spin ? " is-spin" : "")} title={roll.text}>
+          {roll.dice.length > 0 && (
+            <>
+              <span class="r-dice__dice">
+                {roll.dice.map((d, i) => (
+                  <span class="r-dice__die" key={i}>
+                    {d}
+                  </span>
+                ))}
+                {roll.mod ? (
+                  <span class="r-dice__mod">{roll.mod > 0 ? "+" + roll.mod : roll.mod}</span>
+                ) : null}
               </span>
-            ))}
-            {roll.mod ? <span class="r-dice__mod">{roll.mod > 0 ? "+" + roll.mod : roll.mod}</span> : null}
-          </span>
-          <span class="r-dice__eq">=</span>
+              <span class="r-dice__eq">=</span>
+            </>
+          )}
           <span class="r-dice__total">{roll.total}</span>
         </div>
       )}
@@ -373,7 +380,7 @@ export function Blocks({
           case "flow":
             return <FlowBlock block={b} q={q} key={i} />;
           case "dice":
-            return <DiceBlock block={b} q={q} key={i} />;
+            return <DiceBlock block={b} q={q} plugin={plugin} key={i} />;
           case "checklist":
             return (
               <ChecklistBlock
