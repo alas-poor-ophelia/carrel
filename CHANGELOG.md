@@ -4,6 +4,19 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 0.10.0
+
+### Group, sort, and arrange your board
+
+The board is no longer locked to alphabetical categories — organize it your way, per nook.
+
+- **Group by** Category, Type, Folder, or None, from a new toolbar dropdown.
+- **Sort** each group A–Z, Z–A, or by type.
+- **Your category order is respected** — category groups now follow the order you set in **Settings → Categories** (drag the rows to reorder); unlisted categories like "General" fall to the end.
+- **Drag cards to arrange them** — grab a card by its handle and drop it where you want within its group; a highlighted slot previews where it'll land. Your arrangement saves per nook and switches Sort to "Custom" (pick a preset anytime to leave it — your custom order is remembered).
+
+Grouping, sort, and custom arrangement are all saved per nook, so each nook keeps its own layout.
+
 ## 0.9.1
 
 ### Map your own front-matter properties
