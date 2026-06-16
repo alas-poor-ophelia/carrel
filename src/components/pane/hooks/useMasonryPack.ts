@@ -42,6 +42,7 @@ export function useMasonryPack(
   query: string,
   spanOf: Map<string, number>,
   sections: Section[],
+  dragId: string | null = null,
 ): { regSection: (name: string) => (el: HTMLElement | null) => void } {
   const { appRef, scrollRef, cells, lastToggled } = refs;
   const sectionEls = useRef(new Map<string, HTMLElement>());
@@ -94,7 +95,13 @@ export function useMasonryPack(
     if (!app) return;
     const gap = parseFloat(getComputedStyle(app).getPropertyValue("--gap")) || DEFAULT_GAP;
     const cols = autoCols;
-    const key = [...open].sort().join(",") + "|" + cols;
+    // Fold the doc order into the key so a reorder (drag, sort change) animates
+    // the slide, not just open/close. The dragged card is excluded — its motion
+    // is the fixed-position ghost, not a packed slide.
+    const orderSig = renderedSections.current
+      .map((s) => s.docs.map((d) => d.path).join(","))
+      .join("|");
+    const key = [...open].sort().join(",") + "|" + cols + "|" + orderSig;
     const animate =
       !firstLayout.current &&
       lastKey.current !== key &&
@@ -110,6 +117,9 @@ export function useMasonryPack(
       const colW = (cw - (cols - 1) * gap) / cols;
       const heights = new Array<number>(cols).fill(0);
       for (const d of sec.docs) {
+        // the dragged card floats as a fixed ghost; skip it so the rest reflow
+        // into the gap and its slot doesn't reserve height.
+        if (d.path === dragId) continue;
         const cell = cells.current.get(d.path);
         if (!cell) continue;
         const span = Math.min(open.has(d.path) ? spanOf.get(d.path) ?? 1 : 1, cols);

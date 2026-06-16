@@ -256,6 +256,23 @@
   }
   .cr-card__close:hover { color: var(--text); background: #ffffff16; }
 
+  // drag-to-reorder grip — revealed on cell hover. Explicit height:auto +
+  // white-space:normal + min-width:0 to dodge Obsidian's button-collapse.
+  .cr-card__grip {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+    width: 18px; height: auto; min-width: 0; padding: 2px; white-space: normal;
+    background: none; border: 0; color: var(--muted); cursor: grab;
+    opacity: 0; transition: opacity 0.15s, color 0.15s; touch-action: none;
+  }
+  .cr-card__grip svg { width: 13px; height: 13px; }
+  .cr-card__grip:hover { color: var(--text); }
+  .cr-card__grip:active { cursor: grabbing; }
+  .cr-cell:hover .cr-card__grip { opacity: 0.65; }
+  .cr-cell.is-drag { z-index: 60; }
+  .cr-cell.is-drag .cr-card {
+    cursor: grabbing; box-shadow: 0 12px 30px #000a; opacity: 0.95;
+  }
+
   // keyboard focus ring on the focused card
   .cr-cell.is-focused .cr-card {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 55%, transparent), 0 12px 28px -14px #000d;

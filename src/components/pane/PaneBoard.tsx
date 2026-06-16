@@ -27,6 +27,7 @@ import { CreateNookModal, NookSettingsModal } from "../../modals";
 import { Blocks, MetaChips, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
 import { useMasonryPack, type Section } from "./hooks/useMasonryPack";
 import { useRailDrag } from "./hooks/useRailDrag";
+import { useCardDrag } from "./hooks/useCardDrag";
 import { useCardKeyboard } from "./hooks/useCardKeyboard";
 
 /** How wide an opened card wants to be (content weight → 1–3 base columns). */
@@ -108,15 +109,27 @@ interface CardProps {
   onPin: () => void;
   checklistState: Record<string, boolean>;
   onToggleCheck: (key: string, value: boolean) => void;
+  onGripDown?: (e: PointerEvent) => void;
 }
 
-function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck }: CardProps): JSX.Element {
+function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck, onGripDown }: CardProps): JSX.Element {
   const t = resolveType(doc.type, customTypes);
   return (
     <div class={"cr-card" + (isOpen ? " is-open" : "")} style={{ "--bc": t.color }} onClick={isOpen ? undefined : onToggle}>
       {isOpen && <span class="cr-card__accent" />}
       <div class="cr-card__head" onClick={isOpen ? onToggle : undefined}>
         <div class="cr-card__toprow">
+          {onGripDown && !isOpen && (
+            <button
+              class="cr-card__grip"
+              title="Drag to reorder"
+              aria-label="Drag to reorder"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => onGripDown(e as unknown as PointerEvent)}
+            >
+              <DragGrip />
+            </button>
+          )}
           <span class="cr-card__ic">
             <GlyphIcon iconSet={doc.iconSet} icon={doc.icon} />
           </span>
@@ -181,6 +194,7 @@ export function PaneBoard({
   const [open, setOpen] = useState<Set<string>>(() => new Set()); // multi-open
   const [focusId, setFocusId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [cardDragId, setCardDragId] = useState<string | null>(null);
   const filtersRef = useDragScroll<HTMLDivElement>();
 
   // The active nook drives the indexed docs and owns the persisted pins, pin
@@ -251,6 +265,8 @@ export function PaneBoard({
       sections.push({ key: g.key, label: g.label, docs: g.docs, results: false });
     }
   }
+  const sectionsRef = useRef<Section[]>(sections);
+  sectionsRef.current = sections;
 
   // shared refs — owned here because more than one subsystem reads them
   const appRef = useRef<HTMLDivElement>(null);
@@ -276,8 +292,9 @@ export function PaneBoard({
   }, []);
 
   // the three self-contained subsystems
-  const { regSection } = useMasonryPack({ appRef, scrollRef, cells, lastToggled }, open, query, spanOf, sections);
+  const { regSection } = useMasonryPack({ appRef, scrollRef, cells, lastToggled }, open, query, spanOf, sections, cardDragId);
   const { regRail, onPinDown } = useRailDrag({ store, nookRef, pinOrder, dragId, setDragId });
+  const { onCardDown } = useCardDrag({ store, nookRef, sectionsRef, cells, setDragId: setCardDragId });
   useCardKeyboard({ appRef, scrollRef, cells, lastToggled, focusId, setFocusId, open, setOpen, visibleIds, toggle });
 
   // pins + pinOrder are persisted together on the nook; toggling a pin keeps the
@@ -534,7 +551,7 @@ export function PaneBoard({
                 <div class="cr-masonry" ref={regSection(sec.label)}>
                   {sec.docs.map((d) => (
                     <div
-                      class={"cr-cell" + (open.has(d.path) ? " is-open" : "") + (focusId === d.path ? " is-focused" : "")}
+                      class={"cr-cell" + (open.has(d.path) ? " is-open" : "") + (focusId === d.path ? " is-focused" : "") + (cardDragId === d.path ? " is-drag" : "")}
                       key={d.path}
                       ref={regCell(d.path)}
                     >
@@ -550,6 +567,7 @@ export function PaneBoard({
                         onPin={() => togglePin(d.path)}
                         checklistState={checklist}
                         onToggleCheck={onToggleCheck}
+                        onGripDown={!embed && !sec.results ? (e) => onCardDown(e, d.path) : undefined}
                       />
                     </div>
                   ))}
