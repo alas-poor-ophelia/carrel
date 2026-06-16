@@ -292,9 +292,9 @@ export function PaneBoard({
   }, []);
 
   // the three self-contained subsystems
-  const { regSection } = useMasonryPack({ appRef, scrollRef, cells, lastToggled }, open, query, spanOf, sections, cardDragId);
+  const { regSection } = useMasonryPack({ appRef, scrollRef, cells, lastToggled }, open, query, spanOf, sections);
   const { regRail, onPinDown } = useRailDrag({ store, nookRef, pinOrder, dragId, setDragId });
-  const { onCardDown } = useCardDrag({ store, nookRef, sectionsRef, cells, setDragId: setCardDragId });
+  const { onCardDown } = useCardDrag({ store, nookRef, sectionsRef, cells, appRef, setDragId: setCardDragId });
   useCardKeyboard({ appRef, scrollRef, cells, lastToggled, focusId, setFocusId, open, setOpen, visibleIds, toggle });
 
   // pins + pinOrder are persisted together on the nook; toggling a pin keeps the

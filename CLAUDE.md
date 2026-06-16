@@ -97,6 +97,13 @@ Sync tripwire fires only on the MiniSheet Dev target.
   Any card/chip button must set `height:auto; align-items:stretch; white-space:normal;
   min-width:0` explicitly. **Verify layout by GEOMETRY** (getBoundingClientRect heights
   + pairwise overlap), never by element counts.
+- **Every new `<button>` needs an `.is-tablet` override** (DO THIS WHEN YOU ADD THE
+  BUTTON, not later): under `.is-tablet`, Obsidian's mobile chrome forces a
+  background, border, box-shadow and `min-height` on plain buttons, and there is no
+  `:hover` on touch (so hover-revealed controls must be made visible another way).
+  Add a rule in `scss/_tablet.scss` (scoped under `.carrel-*-root`) stripping
+  `background/border/box-shadow` and setting `height:auto; min-height:0` for the new
+  button — see `.cr-card__close`, `.cr-card__grip` there as the template.
 - **Bare `<svg>` glyph sizing**: size icons via descendant `svg {…}`, not a class
   selector (shared stroke glyphs render a class-less `<svg>`).
 - **Entrance animations never start at `opacity:0`** — off-screen panes pause CSS

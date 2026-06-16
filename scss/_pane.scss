@@ -268,10 +268,17 @@
   .cr-card__grip:hover { color: var(--text); }
   .cr-card__grip:active { cursor: grabbing; }
   .cr-cell:hover .cr-card__grip { opacity: 0.65; }
-  .cr-cell.is-drag { z-index: 60; }
-  .cr-cell.is-drag .cr-card {
-    cursor: grabbing; box-shadow: 0 12px 30px #000a; opacity: 0.95;
+
+  // while dragging: the original cell is a highlighted landing slot (its card
+  // hidden), and a cloned .cr-ghost floats under the cursor as the drag image.
+  .cr-cell.is-drag .cr-card { opacity: 0; }
+  .cr-cell.is-drag {
+    border-radius: 12px; outline: 2px dashed var(--interactive-accent);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
   }
+  .cr-ghost { z-index: 60; pointer-events: none; }
+  .cr-ghost .cr-card { box-shadow: 0 14px 34px #000b; cursor: grabbing; }
 
   // keyboard focus ring on the focused card
   .cr-cell.is-focused .cr-card {

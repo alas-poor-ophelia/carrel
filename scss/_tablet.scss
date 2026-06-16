@@ -17,6 +17,13 @@
     .cr-card__close,
     .r-star { height: auto; padding: 3px; box-shadow: none; }
 
+    // the drag grip has no hover on touch — keep it gently visible and strip
+    // Obsidian's mobile button chrome (background/border/box-shadow/min-height)
+    .cr-card__grip {
+      height: auto; min-height: 0; padding: 3px;
+      background: none; border: 0; box-shadow: none; opacity: 0.5;
+    }
+
     // the pinned-rail card is a button with a stacked icon/title/type — keep it
     // growing to its content instead of collapsing to a pinned height
     .cr-railcard {
