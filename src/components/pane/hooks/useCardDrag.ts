@@ -46,30 +46,30 @@ export function useCardDrag(opts: CardDragOptions): {
       // carry the ghost under the cursor
       d.ghost.style.left = e.clientX - d.dx + "px";
       d.ghost.style.top = e.clientY - d.dy + "px";
-      // nearest OTHER card within the SAME section (no cross-section moves)
-      let near: { id: string; cx: number; cy: number } | null = null;
-      let nd = Infinity;
+      // Hit-test the card directly under the cursor (the ghost is pointer-events:
+      // none, so it's transparent to this). Using what's UNDER the pointer rather
+      // than the nearest center is what stops reorder oscillation: after a swap
+      // the placeholder slot lands under the cursor, so the hit-test returns the
+      // dragged card itself and nothing moves until the cursor leaves its slot.
+      const hit = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cellUnder = hit?.closest<HTMLElement>(".cr-cell") ?? null;
+      if (!cellUnder) return;
+      // resolve to a path within THIS section (cross-section cards aren't in
+      // d.order, so hovering them is a no-op — moves stay inside the section)
+      let targetPath: string | null = null;
       for (const path of d.order) {
         if (path === d.id) continue;
-        const el = cells.current.get(path);
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        const cx = r.left + r.width / 2;
-        const cy = r.top + r.height / 2;
-        const dist = (cx - e.clientX) ** 2 + (cy - e.clientY) ** 2;
-        if (dist < nd) {
-          nd = dist;
-          near = { id: path, cx, cy };
+        if (cells.current.get(path) === cellUnder) {
+          targetPath = path;
+          break;
         }
       }
-      if (!near) return;
-      const target = near;
+      if (targetPath == null) return; // over the placeholder, a gap, or another section
+      const r = cellUnder.getBoundingClientRect();
+      const after = e.clientY > r.top + r.height / 2;
       const order = d.order.filter((p) => p !== d.id);
-      const ni = order.indexOf(target.id);
-      const after =
-        e.clientY > target.cy + 4 ||
-        (Math.abs(e.clientY - target.cy) <= 4 && e.clientX > target.cx);
-      order.splice(after ? ni + 1 : ni, 0, d.id);
+      const ti = order.indexOf(targetPath);
+      order.splice(after ? ti + 1 : ti, 0, d.id);
       if (order.join() !== d.order.join()) {
         d.order = order;
         const cur = nookRef.current;
