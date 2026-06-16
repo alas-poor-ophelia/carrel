@@ -209,20 +209,79 @@
   .r-dice__eq { color: var(--faint); font-size: 14px; }
   .r-dice__total { font: 700 19px/1 var(--f-title); color: var(--bc, var(--gold)); margin-left: auto; }
 
-  // ---- roll table (Dice Roller embed) ----
+  // ---- roll table (Dice Roller reference embed) ----
   .r-rolltable {
     border: 1px solid color-mix(in srgb, var(--bc, var(--gold)) 32%, transparent); border-radius: 8px;
-    background: color-mix(in srgb, var(--bc, var(--gold)) 9%, #18161a);
-    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+    background: color-mix(in srgb, var(--bc, var(--gold)) 9%, #18161a); overflow: hidden;
   }
-  .r-rolltable__label { font-family: var(--f-body); font-size: 12.5px; color: var(--muted); }
-  .r-rolltable__host { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 14px; }
-  .r-rolltable__fallback {
-    display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted);
+  .r-rolltable__bar { display: flex; align-items: center; gap: 8px; padding: 8px 9px; }
+  .r-rolltable__label { flex: 1; min-width: 0; font-family: var(--f-body); font-size: 12.5px; color: var(--muted); }
+  .r-rolltable__roll {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+    font: 700 11px/1 var(--f-ui); letter-spacing: 0.06em; text-transform: uppercase; color: #18140e;
+    background: var(--bc, var(--gold)); border: none; border-radius: 6px; padding: 7px 11px; cursor: pointer;
   }
-  .r-rolltable__ic { width: 14px; height: 14px; color: var(--bc, var(--gold)); }
-  .r-rolltable__ref { font-family: var(--f-ui); color: #efe7d9; }
+  .r-rolltable__roll:hover { filter: brightness(1.08); }
+  .r-rolltable__roll:active { transform: scale(0.93); }
+  .r-rolltable__roll.is-spin svg { animation: cr-ref-diceSpin 0.36s var(--ease); }
+  .r-rolltable__ic { width: 13px; height: 13px; }
   .r-rolltable__hint { margin-left: auto; font-size: 11px; color: var(--faint); font-style: italic; }
+  .r-rolltable__out {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border-top: 1px solid color-mix(in srgb, var(--bc, var(--gold)) 22%, transparent); background: #0000002e;
+  }
+  .r-rolltable__out.is-spin { animation: cr-ref-diceFlash 0.4s var(--ease); }
+  .r-rolltable__val { font: 700 15px/1.2 var(--f-title); color: #f0e6d6; }
+
+  // ---- roll table (lookup table NOTE: rendered table + roll) ----
+  .r-lookup {
+    border: 1px solid color-mix(in srgb, var(--bc, var(--gold)) 32%, transparent); border-radius: 8px;
+    background: color-mix(in srgb, var(--bc, var(--gold)) 8%, #18161a); overflow: hidden;
+  }
+  .r-lookup__bar { display: flex; align-items: center; gap: 8px; padding: 8px 9px; }
+  .r-lookup__cap { font-family: var(--f-body); font-size: 12.5px; color: var(--muted); }
+  .r-lookup__formula {
+    flex: 1; min-width: 0; font: 700 14px/1 var(--f-title); letter-spacing: 0.04em; color: #f0e6d6;
+  }
+  .r-lookup__roll {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+    font: 700 11px/1 var(--f-ui); letter-spacing: 0.06em; text-transform: uppercase; color: #18140e;
+    background: var(--bc, var(--gold)); border: none; border-radius: 6px; padding: 7px 11px; cursor: pointer;
+  }
+  .r-lookup__roll:hover { filter: brightness(1.08); }
+  .r-lookup__roll:active { transform: scale(0.93); }
+  .r-lookup__roll.is-spin svg { animation: cr-ref-diceSpin 0.36s var(--ease); }
+  .r-lookup__ic { width: 13px; height: 13px; }
+  .r-lookup__table { margin: 0; }
+  .r-lookup__table tr.is-hit td {
+    background: color-mix(in srgb, var(--bc, var(--gold)) 22%, transparent); color: #fff;
+  }
+  .r-lookup__ref {
+    display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px 1px 5px; border-radius: 5px;
+    background: color-mix(in srgb, var(--bc, var(--gold)) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--bc, var(--gold)) 34%, transparent);
+    font: 600 12px/1.4 var(--f-ui); color: #e8dcc4; white-space: nowrap;
+  }
+  .r-lookup__refic { width: 11px; height: 11px; color: var(--bc, var(--gold)); flex: 0 0 auto; }
+  .r-lookup__out {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border-top: 1px solid color-mix(in srgb, var(--bc, var(--gold)) 22%, transparent); background: #0000002e;
+  }
+  .r-lookup__out.is-spin { animation: cr-ref-diceFlash 0.4s var(--ease); }
+  .r-lookup__num {
+    min-width: 22px; height: 22px; padding: 0 5px; border-radius: 5px; display: inline-flex;
+    align-items: center; justify-content: center; font: 700 12px/1 var(--f-ui); color: #efe7d9;
+    background: color-mix(in srgb, var(--bc, var(--gold)) 26%, transparent);
+  }
+  .r-rolltable__num {
+    min-width: 22px; height: 22px; padding: 0 5px; border-radius: 5px; display: inline-flex;
+    align-items: center; justify-content: center; font: 700 12px/1 var(--f-ui); color: #efe7d9;
+    background: color-mix(in srgb, var(--bc, var(--gold)) 26%, transparent);
+  }
+  .r-lookup__arrow { color: var(--faint); font-size: 14px; }
+  .r-lookup__val { font: 700 15px/1.2 var(--f-title); color: var(--bc, var(--gold)); }
+  .r-lookup__val p { margin: 0; }
+  .r-lookup__val .dice-roller { font-size: 14px; }
 
   // ---- checklist ----
   .r-check { display: flex; flex-direction: column; gap: 8px; }

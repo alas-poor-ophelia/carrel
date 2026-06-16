@@ -16,6 +16,7 @@ export type ContentType =
   | "flowchart"
   | "table"
   | "formula"
+  | "lookup"
   | "process"
   | "quote"
   | "reference";
@@ -41,6 +42,7 @@ export type RuleBlock =
   | { t: "flow"; nodes: FlowNode[] }
   | { t: "dice"; expr: string; mod?: number; label?: string }
   | { t: "rolltable"; ref: string; label?: string }
+  | { t: "lookuptable"; formula: string; cols: string[]; rows: string[][]; caption?: string }
   | { t: "checklist"; items: { text: string }[] }
   | { t: "steps"; items: { text: string }[] }
   | { t: "bullets"; items: { term?: string; text: string }[] }

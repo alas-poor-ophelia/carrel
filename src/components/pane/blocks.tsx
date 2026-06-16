@@ -302,10 +302,61 @@ function DiceBlock({
   );
 }
 
-/** Lookup / nested random tables. Mounts the Dice Roller plugin's OWN renderer
- *  (its lookup-table range matching + nested-table recursion come for free), so
- *  this block only lights up when Dice Roller is installed. The ref is a vault
- *  link like `[[Encounters^wilderness]]`, resolved against the host note path. */
+/** Pull the rolled number(s) out of a Dice Roller tooltip like
+ *  `[[Tbl^id]] 1d6 --> [3]` (nested rolls show several `--> [n]`; we surface
+ *  the first, i.e. the top-level table roll). */
+function rollNumber(tooltip?: string): string {
+  const m = (tooltip ?? "").match(/-->\s*\[([^\]]+)\]/);
+  return m ? m[1] : "";
+}
+
+/** True if a lookup-table range spec (`1-3`, `6`, `13,14`) contains `n`. */
+function rangeContains(spec: string, n: number): boolean {
+  return String(spec)
+    .split(",")
+    .some((part) => {
+      const r = part.trim().match(/^(\d+)\s*-\s*(\d+)$/);
+      if (r) return n >= +r[1] && n <= +r[2];
+      const s = part.trim().match(/^(\d+)$/);
+      return s ? +s[1] === n : false;
+    });
+}
+
+/** Friendly label for a nested reference: `[[Rare Loot^rare]]` -> "Rare Loot"
+ *  (prefers an alias, else strips the block anchor); a bare expr stays as-is. */
+function refLabel(inner: string): string {
+  const link = inner.match(/\[\[([^\]]+)\]\]/);
+  if (!link) return inner.trim();
+  let t = link[1];
+  const pipe = t.indexOf("|");
+  if (pipe >= 0) t = t.slice(pipe + 1);
+  else {
+    const caret = t.indexOf("^");
+    if (caret >= 0) t = t.slice(0, caret);
+  }
+  return t.trim();
+}
+
+/** A lookup-table cell. Cells holding a nested `dice:` reference (e.g.
+ *  `` `dice: [[Rare Loot^rare]]` ``) render as a marked reference chip instead
+ *  of raw markdown; everything else is plain highlighted text. */
+function lookupCell(cell: string, q: string): ComponentChildren {
+  const m = cell.match(/dice:\s*([^`]+)/i);
+  if (m) {
+    return (
+      <span class="r-lookup__ref" title={cell.trim()}>
+        <Icon id="ra-perspective-dice-five" class="r-lookup__refic" />
+        <span>{refLabel(m[1].trim())}</span>
+      </span>
+    );
+  }
+  return hl(String(cell), q);
+}
+
+/** Lookup / nested random tables referenced by link (`[[Encounters^wild]]`).
+ *  Rolls via Dice Roller (range matching + nested recursion come for free) and
+ *  shows the result value plus the rolled number subtly. The ref is resolved
+ *  against the host note path. Lights up only when Dice Roller is installed. */
 function RollTableBlock({
   block,
   plugin,
@@ -315,43 +366,111 @@ function RollTableBlock({
   plugin: CarrelPlugin;
   path: string;
 }) {
-  const hostRef = useRef<HTMLDivElement>(null);
   const dr = getDiceRoller(plugin.app);
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host || !dr || !block.ref) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const roller = await dr.getRoller(block.ref, path);
-        if (cancelled || !roller?.containerEl) return;
-        host.appendChild(roller.containerEl);
-        try {
-          await roller.roll();
-        } catch {
-          /* leave the widget in its un-rolled state */
-        }
-        host.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
-      } catch {
-        if (!cancelled) host.textContent = "Couldn't load roll table.";
-      }
-    })();
-    return () => {
-      cancelled = true;
-      while (host.firstChild) host.removeChild(host.firstChild);
-    };
-  }, [block.ref, path, dr]);
-
+  const [res, setRes] = useState<{ value: string; num: string; tip: string } | null>(null);
+  const [spin, setSpin] = useState(false);
+  const doRoll = async () => {
+    if (!dr || !block.ref) return;
+    setSpin(true);
+    setTimeout(() => setSpin(false), 360);
+    try {
+      const roller = await dr.getRoller(block.ref, path);
+      const value = await roller.roll();
+      const tip = roller.getTooltip?.() ?? "";
+      setRes({ value: String(value), num: rollNumber(tip), tip });
+    } catch {
+      setRes({ value: "—", num: "", tip: "" });
+    }
+  };
   return (
     <div class="r-rolltable">
-      {block.label && <span class="r-rolltable__label">{block.label}</span>}
-      {dr ? (
-        <div class="r-rolltable__host" ref={hostRef} />
-      ) : (
-        <div class="r-rolltable__fallback">
-          <Icon id="ra-perspective-dice-five" class="r-rolltable__ic" />
-          <span class="r-rolltable__ref">{block.ref || "roll table"}</span>
+      <div class="r-rolltable__bar">
+        <span class="r-rolltable__label">{block.label || block.ref || "roll table"}</span>
+        {dr ? (
+          <button class={"r-rolltable__roll" + (spin ? " is-spin" : "")} onClick={doRoll}>
+            <Icon id="ra-perspective-dice-five" class="r-rolltable__ic" />
+            <span>Roll</span>
+          </button>
+        ) : (
           <span class="r-rolltable__hint">Install Dice Roller to roll</span>
+        )}
+      </div>
+      {res && (
+        <div class={"r-rolltable__out" + (spin ? " is-spin" : "")} title={res.tip}>
+          {res.num && <span class="r-rolltable__num">{res.num}</span>}
+          <span class="r-rolltable__val">{res.value}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A note that IS a Dice Roller lookup table (first header cell is a `dice:`
+ *  formula). Renders the table and a Roll button; rolling uses the active roll
+ *  engine for the formula, range-matches the rows ourselves, and renders the
+ *  winning cell through MarkdownRenderer so a nested `dice:` cell auto-rolls. */
+function LookupTableBlock({
+  block,
+  plugin,
+  path,
+  q,
+}: {
+  block: Extract<RuleBlock, { t: "lookuptable" }>;
+  plugin: CarrelPlugin;
+  path: string;
+  q: string;
+}) {
+  const resRef = useRef<HTMLDivElement>(null);
+  const [hit, setHit] = useState<{ num: number; cell: string } | null>(null);
+  const [spin, setSpin] = useState(false);
+  const doRoll = async () => {
+    setSpin(true);
+    setTimeout(() => setSpin(false), 360);
+    const n = (await getRollEngine(plugin.app).roll(block.formula)).total;
+    const row = block.rows.find((r) => rangeContains(r[0] ?? "", n));
+    setHit({ num: n, cell: row ? (row[1] ?? row[0] ?? "—") : "—" });
+  };
+  useEffect(() => {
+    const el = resRef.current;
+    if (!el || !hit) return;
+    el.empty();
+    void MarkdownRenderer.render(plugin.app, hit.cell, el, path, plugin).then(() => {
+      el.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
+    });
+  }, [hit, path]);
+  return (
+    <div class="r-lookup">
+      <div class="r-lookup__bar">
+        {block.caption && <span class="r-lookup__cap">{block.caption}</span>}
+        <span class="r-lookup__formula">{block.formula}</span>
+        <button class={"r-lookup__roll" + (spin ? " is-spin" : "")} onClick={doRoll}>
+          <Icon id="ra-perspective-dice-five" class="r-lookup__ic" />
+          <span>Roll</span>
+        </button>
+      </div>
+      <table class="r-table r-lookup__table">
+        <thead>
+          <tr>
+            {block.cols.map((c, i) => (
+              <th key={i}>{hl(c, q)}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {block.rows.map((row, ri) => (
+            <tr key={ri} class={hit && rangeContains(row[0] ?? "", hit.num) ? "is-hit" : ""}>
+              {row.map((cell, ci) => (
+                <td key={ci}>{lookupCell(String(cell), q)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {hit && (
+        <div class={"r-lookup__out" + (spin ? " is-spin" : "")}>
+          <span class="r-lookup__num">{hit.num}</span>
+          <span class="r-lookup__arrow">→</span>
+          <span class="r-lookup__val" ref={resRef} />
         </div>
       )}
     </div>
@@ -440,6 +559,8 @@ export function Blocks({
             return <DiceBlock block={b} q={q} plugin={plugin} key={i} />;
           case "rolltable":
             return <RollTableBlock block={b} plugin={plugin} path={doc.path} key={i} />;
+          case "lookuptable":
+            return <LookupTableBlock block={b} plugin={plugin} path={doc.path} q={q} key={i} />;
           case "checklist":
             return (
               <ChecklistBlock

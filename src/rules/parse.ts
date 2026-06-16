@@ -201,8 +201,20 @@ function classify(group: string[], override: Attrs | null): RuleBlock {
   const caption = override ? attr(override, "caption") : undefined;
   const cite = override ? attr(override, "cite") : undefined;
 
-  if (forced === "table" || (forced === undefined && isTableGroup(group))) {
-    return parseTable(group, caption);
+  if (forced === "table" || forced === "lookup" || (forced === undefined && isTableGroup(group))) {
+    const tbl = parseTable(group, caption);
+    // A Dice Roller lookup table: first header cell is a `dice:` formula. Promote
+    // it to a rollable lookuptable block (and the note infers the `lookup` type).
+    if (tbl.t === "table" && /^\s*dice\s*:/i.test(tbl.cols[0] ?? "")) {
+      return {
+        t: "lookuptable",
+        formula: tbl.cols[0].replace(/^\s*dice\s*:/i, "").trim(),
+        cols: tbl.cols,
+        rows: tbl.rows,
+        caption: tbl.caption,
+      };
+    }
+    return tbl;
   }
   if (forced === "checklist" || (forced === undefined && CHECK_RE.test(group[0]))) {
     return {
@@ -300,7 +312,10 @@ function parseBlocks(text: string): RuleBlock[] {
       group.push(lines[i]);
       i++;
     }
-    blocks.push(classify(group, pending));
+    const blk = classify(group, pending);
+    // Drop standalone block-id anchors (`^my-id`) — they're reference targets,
+    // not display content (e.g. the `^id` line under a Dice Roller lookup table).
+    if (!(blk.t === "p" && /^\^[\w-]+$/.test(blk.text.trim()))) blocks.push(blk);
     pending = null;
   }
   return blocks;
@@ -308,6 +323,7 @@ function parseBlocks(text: string): RuleBlock[] {
 
 function inferType(blocks: RuleBlock[]): ContentType {
   if (blocks.some((b) => b.t === "flow")) return "flowchart";
+  if (blocks.some((b) => b.t === "lookuptable")) return "lookup";
   if (blocks.some((b) => b.t === "dice" || b.t === "rolltable")) return "formula";
   if (blocks.length && blocks[0].t === "callout") return "quote";
   if (blocks.some((b) => b.t === "checklist" || b.t === "steps")) return "process";

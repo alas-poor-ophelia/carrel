@@ -22,6 +22,8 @@ export const CONTENT_TYPES: Record<ContentType, TypeInfo> = {
   flowchart: { label: "Flowchart", color: "#8a7bd8", glyph: "grab" },
   table: { label: "Table", color: "#5aa6b0", glyph: "scale" },
   formula: { label: "Formula", color: "#d8893f", glyph: "dice" },
+  // a note that IS a Dice Roller lookup table (rollable in place)
+  lookup: { label: "Roll Table", color: "#b8a23a", glyph: "clover" },
   process: { label: "Process", color: "#5fa98c", glyph: "list" },
   quote: { label: "Quote", color: "#b07cc6", glyph: "scroll" },
   // neutral fallback for undeclared notes that don't infer to a richer type
@@ -35,6 +37,7 @@ export const FILTERABLE_TYPES: ContentType[] = [
   "flowchart",
   "table",
   "formula",
+  "lookup",
   "process",
   "quote",
 ];
