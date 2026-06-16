@@ -9,7 +9,9 @@ import {
   type CarrelData,
   type Category,
   type CustomType,
+  type GroupBy,
   type Nook,
+  type SortMode,
 } from "../types/data";
 import { genId } from "../util/id";
 
@@ -26,11 +28,19 @@ export class CarrelStore {
 
   async load(): Promise<void> {
     const raw = (await this.plugin.loadData()) as Partial<CarrelData> | null;
-    this.data.value = {
+    const merged: CarrelData = {
       ...structuredClone(DEFAULT_DATA),
       ...(raw ?? {}),
       schemaVersion: CARREL_SCHEMA_VERSION,
     };
+    // Per-nook objects don't get the top-level spread-merge, so backfill any
+    // fields added in a later schema (tweaks.groupBy/sort, cardOrder).
+    merged.nooks = (merged.nooks ?? []).map((n) => ({
+      ...n,
+      cardOrder: n.cardOrder ?? {},
+      tweaks: { ...DEFAULT_TWEAKS, ...(n.tweaks ?? {}) },
+    }));
+    this.data.value = merged;
   }
 
   private commit(next: CarrelData): void {
@@ -81,6 +91,7 @@ export class CarrelStore {
       pinOrder: [],
       checklist: {},
       tweaks: { ...DEFAULT_TWEAKS },
+      cardOrder: {},
     };
     const d = this.data.value;
     this.commit({ ...d, nooks: [...d.nooks, nook], activeNookId: nook.id });
@@ -110,6 +121,27 @@ export class CarrelStore {
 
   setNookChecklist(id: string, checklist: Record<string, boolean>): void {
     this.updateNook(id, { checklist });
+  }
+
+  /* ---------- per-nook grouping / sorting ---------- */
+
+  setNookGroupBy(id: string, groupBy: GroupBy): void {
+    const n = this.data.value.nooks.find((x) => x.id === id);
+    if (!n) return;
+    this.updateNook(id, { tweaks: { ...n.tweaks, groupBy } });
+  }
+
+  setNookSort(id: string, sort: SortMode): void {
+    const n = this.data.value.nooks.find((x) => x.id === id);
+    if (!n) return;
+    this.updateNook(id, { tweaks: { ...n.tweaks, sort } });
+  }
+
+  /** Replace the custom card order for one section key (Phase 2 drag writes this). */
+  setNookCardOrder(id: string, sectionKey: string, paths: string[]): void {
+    const n = this.data.value.nooks.find((x) => x.id === id);
+    if (!n) return;
+    this.updateNook(id, { cardOrder: { ...n.cardOrder, [sectionKey]: paths } });
   }
 
   /* ---------- categories (Phase 6) ---------- */

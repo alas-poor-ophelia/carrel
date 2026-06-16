@@ -15,9 +15,10 @@ import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
 import type { CarrelIndex } from "../../rules/index";
 import type { RuleDoc } from "../../rules/model";
-import type { CustomType } from "../../types/data";
+import type { CustomType, GroupBy, SortMode } from "../../types/data";
 import { searchRules } from "../../rules/search";
 import { FILTERABLE_TYPES, customTypeToken, resolveType } from "../../rules/registry";
+import { buildSections, categoryComparator } from "../../rules/grouping";
 import { Icon } from "../common/Icon";
 import { GlyphIcon } from "../common/GlyphIcon";
 import { DragGrip, STAR_PATH } from "../common/glyphs";
@@ -207,8 +208,8 @@ export function PaneBoard({
   const presentCats = useMemo(() => {
     const seen: string[] = [];
     for (const d of docs) if (!seen.includes(d.category)) seen.push(d.category);
-    return seen.sort((a, b) => a.localeCompare(b));
-  }, [docs]);
+    return seen.sort(categoryComparator(data.categories));
+  }, [docs, data.categories]);
   const presentTypes = useMemo(() => {
     const builtins: string[] = FILTERABLE_TYPES.filter((t) => docs.some((d) => d.type === t));
     const custom = [...customTypes]
@@ -234,18 +235,20 @@ export function PaneBoard({
   const isSearching = query.trim().length > 0;
   const rankedDocs = ranked.map((r) => r.doc);
 
+  const groupBy: GroupBy = nook?.tweaks.groupBy ?? "category";
+  const sortMode: SortMode = nook?.tweaks.sort ?? "az";
+  const cardOrder = nook?.cardOrder ?? {};
+
   const sections: Section[] = [];
   if (isSearching) {
     sections.push({ label: "Results", docs: rankedDocs, results: true });
   } else {
-    const groups = new Map<string, RuleDoc[]>();
-    for (const d of rankedDocs) {
-      const arr = groups.get(d.category);
-      if (arr) arr.push(d);
-      else groups.set(d.category, [d]);
-    }
-    for (const [label, ds] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
-      sections.push({ label, docs: ds, results: false });
+    for (const g of buildSections(rankedDocs, groupBy, sortMode, {
+      categories: data.categories,
+      customTypes,
+      cardOrder,
+    })) {
+      sections.push({ key: g.key, label: g.label, docs: g.docs, results: false });
     }
   }
 
@@ -376,6 +379,33 @@ export function PaneBoard({
           </div>
         </div>
         <div class="cr-filters" ref={filtersRef}>
+          {nook && (
+            <>
+              <select
+                class="cr-sortsel"
+                value={groupBy}
+                title="Group cards by"
+                onChange={(e) => store.setNookGroupBy(nook.id, (e.target as HTMLSelectElement).value as GroupBy)}
+              >
+                <option value="category">Group: Category</option>
+                <option value="type">Group: Type</option>
+                <option value="folder">Group: Folder</option>
+                <option value="none">Group: None</option>
+              </select>
+              <select
+                class="cr-sortsel"
+                value={sortMode}
+                title="Sort cards within each group"
+                onChange={(e) => store.setNookSort(nook.id, (e.target as HTMLSelectElement).value as SortMode)}
+              >
+                <option value="az">Sort: A–Z</option>
+                <option value="za">Sort: Z–A</option>
+                <option value="type">Sort: Type</option>
+                {sortMode === "custom" && <option value="custom">Sort: Custom</option>}
+              </select>
+              <span class="cr-filters__div" />
+            </>
+          )}
           <button class={"cr-chip cr-chip--pin" + (pinnedOnly ? " is-on" : "")} onClick={() => setPinnedOnly((v) => !v)}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill={pinnedOnly ? "currentColor" : "none"} stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
               <path d={STAR_PATH} />

@@ -90,6 +90,14 @@
   .cr-filters.is-dragging { cursor: grabbing; user-select: none; }
   .cr-filters.is-dragging .cr-chip { pointer-events: none; }
   .cr-filters__div { flex: 0 0 1px; align-self: stretch; background: var(--border); margin: 3px; }
+  // group / sort selectors — sit inline with the filter chips
+  .cr-sortsel {
+    flex: 0 0 auto; height: auto; padding: 4px 8px; border-radius: 999px;
+    border: 1px solid var(--border); background: #ffffff0a; color: var(--muted);
+    font: 600 11.5px/1 var(--f-ui); cursor: pointer; white-space: nowrap;
+    transition: border-color 0.16s, color 0.16s;
+  }
+  .cr-sortsel:hover { border-color: #4a4a4c; color: var(--text); }
   .cr-chip {
     flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
     background: #ffffff0a; border: 1px solid var(--border); color: var(--muted);

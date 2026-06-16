@@ -1,6 +1,13 @@
 // Persisted Carrel data (saveData/loadData). Nooks + the global category list
 // live here. Categories fill in in Phase 6.
 
+/** How the board groups cards into sections. */
+export type GroupBy = "category" | "type" | "folder" | "none";
+
+/** How cards are ordered within a section. `custom` reads the nook's
+ *  per-section `cardOrder` (drag-arranged); the rest are computed presets. */
+export type SortMode = "az" | "za" | "type" | "custom";
+
 /** Per-nook display tweaks (surfaced as Style Settings / UI in Phase 7). */
 export interface NookTweaks {
   columns: "auto" | 2 | 3 | 4;
@@ -8,6 +15,8 @@ export interface NookTweaks {
   showRail: boolean;
   showBadges: boolean;
   animations: boolean;
+  groupBy: GroupBy;
+  sort: SortMode;
 }
 
 /** A named set of notes (one or more source folders) with its own theme and
@@ -23,6 +32,10 @@ export interface Nook {
   pinOrder: string[];
   checklist: Record<string, boolean>;
   tweaks: NookTweaks;
+  /** Custom card order for `sort: "custom"`, keyed by section key (see
+   *  rules/grouping.groupKeyOf). Each value is an ordered list of note paths;
+   *  cards not listed fall to the end in A–Z order. */
+  cardOrder: Record<string, string[]>;
 }
 
 /** Shared shape of a colored, icon'd, user-managed tag: a stable id, a display
@@ -61,7 +74,7 @@ export interface CarrelData {
   typeProp: string;
 }
 
-export const CARREL_SCHEMA_VERSION = 3;
+export const CARREL_SCHEMA_VERSION = 4;
 
 /** Built-in defaults for the configurable front-matter property names. */
 export const DEFAULT_CATEGORY_PROP = "category";
@@ -73,6 +86,8 @@ export const DEFAULT_TWEAKS: NookTweaks = {
   showRail: true,
   showBadges: true,
   animations: true,
+  groupBy: "category",
+  sort: "az",
 };
 
 export const DEFAULT_DATA: CarrelData = {

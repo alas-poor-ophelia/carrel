@@ -18,6 +18,8 @@ export interface Section {
   label: string;
   docs: RuleDoc[];
   results: boolean;
+  /** Section key for cardOrder (set for grouped sections; absent for search). */
+  key?: string;
 }
 
 const DEFAULT_GAP = 14;
