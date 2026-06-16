@@ -37,6 +37,7 @@ export function useCardDrag(opts: CardDragOptions): {
     dy: number;
     sectionKey: string;
     order: string[];
+    members: Set<string>;
   } | null>(null);
 
   const onMove = useCallback(
@@ -54,17 +55,10 @@ export function useCardDrag(opts: CardDragOptions): {
       const hit = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
       const cellUnder = hit?.closest<HTMLElement>(".cr-cell") ?? null;
       if (!cellUnder) return;
-      // resolve to a path within THIS section (cross-section cards aren't in
-      // d.order, so hovering them is a no-op — moves stay inside the section)
-      let targetPath: string | null = null;
-      for (const path of d.order) {
-        if (path === d.id) continue;
-        if (cells.current.get(path) === cellUnder) {
-          targetPath = path;
-          break;
-        }
-      }
-      if (targetPath == null) return; // over the placeholder, a gap, or another section
+      const targetPath = cellUnder.dataset.path ?? null;
+      // over the placeholder, a gap, or a card in ANOTHER section → no move
+      // (members is this section only, so cross-section drags are ignored)
+      if (targetPath == null || targetPath === d.id || !d.members.has(targetPath)) return;
       const r = cellUnder.getBoundingClientRect();
       const after = e.clientY > r.top + r.height / 2;
       const order = d.order.filter((p) => p !== d.id);
@@ -76,7 +70,7 @@ export function useCardDrag(opts: CardDragOptions): {
         if (cur) store.setNookCardOrder(cur.id, d.sectionKey, order);
       }
     },
-    [store, nookRef, cells]
+    [store, nookRef]
   );
 
   const onUp = useCallback(() => {
@@ -104,6 +98,7 @@ export function useCardDrag(opts: CardDragOptions): {
     e.preventDefault();
     e.stopPropagation();
     const rect = el.getBoundingClientRect();
+    const order = sec.docs.map((x) => x.path);
     // clone the card as a floating ghost; the original becomes the placeholder
     const ghost = el.cloneNode(true) as HTMLElement;
     ghost.classList.add("cr-ghost");
@@ -125,7 +120,8 @@ export function useCardDrag(opts: CardDragOptions): {
       dx: e.clientX - rect.left,
       dy: e.clientY - rect.top,
       sectionKey: sec.key,
-      order: sec.docs.map((x) => x.path),
+      order,
+      members: new Set(order),
     };
     // pin the current order as the custom baseline and switch to custom so the
     // arrangement doesn't jump as the drag begins

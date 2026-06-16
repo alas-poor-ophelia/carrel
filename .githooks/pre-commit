@@ -1,0 +1,17 @@
+#!/bin/sh
+# Carrel pre-commit hook: ESLint must pass before a commit lands.
+#
+# This hook is OPT-IN and inert until you point git at it:
+#     git config core.hooksPath .githooks
+# Bypass once with:  git commit --no-verify
+#
+# ESLint enforces the Obsidian submission rules the community bot scans for in
+# the compiled main.js (no innerHTML/outerHTML, no var, no stray console.log,
+# no unhandled promises), so keeping lint green keeps the plugin submittable.
+
+echo "carrel pre-commit: running ESLint..."
+if ! bun run lint; then
+  echo "" >&2
+  echo "x ESLint failed - fix the issues above, or bypass with 'git commit --no-verify'." >&2
+  exit 1
+fi

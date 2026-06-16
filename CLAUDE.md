@@ -48,6 +48,17 @@ bun run test:unit    # vitest (tests/unit)
 `carrel` plugin dir (integration). A target whose vault is missing is skipped; the
 Sync tripwire fires only on the MiniSheet Dev target.
 
+### Before every commit (MANDATORY)
+
+Run **`bun run check`** (typecheck + ESLint) before every commit — at an absolute
+minimum **`bun run lint`** must pass. ESLint enforces the Obsidian submission rules
+the community bot scans for in the compiled `main.js` (no `innerHTML`/`outerHTML`,
+no `var`, no stray `console.log`, no unhandled promises), so a clean lint is what
+keeps the plugin submittable. Prefer `bun run check && bun run test:unit` for any
+change touching `src/rules/` or state. (This is the written rule; an opt-in git
+`pre-commit` hook that enforces it lives in `.githooks/` — enable with
+`git config core.hooksPath .githooks`. See `.githooks/README.md`.)
+
 ### Development cycle (MANDATORY)
 
 ```

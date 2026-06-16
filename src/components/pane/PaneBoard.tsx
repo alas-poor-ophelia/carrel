@@ -125,7 +125,7 @@ function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle,
               title="Drag to reorder"
               aria-label="Drag to reorder"
               onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => onGripDown(e as unknown as PointerEvent)}
+              onPointerDown={(e) => onGripDown(e)}
             >
               <DragGrip />
             </button>
@@ -418,7 +418,9 @@ export function PaneBoard({
                 <option value="az">Sort: A–Z</option>
                 <option value="za">Sort: Z–A</option>
                 <option value="type">Sort: Type</option>
-                {sortMode === "custom" && <option value="custom">Sort: Custom</option>}
+                {/* always selectable so a remembered custom arrangement is reachable
+                    after switching to a preset (empty order falls back to A–Z) */}
+                <option value="custom">Sort: Custom</option>
               </select>
               <span class="cr-filters__div" />
             </>
@@ -553,6 +555,7 @@ export function PaneBoard({
                     <div
                       class={"cr-cell" + (open.has(d.path) ? " is-open" : "") + (focusId === d.path ? " is-focused" : "") + (cardDragId === d.path ? " is-drag" : "")}
                       key={d.path}
+                      data-path={d.path}
                       ref={regCell(d.path)}
                     >
                       <Card
