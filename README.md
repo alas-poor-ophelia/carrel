@@ -237,6 +237,42 @@ If you have the [Style Settings](https://github.com/mgmeyers/obsidian-style-sett
 
 ---
 
+## Dice Roller integration
+
+[Dice Roller](https://github.com/javalent/dice-roller) is the popular TTRPG dice plugin for Obsidian. When it's installed, Carrel hands rolls off to it — so its full grammar (keep/drop, exploding dice, Fate/Fudge, and more), its **lookup tables**, and **nested tables** all work inside your cards. When it isn't installed, plain dice still roll with Carrel's own built-in roller; the table features simply stay quiet.
+
+Because Carrel renders note content through Obsidian's own Markdown pipeline, **any inline `` `dice:` `` expression rolls in place — in any card, not just Formula cards.** Drop a roll into a plain reference note and it just works:
+
+![A plain reference card with two inline dice expressions rendered as live, clickable rollers](docs/images/dice-inline.png)
+
+### Roll Table cards
+
+A note whose body is a Dice Roller **lookup table** — a Markdown table whose first header cell is a `dice:` formula — becomes a dedicated **Roll Table** card. Carrel shows the table with a **Roll** button; rolling highlights the matched row and shows the result with the rolled number beside it. A cell that points at another table (a **nested** roll) renders as a tidy reference chip and resolves to a live sub-roll when rolled.
+
+![A Roll Table card: a 1d6 loot table with a Roll button, the matched row highlighted, a nested "Rare Loot" reference chip, and the rolled result shown below](docs/images/dice-roll-table.png)
+
+Write one as an ordinary table, with the dice formula in the first header cell and a block-id anchor on the line beneath it (the anchor lets other tables and cards reference it):
+
+```markdown
+| dice: 1d6 | Loot |
+| --- | --- |
+| 1-3 | Copper pieces |
+| 4-5 | Silver pieces |
+| 6 | `dice: [[Rare Loot^rare]]` |
+
+^loot
+```
+
+### Rolling on a table from another card
+
+To roll on a lookup table that lives in a *different* note, add a roll-table block pointing at it. The card gets its own Roll button and shows the result — and the rolled number — each time:
+
+```markdown
+<!-- block: rolltable ref:"[[Loot Table^loot]]" label:"Roll for loot" -->
+```
+
+---
+
 ## Wayfinder integration
 
 Carrel grew out of [Wayfinder](https://github.com/alas-poor-ophelia), a character-sheet plugin. The two work independently, but when Wayfinder is also installed you get a little more:
@@ -245,7 +281,7 @@ Carrel grew out of [Wayfinder](https://github.com/alas-poor-ophelia), a characte
 - A nook can pick up a linked character's accent colors, so its Ember theme matches the sheet.
 - Wayfinder can render a Carrel board in place of its built-in References tab.
 
-![A Carrel board embedded in the sidebar next to a Wayfinder character sheet](docs/images/embed-wayfinder.png)
+![Carrel docked in the sidebar as a rules reference (Ember theme), beside a campaign session note](docs/images/embed-sidebar.png)
 
 None of this is required — Carrel is fully standalone. The integration simply activates when both plugins are present.
 
