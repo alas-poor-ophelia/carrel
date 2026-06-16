@@ -38,11 +38,31 @@ jobs:
       - name: Build (production)
         run: bun run build:prod
 
+      # Pull this tag's section out of CHANGELOG.md (heading must be exactly
+      # "## <version>", matching the tag). Falls back to a generic stub so a
+      # missing entry never publishes a description-less release. A standard
+      # install footer is always appended.
+      - name: Build release notes
+        run: |
+          VER="${GITHUB_REF_NAME}"
+          awk -v ver="$VER" '
+            $0 == "## " ver { flag = 1; next }
+            /^## / { flag = 0 }
+            flag { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md || true
+          # drop leading blank lines
+          sed -i -e '/./,$!d' RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            printf 'Carrel %s.\n' "$VER" > RELEASE_NOTES.md
+          fi
+          printf '\n**Install:** drop the attached `main.js`, `styles.css`, and `manifest.json` into `<vault>/.obsidian/plugins/carrel/`, or add `alas-poor-ophelia/carrel` via BRAT.\n' >> RELEASE_NOTES.md
+          echo "----- release notes -----"; cat RELEASE_NOTES.md
+
       - name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             --title "${GITHUB_REF_NAME}" \
-            --notes "Carrel ${GITHUB_REF_NAME}. Install the three attached files into \`<vault>/.obsidian/plugins/carrel/\`, or add the repo via BRAT (\`alas-poor-ophelia/carrel\`)." \
+            --notes-file RELEASE_NOTES.md \
             main.js styles.css manifest.json
