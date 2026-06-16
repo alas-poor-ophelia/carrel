@@ -1,4 +1,6 @@
 import type CarrelPlugin from "../main";
+import type { CarrelData, Nook } from "../types/data";
+import type { RuleDoc } from "../rules/model";
 
 /**
  * window.__carrel — the surface the Carrel MCP server drives via `ob eval`.
@@ -10,9 +12,9 @@ import type CarrelPlugin from "../main";
 export interface CarrelBridge {
   version: string;
   buildStamp: string;
-  getState(): unknown;
+  getState(): CarrelData;
   listNooks(): { id: string; name: string; folders: string[]; pins: number }[];
-  activeNook(): unknown;
+  activeNook(): Nook | null;
   createNook(name: string, folders: string[]): string;
   setActiveNook(id: string): void;
   deleteNook(id: string): void;
@@ -20,7 +22,7 @@ export interface CarrelBridge {
   /** Index health: folders watched, doc count, and the indexed titles. */
   indexStats(): { folders: string[]; count: number; titles: string[] };
   /** Parsed RuleDoc for a path (for verifying the parser end-to-end). */
-  getDoc(path: string): unknown;
+  getDoc(path: string): RuleDoc | null;
 }
 
 declare global {
@@ -33,12 +35,12 @@ export function installBridge(plugin: CarrelPlugin): void {
   window.__carrel = {
     version: plugin.manifest.version,
     buildStamp: __BUILD_STAMP__,
-    getState: () => JSON.parse(JSON.stringify(plugin.store.data.value)),
+    getState: () => structuredClone(plugin.store.data.value),
     listNooks: () =>
       plugin.store.nooks().map((n) => ({ id: n.id, name: n.name, folders: n.folders, pins: n.pins.length })),
     activeNook: () => {
       const n = plugin.store.activeNook();
-      return n ? JSON.parse(JSON.stringify(n)) : null;
+      return n ? structuredClone(n) : null;
     },
     createNook: (name, folders) => plugin.store.createNook({ name, folders }).id,
     setActiveNook: (id) => plugin.store.setActiveNook(id),
@@ -54,7 +56,7 @@ export function installBridge(plugin: CarrelPlugin): void {
     },
     getDoc: (path) => {
       const doc = plugin.index.byPath(path);
-      return doc ? JSON.parse(JSON.stringify(doc)) : null;
+      return doc ? structuredClone(doc) : null;
     },
   };
 }

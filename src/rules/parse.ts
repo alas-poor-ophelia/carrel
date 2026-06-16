@@ -22,6 +22,7 @@ import type {
   RuleMeta,
 } from "./model";
 import { isKnownType, resolveType } from "./registry";
+import { truncateSummary } from "../util/text";
 
 const REF_RE = /^\s*<!--\s*ref:\s*([\s\S]*?)-->\s*/i;
 const BLOCK_RE = /^\s*<!--\s*block:\s*([\s\S]*?)-->\s*$/i;
@@ -98,7 +99,7 @@ function parseCallout(group: string[], cite?: string): RuleBlock {
   const lines = group.map((l) => l.replace(QUOTE_RE, ""));
   // a trailing `— attribution` line inside the quote becomes the cite
   let c = cite;
-  if (!c && lines.length) {
+  if (c == null && lines.length > 0) {
     const last = lines[lines.length - 1].trim();
     const cm = last.match(/^[—–-]{1,2}\s*(.+)$/);
     if (cm) {
@@ -138,7 +139,7 @@ function parseFlow(lines: string[]): FlowNode[] {
     const key = m[1].toLowerCase();
     const rest = m[2].trim();
     if (key === "start" || key === "note" || key === "check") {
-      nodes.push({ kind: key as "start" | "note" | "check", text: rest });
+      nodes.push({ kind: key, text: rest });
       i++;
     } else if (key === "options") {
       nodes.push({ kind: "options", items: rest.split("|").map((s) => s.trim()).filter(Boolean) });
@@ -160,7 +161,7 @@ function parseFlow(lines: string[]): FlowNode[] {
       nodes.push({ kind: "branch", branches });
     } else if (key === "success" || key === "fail") {
       // a bare success/fail outside an explicit branch — fold into one
-      const tone = key as "success" | "fail";
+      const tone = key;
       nodes.push({
         kind: "branch",
         branches: [
@@ -339,9 +340,9 @@ const WIKILINK = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 function firstProseText(blocks: RuleBlock[]): string {
   const p = blocks.find((b): b is { t: "p"; term?: string; text: string } => b.t === "p");
   if (!p) return "";
-  const raw = (p.term ? p.term + " — " : "") + p.text;
+  const raw = (p.term != null && p.term !== "" ? p.term + " — " : "") + p.text;
   const clean = raw.replace(WIKILINK, "$1").replace(MD_STRIP, "").replace(/\s+/g, " ").trim();
-  return clean.length > 180 ? clean.slice(0, 177).trimEnd() + "…" : clean;
+  return truncateSummary(clean);
 }
 
 const HEADING_RE = /^\s*#{1,6}\s+.*(?:\r?\n|$)/;
@@ -385,19 +386,23 @@ export function parseNote(
     (typeof frontmatter.type === "string" ? frontmatter.type.toLowerCase() : undefined) ??
     refAttrs.type;
   const type: string =
-    declared && isKnownType(declared, customTypes) ? declared : inferType(blocks);
+    declared != null && isKnownType(declared, customTypes) ? declared : inferType(blocks);
 
   // A frontmatter/ref `icon:` override wins; otherwise inherit the type's icon
   // (built-in glyph or the custom type's chosen lucide/rpg icon).
   const resolved = resolveType(type, customTypes);
-  const iconOverride = (typeof frontmatter.icon === "string" ? frontmatter.icon : undefined) ||
-    attr(refAttrs, "icon");
-  const icon = iconOverride || resolved.icon;
-  const iconSet: "lucide" | "rpg" = iconOverride
-    ? iconOverride.startsWith("lucide-")
-      ? "lucide"
-      : "rpg"
-    : resolved.iconSet;
+  const fmIcon = typeof frontmatter.icon === "string" ? frontmatter.icon : undefined;
+  // An empty string is treated as "no override" (fall through), hence the
+  // explicit emptiness checks rather than nullish coalescing.
+  const iconOverride =
+    fmIcon != null && fmIcon !== "" ? fmIcon : (attr(refAttrs, "icon") ?? "");
+  const icon = iconOverride !== "" ? iconOverride : resolved.icon;
+  const iconSet: "lucide" | "rpg" =
+    iconOverride !== ""
+      ? iconOverride.startsWith("lucide-")
+        ? "lucide"
+        : "rpg"
+      : resolved.iconSet;
 
   const fmSummary = typeof frontmatter.summary === "string" ? frontmatter.summary : undefined;
   const summary = fmSummary ?? attr(refAttrs, "summary") ?? firstProseText(blocks);

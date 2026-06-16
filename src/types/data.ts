@@ -25,8 +25,11 @@ export interface Nook {
   tweaks: NookTweaks;
 }
 
-/** A global, colored, icon'd category tag (managed in settings; Phase 6). */
-export interface Category {
+/** Shared shape of a colored, icon'd, user-managed tag: a stable id, a display
+ *  name, an accent color, and a glyph (lucide or rpg) with a sort order. Both
+ *  Category and CustomType are this shape; they differ only in how `id`/`name`
+ *  are referenced by notes (see each). */
+export interface TaggedItem {
   id: string;
   name: string;
   color: string;
@@ -35,18 +38,14 @@ export interface Category {
   order: number;
 }
 
+/** A global, colored, icon'd category tag (managed in settings; Phase 6). */
+export interface Category extends TaggedItem {}
+
 /** A user-declared content type (managed in settings). Carries label/color/icon
  *  only — no parsing logic; the built-in parsers stay compiled in. A note opts
  *  into one via its frontmatter `type:` (matched case-insensitively against `id`).
  *  Shares the Category shape, but `id` doubles as the matchable frontmatter token. */
-export interface CustomType {
-  id: string;
-  name: string;
-  color: string;
-  iconSet: "lucide" | "rpg";
-  icon: string;
-  order: number;
-}
+export interface CustomType extends TaggedItem {}
 
 export interface CarrelData {
   schemaVersion: number;

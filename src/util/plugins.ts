@@ -12,7 +12,7 @@ export function getPlugin(app: App, id: string): Plugin | null {
 }
 
 export function isPluginEnabled(app: App, id: string): boolean {
-  return !!(app as unknown as { plugins?: PluginsApi }).plugins?.enabledPlugins?.has(id);
+  return (app as unknown as { plugins?: PluginsApi }).plugins?.enabledPlugins?.has(id) ?? false;
 }
 
 /** The partner character-sheet plugin. It was renamed MiniSheet → Wayfinder

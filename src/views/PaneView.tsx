@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, type WorkspaceLeaf } from "obsidian";
 import { render } from "preact";
 import { PaneBoard } from "../components/pane/PaneBoard";
 import { VIEW_TYPE_CARREL_PANE } from "../constants";

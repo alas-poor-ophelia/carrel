@@ -55,12 +55,19 @@ function fuzzyScore(query: string, text: string): FuzzyHit | null {
   return { score, positions };
 }
 
+/** Cache of the concatenated, lowercased body text per doc. Keyed by the doc
+ *  object so a re-parsed doc (a new object) recomputes; identical across the
+ *  per-keystroke token loop, so the heavy block walk runs once per doc. */
+const docTextCache = new WeakMap<RuleDoc, string>();
+
 function docText(d: RuleDoc): string {
+  const cached = docTextCache.get(d);
+  if (cached !== undefined) return cached;
   let s = `${d.title} ${d.summary} ${d.category}`;
   for (const b of d.blocks) {
     switch (b.t) {
       case "p":
-        s += " " + (b.term ? b.term + " " : "") + b.text;
+        s += " " + (b.term != null && b.term !== "" ? b.term + " " : "") + b.text;
         break;
       case "table":
         s += ` ${b.caption ?? ""} ${b.cols.join(" ")} ${b.rows.flat().join(" ")}`;
@@ -76,7 +83,7 @@ function docText(d: RuleDoc): string {
         s += " " + b.items.map((i) => i.text).join(" ");
         break;
       case "bullets":
-        s += " " + b.items.map((i) => (i.term ? i.term + " " : "") + i.text).join(" ");
+        s += " " + b.items.map((i) => (i.term != null && i.term !== "" ? i.term + " " : "") + i.text).join(" ");
         break;
       case "flow":
         for (const n of b.nodes) {
@@ -87,7 +94,9 @@ function docText(d: RuleDoc): string {
         break;
     }
   }
-  return s.toLowerCase();
+  const lower = s.toLowerCase();
+  docTextCache.set(d, lower);
+  return lower;
 }
 
 interface TokenHit {

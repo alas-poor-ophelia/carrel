@@ -2,16 +2,16 @@
    an optional drag-to-reorder pinned rail, category sections, and a JS
    column-balancing masonry of typed cards with keyboard navigation.
 
-   The masonry (ported from the design handoff's PaneWall): every card is
-   absolutely positioned via transform and placed into the shortest-fit column
-   window. Opened cards span 1–N columns by content weight and their body flows
-   into reading-width text columns; siblings reflow with a staggered FLIP slide.
-   Because each card's exact height is measured at its target span width BEFORE
-   placement, a heavy card (e.g. a Grapple flowchart) can never under-reserve
-   and bleed under the next row (bug #2).
+   The board is the composition root: it owns the shared refs (appRef, scrollRef,
+   the card-cell map, lastToggled) and the filter/search/section derivation, and
+   delegates the three self-contained subsystems to hooks:
+     - useMasonryPack   — the column-balancing pack + reflow (see its header)
+     - useRailDrag      — the pinned-rail FLIP + drag-to-reorder
+     - useCardKeyboard  — spatial arrow navigation, scoped to the pane
 
    Phase 5 persists pins/order/checklist per nook. */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useMemo, useRef, useState } from "preact/hooks";
+import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
 import type { CarrelIndex } from "../../rules/index";
 import type { RuleDoc } from "../../rules/model";
@@ -20,19 +20,13 @@ import { searchRules } from "../../rules/search";
 import { FILTERABLE_TYPES, customTypeToken, resolveType } from "../../rules/registry";
 import { Icon } from "../common/Icon";
 import { GlyphIcon } from "../common/GlyphIcon";
+import { DragGrip, STAR_PATH } from "../common/glyphs";
 import { useDragScroll } from "../common/useDragScroll";
 import { CreateNookModal, NookSettingsModal } from "../../modals";
-import { Blocks, MetaChips, RENDERED_EVENT, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
-
-interface Section {
-  label: string;
-  docs: RuleDoc[];
-  results: boolean;
-}
-
-const DEFAULT_GAP = 14;
-const COL_STEP = 330; // ~one column per 330px of width
-const SPRING = "cubic-bezier(.33,1.32,.5,1)";
+import { Blocks, MetaChips, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
+import { useMasonryPack, type Section } from "./hooks/useMasonryPack";
+import { useRailDrag } from "./hooks/useRailDrag";
+import { useCardKeyboard } from "./hooks/useCardKeyboard";
 
 /** How wide an opened card wants to be (content weight → 1–3 base columns). */
 function contentWeight(doc: RuleDoc): number {
@@ -57,9 +51,7 @@ function baseSpan(doc: RuleDoc): number {
   return w < 1.9 ? 1 : w < 3.7 ? 2 : 3;
 }
 
-const STAR_D = "M12 3.5l2.6 5.3 5.9.86-4.25 4.14 1 5.86L12 17.9l-5.25 2.76 1-5.86L3.5 9.66l5.9-.86z";
-
-function BookGlyph() {
+function BookGlyph(): JSX.Element {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
@@ -69,7 +61,7 @@ function BookGlyph() {
 }
 
 /** Chevrons meeting at the center — the standard "collapse all" glyph. */
-function CollapseGlyph() {
+function CollapseGlyph(): JSX.Element {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
       <path d="m7 4 5 5 5-5" />
@@ -78,7 +70,7 @@ function CollapseGlyph() {
   );
 }
 
-function SearchBar({ value, onChange, count }: { value: string; onChange: (v: string) => void; count: number }) {
+function SearchBar({ value, onChange, count }: { value: string; onChange: (v: string) => void; count: number }): JSX.Element {
   return (
     <div class="cr-search">
       <svg class="cr-search__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
@@ -117,7 +109,7 @@ interface CardProps {
   onToggleCheck: (key: string, value: boolean) => void;
 }
 
-function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck }: CardProps) {
+function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck }: CardProps): JSX.Element {
   const t = resolveType(doc.type, customTypes);
   return (
     <div class={"cr-card" + (isOpen ? " is-open" : "")} style={{ "--bc": t.color }} onClick={isOpen ? undefined : onToggle}>
@@ -180,14 +172,13 @@ export function PaneBoard({
   /** Index override (the inline embed runs its own per-nook index so it can show
    *  a nook other than the active one). Defaults to the plugin's shared index. */
   index?: CarrelIndex;
-}) {
+}): JSX.Element {
   const [query, setQuery] = useState("");
   const [cats, setCats] = useState<Set<string>>(() => new Set());
   const [types, setTypes] = useState<Set<string>>(() => new Set());
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const [open, setOpen] = useState<Set<string>>(() => new Set()); // multi-open
   const [focusId, setFocusId] = useState<string | null>(null);
-  const [autoCols, setAutoCols] = useState(3);
   const [dragId, setDragId] = useState<string | null>(null);
   const filtersRef = useDragScroll<HTMLDivElement>();
 
@@ -249,254 +240,28 @@ export function PaneBoard({
   } else {
     const groups = new Map<string, RuleDoc[]>();
     for (const d of rankedDocs) {
-      if (!groups.has(d.category)) groups.set(d.category, []);
-      groups.get(d.category)!.push(d);
+      const arr = groups.get(d.category);
+      if (arr) arr.push(d);
+      else groups.set(d.category, [d]);
     }
     for (const [label, ds] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
       sections.push({ label, docs: ds, results: false });
     }
   }
 
-  /* ---------- masonry refs + packing ---------- */
+  // shared refs — owned here because more than one subsystem reads them
   const appRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const cells = useRef(new Map<string, HTMLElement>());
-  const sectionEls = useRef(new Map<string, HTMLElement>());
-  const renderedSections = useRef<Section[]>([]);
-  renderedSections.current = sections;
   const lastToggled = useRef<string | null>(null);
-  const lastKey = useRef("");
-  const lastQuery = useRef(query);
-  const firstLayout = useRef(true);
-  const [, force] = useState(0);
+  // cheap, and only ever stored into a ref by the keyboard hook — no memo needed
+  const visibleIds = rankedDocs.map((d) => d.path);
 
-  // refs mirroring state for the (subscribe-once) keyboard handler
-  const focusRef = useRef(focusId);
-  focusRef.current = focusId;
-  const openRef = useRef(open);
-  openRef.current = open;
-  const visibleIds = useMemo(() => rankedDocs.map((d) => d.path), [ranked]);
-  const visibleRef = useRef(visibleIds);
-  visibleRef.current = visibleIds;
-
-  const regCell = (id: string) => (el: HTMLElement | null) => {
+  const regCell = (id: string) => (el: HTMLElement | null): void => {
     if (el) cells.current.set(id, el);
     else cells.current.delete(id);
   };
-  const regSection = (name: string) => (el: HTMLElement | null) => {
-    if (el) sectionEls.current.set(name, el);
-    else sectionEls.current.delete(name);
-  };
 
-  // auto column count from the scroll container width. Crucially, re-pack on
-  // EVERY container resize (force), not only when the column count changes — in
-  // Obsidian a leaf resizes without firing a window 'resize', and a re-pack at
-  // the correct width is what corrects an early measurement taken too narrow.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const calc = () => {
-      const w = el.clientWidth - 2 * 36;
-      setAutoCols(Math.max(2, Math.min(5, Math.floor(w / COL_STEP))));
-      force((x) => x + 1);
-    };
-    calc();
-    // Defer the re-pack out of the observer's delivery cycle so mutating cell
-    // sizes in the layout effect can't retrigger the observer in the same frame
-    // ("ResizeObserver loop completed with undelivered notifications").
-    let raf = 0;
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(calc);
-    });
-    ro.observe(el);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
-  }, []);
-
-  const colCount = autoCols;
-
-  // The column-balancing pack + reflow. Runs after every render so async prose
-  // growth (cr-rendered → force) and open/close both re-pack; only an open/close
-  // (key change with unchanged query) animates the slide.
-  useLayoutEffect(() => {
-    const app = appRef.current;
-    if (!app) return;
-    const gap = parseFloat(getComputedStyle(app).getPropertyValue("--gap")) || DEFAULT_GAP;
-    const cols = colCount;
-    const key = [...open].sort().join(",") + "|" + cols;
-    const animate =
-      !firstLayout.current &&
-      lastKey.current !== key &&
-      lastQuery.current === query &&
-      !app.classList.contains("anim-off");
-
-    const positions: { cell: HTMLElement; id: string; x: number; y: number }[] = [];
-    for (const sec of renderedSections.current) {
-      const container = sectionEls.current.get(sec.label);
-      if (!container) continue;
-      const cw = container.clientWidth;
-      if (cw <= 0) continue;
-      const colW = (cw - (cols - 1) * gap) / cols;
-      const heights = new Array(cols).fill(0);
-      for (const d of sec.docs) {
-        const cell = cells.current.get(d.path);
-        if (!cell) continue;
-        const span = Math.min(open.has(d.path) ? spanOf.get(d.path) ?? 1 : 1, cols);
-        cell.style.transition = "none";
-        cell.style.width = span * colW + (span - 1) * gap + "px";
-        cell.dataset.span = String(span);
-        const h = cell.offsetHeight;
-        let best = 0;
-        let bestY = Infinity;
-        for (let c = 0; c <= cols - span; c++) {
-          let y = 0;
-          for (let k = 0; k < span; k++) y = Math.max(y, heights[c + k]);
-          if (y < bestY - 0.5) {
-            bestY = y;
-            best = c;
-          }
-        }
-        positions.push({ cell, id: d.path, x: best * (colW + gap), y: bestY });
-        for (let k = 0; k < span; k++) heights[best + k] = bestY + h + gap;
-      }
-      container.style.height = Math.max(0, Math.max(0, ...heights) - gap) + "px";
-    }
-
-    const tg = positions.find((p) => p.id === lastToggled.current);
-    const ty = tg ? tg.y : 0;
-    for (const { cell, x, y } of positions) {
-      if (animate) {
-        const delay = Math.min(220, Math.abs(y - ty) * 0.05);
-        cell.style.transition = `transform .6s ${SPRING} ${delay}ms`;
-      } else {
-        cell.style.transition = "none";
-      }
-      cell.style.transform = `translate(${x}px, ${y}px)`;
-    }
-
-    lastKey.current = key;
-    lastQuery.current = query;
-    firstLayout.current = false;
-  });
-
-  // re-pack when async prose finishes rendering, on font load, and on resize
-  useEffect(() => {
-    const f = () => force((x) => x + 1);
-    let alive = true;
-    const onRendered = () => f();
-    document.addEventListener(RENDERED_EVENT, onRendered);
-    if (document.fonts) void document.fonts.ready.then(() => alive && f());
-    window.addEventListener("resize", f);
-    return () => {
-      alive = false;
-      document.removeEventListener(RENDERED_EVENT, onRendered);
-      window.removeEventListener("resize", f);
-    };
-  }, []);
-
-  /* ---------- pinned rail ---------- */
-  const railCells = useRef(new Map<string, HTMLElement>());
-  const railPrev = useRef(new Map<string, DOMRect>());
-  const dragRef = useRef<{ id: string; el: HTMLElement; dx: number; dy: number; w: number; h: number } | null>(null);
-  const pinOrderRef = useRef(pinOrder);
-  pinOrderRef.current = pinOrder;
-  const regRail = (id: string) => (el: HTMLElement | null) => {
-    if (el) railCells.current.set(id, el);
-    else railCells.current.delete(id);
-  };
-
-  // rail FLIP: any rail card that moved (not the dragged one) inverts then plays
-  useLayoutEffect(() => {
-    const map = railCells.current;
-    map.forEach((el, id) => {
-      const nr = el.getBoundingClientRect();
-      const old = railPrev.current.get(id);
-      if (old && id !== dragId) {
-        const dx = old.left - nr.left;
-        const dy = old.top - nr.top;
-        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-          el.style.transition = "none";
-          el.style.transform = `translate(${dx}px, ${dy}px)`;
-          requestAnimationFrame(() => {
-            el.style.transition = "transform .24s var(--ease-back)";
-            el.style.transform = "";
-          });
-        }
-      }
-    });
-    const m = new Map<string, DOMRect>();
-    map.forEach((el, id) => m.set(id, el.getBoundingClientRect()));
-    railPrev.current = m;
-  });
-
-  const onPinMove = useCallback((e: PointerEvent) => {
-    const d = dragRef.current;
-    if (!d) return;
-    Object.assign(d.el.style, {
-      position: "fixed",
-      left: e.clientX - d.dx + "px",
-      top: e.clientY - d.dy + "px",
-      width: d.w + "px",
-      zIndex: "60",
-      pointerEvents: "none",
-    });
-    let nearest: { id: string; cx: number } | null = null;
-    let nd = Infinity;
-    railCells.current.forEach((el, id) => {
-      if (id === d.id) return;
-      const rr = el.getBoundingClientRect();
-      const cx = rr.left + rr.width / 2;
-      const cy = rr.top + rr.height / 2;
-      const dist = (cx - e.clientX) ** 2 + (cy - e.clientY) ** 2;
-      if (dist < nd) {
-        nd = dist;
-        nearest = { id, cx };
-      }
-    });
-    if (nearest) {
-      const near = nearest as { id: string; cx: number };
-      const order = pinOrderRef.current.filter((x) => x !== d.id);
-      const ni = order.indexOf(near.id);
-      order.splice(e.clientX > near.cx ? ni + 1 : ni, 0, d.id);
-      const cur = nookRef.current;
-      if (cur && order.join() !== pinOrderRef.current.join()) store.setNookPins(cur.id, cur.pins, order);
-    }
-  }, []);
-
-  const onPinUp = useCallback(() => {
-    const d = dragRef.current;
-    if (d) {
-      Object.assign(d.el.style, { position: "", left: "", top: "", width: "", zIndex: "", pointerEvents: "", transform: "", transition: "" });
-    }
-    dragRef.current = null;
-    setDragId(null);
-    window.removeEventListener("pointermove", onPinMove);
-    window.removeEventListener("pointerup", onPinUp);
-    window.removeEventListener("pointercancel", onPinUp);
-  }, [onPinMove]);
-
-  const onPinDown = (e: PointerEvent, id: string) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    // keep this on the grip: don't let it bubble to the rail's drag-to-scroll.
-    e.stopPropagation();
-    const grip = e.currentTarget as HTMLElement;
-    const el = grip.closest(".cr-railcard") as HTMLElement | null;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    dragRef.current = { id, el, dx: e.clientX - rect.left, dy: e.clientY - rect.top, w: rect.width, h: rect.height };
-    setDragId(id);
-    window.addEventListener("pointermove", onPinMove);
-    window.addEventListener("pointerup", onPinUp);
-    // a cancelled gesture (Alt+Tab, OS dialog, palm rejection) never fires
-    // pointerup; without this the ghost card stays stuck until reload.
-    window.addEventListener("pointercancel", onPinUp);
-  };
-
-  /* ---------- toggle + keyboard navigation ---------- */
   const toggle = useCallback((id: string) => {
     lastToggled.current = id;
     setOpen((o) => {
@@ -507,116 +272,14 @@ export function PaneBoard({
     setFocusId(id);
   }, []);
 
-  useEffect(() => {
-    const scrollFocusIntoView = (id: string) => {
-      const cell = cells.current.get(id);
-      const sc = scrollRef.current;
-      if (!cell || !sc) return;
-      const cr = cell.getBoundingClientRect();
-      const sr = sc.getBoundingClientRect();
-      if (cr.top < sr.top + 70 || cr.bottom > sr.bottom - 8) {
-        sc.scrollTo({ top: cr.top - sr.top + sc.scrollTop - 90, behavior: "smooth" });
-      }
-    };
-    const moveFocus = (dir: "left" | "right" | "up" | "down") => {
-      const items: { id: string; r: DOMRect }[] = [];
-      cells.current.forEach((el, id) => {
-        if (visibleRef.current.includes(id)) items.push({ id, r: el.getBoundingClientRect() });
-      });
-      if (!items.length) return;
-      const cur = items.find((i) => i.id === focusRef.current);
-      if (!cur) {
-        setFocusId(items[0].id);
-        scrollFocusIntoView(items[0].id);
-        return;
-      }
-      const cx = cur.r.left + cur.r.width / 2;
-      const cy = cur.r.top + cur.r.height / 2;
-      let best: string | null = null;
-      let bestScore = Infinity;
-      for (const it of items) {
-        if (it.id === cur.id) continue;
-        const ix = it.r.left + it.r.width / 2;
-        const iy = it.r.top + it.r.height / 2;
-        const dx = ix - cx;
-        const dy = iy - cy;
-        let primary: number;
-        let cross: number;
-        if (dir === "left") {
-          if (dx > -4) continue;
-          primary = -dx;
-          cross = Math.abs(dy) * 2.2;
-        } else if (dir === "right") {
-          if (dx < 4) continue;
-          primary = dx;
-          cross = Math.abs(dy) * 2.2;
-        } else if (dir === "up") {
-          if (dy > -4) continue;
-          primary = -dy;
-          cross = Math.abs(dx) * 2.2;
-        } else {
-          if (dy < 4) continue;
-          primary = dy;
-          cross = Math.abs(dx) * 2.2;
-        }
-        const score = primary + cross;
-        if (score < bestScore) {
-          bestScore = score;
-          best = it.id;
-        }
-      }
-      if (best) {
-        setFocusId(best);
-        scrollFocusIntoView(best);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      const ae = document.activeElement as HTMLElement | null;
-      const typing = !!ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT" || ae.isContentEditable);
-      if (e.key === "/" && !typing) {
-        e.preventDefault();
-        (appRef.current?.querySelector(".cr-search__input") as HTMLElement | null)?.focus();
-        return;
-      }
-      if (typing) {
-        if (e.key === "Escape") ae?.blur();
-        return;
-      }
-      if (e.key === "ArrowLeft") { e.preventDefault(); moveFocus("left"); }
-      else if (e.key === "ArrowRight") { e.preventDefault(); moveFocus("right"); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); moveFocus("up"); }
-      else if (e.key === "ArrowDown") { e.preventDefault(); moveFocus("down"); }
-      else if (e.key === "Enter" || e.key === " ") {
-        if (focusRef.current) { e.preventDefault(); toggle(focusRef.current); }
-      } else if (e.key === "Escape") {
-        if (focusRef.current && openRef.current.has(focusRef.current)) toggle(focusRef.current);
-        else if (openRef.current.size) setOpen(new Set());
-        else setFocusId(null);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [toggle]);
-
-  // keep a just-opened card visible
-  useEffect(() => {
-    const id = lastToggled.current;
-    if (id && open.has(id)) {
-      const cell = cells.current.get(id);
-      const sc = scrollRef.current;
-      if (cell && sc) {
-        const cr = cell.getBoundingClientRect();
-        const sr = sc.getBoundingClientRect();
-        if (cr.top < sr.top + 70 || cr.bottom > sr.bottom - 8) {
-          sc.scrollTo({ top: cr.top - sr.top + sc.scrollTop - 90, behavior: "smooth" });
-        }
-      }
-    }
-  }, [open]);
+  // the three self-contained subsystems
+  const { regSection } = useMasonryPack({ appRef, scrollRef, cells, lastToggled }, open, query, spanOf, sections);
+  const { regRail, onPinDown } = useRailDrag({ store, nookRef, pinOrder, dragId, setDragId });
+  useCardKeyboard({ appRef, scrollRef, cells, lastToggled, focusId, setFocusId, open, setOpen, visibleIds, toggle });
 
   // pins + pinOrder are persisted together on the nook; toggling a pin keeps the
   // existing order (filtered) and appends a new pin to the end.
-  const togglePin = (path: string) => {
+  const togglePin = (path: string): void => {
     if (!nook) return;
     const set = new Set(nook.pins);
     set.has(path) ? set.delete(path) : set.add(path);
@@ -624,14 +287,14 @@ export function PaneBoard({
     const added = [...set].filter((id) => !kept.includes(id));
     store.setNookPins(nook.id, [...set], [...kept, ...added]);
   };
-  const onToggleCheck = (key: string, value: boolean) => {
+  const onToggleCheck = (key: string, value: boolean): void => {
     if (!nook) return;
     const next = { ...nook.checklist };
     if (value) next[key] = true;
     else delete next[key];
     store.setNookChecklist(nook.id, next);
   };
-  const toggleSet = (set: Set<string>, setter: (s: Set<string>) => void, val: string) => {
+  const toggleSet = (set: Set<string>, setter: (s: Set<string>) => void, val: string): void => {
     const n = new Set(set);
     n.has(val) ? n.delete(val) : n.add(val);
     setter(n);
@@ -657,7 +320,9 @@ export function PaneBoard({
   const railScrollRef = useDragScroll<HTMLDivElement>([railVisible, pinnedDocs.length]);
 
   return (
-    <div class={appClass} ref={appRef}>
+    // tabIndex makes the board focusable so the keyboard navigator can scope its
+    // keydown to the pane (it receives focus when the user clicks into it).
+    <div class={appClass} ref={appRef} tabIndex={-1}>
       {!chromeless && (
       <div class="cr-top">
         <div class="cr-topbar">
@@ -713,21 +378,22 @@ export function PaneBoard({
         <div class="cr-filters" ref={filtersRef}>
           <button class={"cr-chip cr-chip--pin" + (pinnedOnly ? " is-on" : "")} onClick={() => setPinnedOnly((v) => !v)}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill={pinnedOnly ? "currentColor" : "none"} stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <path d={STAR_D} />
+              <path d={STAR_PATH} />
             </svg>
             {pins.size}
           </button>
           {presentCats.length > 0 && <span class="cr-filters__div" />}
           {presentCats.map((c) => {
             const cc = data.categories.find((cat) => cat.name === c)?.color;
+            const hasColor = cc != null && cc !== "";
             return (
               <button
                 key={c}
-                class={"cr-chip" + (cc ? " cr-chip--cat" : "") + (cats.has(c) ? " is-on" : "")}
-                style={cc ? { "--cc": cc } : undefined}
+                class={"cr-chip" + (hasColor ? " cr-chip--cat" : "") + (cats.has(c) ? " is-on" : "")}
+                style={hasColor ? { "--cc": cc } : undefined}
                 onClick={() => toggleSet(cats, setCats, c)}
               >
-                {cc && <span class="cr-chip__dot" />}
+                {hasColor && <span class="cr-chip__dot" />}
                 {c}
               </button>
             );
@@ -758,7 +424,7 @@ export function PaneBoard({
               <div class="cr-pinhead">
                 <span class="cr-pinhead__label">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                    <path d={STAR_D} />
+                    <path d={STAR_PATH} />
                   </svg>
                   Pinned
                 </span>
@@ -775,7 +441,7 @@ export function PaneBoard({
                     class={"cr-railcard" + (dragId === d.path ? " is-drag" : "")}
                     style={{ "--bc": rt.color }}
                     onClick={() => {
-                      if (dragRef.current) return;
+                      if (dragId != null && dragId !== "") return;
                       setPinnedOnly(false);
                       toggle(d.path);
                     }}
@@ -786,11 +452,7 @@ export function PaneBoard({
                       onPointerDown={(e) => onPinDown(e, d.path)}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
-                        <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
-                        <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
-                      </svg>
+                      <DragGrip />
                     </span>
                     <span class="cr-railcard__ic">
                       <GlyphIcon iconSet={d.iconSet} icon={d.icon} />
@@ -833,7 +495,7 @@ export function PaneBoard({
                 <div class={"cr-cat" + (sec.results ? " cr-cat--results" : "")}>
                   {sec.results && (
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                      <path d={STAR_D} />
+                      <path d={STAR_PATH} />
                     </svg>
                   )}
                   {sec.label}

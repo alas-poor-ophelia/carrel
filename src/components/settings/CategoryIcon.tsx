@@ -1,4 +1,5 @@
 import { getIconIds } from "obsidian";
+import type { JSX } from "preact";
 import { ICONS } from "../../data/icons/registry";
 import { GlyphIcon, LucideGlyph } from "../common/GlyphIcon";
 
@@ -24,6 +25,6 @@ export function iconDisplayName(icon: string): string {
 }
 
 /** Dispatch a category icon by its source set. Size comes from CSS context. */
-export function CategoryIcon({ iconSet, icon }: { iconSet: "lucide" | "rpg"; icon: string }) {
+export function CategoryIcon({ iconSet, icon }: { iconSet: "lucide" | "rpg"; icon: string }): JSX.Element {
   return <GlyphIcon iconSet={iconSet} icon={icon} />;
 }

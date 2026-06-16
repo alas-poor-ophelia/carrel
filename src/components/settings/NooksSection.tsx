@@ -4,23 +4,28 @@
    Source-folder and theme editing live in NookSettingsModal (the same editor the
    pane's gear opens); this section is the top-level list + lifecycle controls. */
 import { Notice } from "obsidian";
+import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
 import { CreateNookModal, NookSettingsModal } from "../../modals";
+import { PlusIcon, TrashIcon } from "../common/glyphs";
 
 function sourceSummary(folders: string[]): string {
   if (!folders.length) return "Whole vault";
-  const names = folders.map((f) => f.split("/").pop() || f);
+  const names = folders.map((f) => {
+    const last = f.split("/").pop();
+    return last != null && last !== "" ? last : f;
+  });
   const shown = names.slice(0, 3).join(", ");
   return folders.length > 3 ? `${shown} +${folders.length - 3} more` : shown;
 }
 
-export function NooksSection({ plugin }: { plugin: CarrelPlugin }) {
+export function NooksSection({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
   const store = plugin.store;
   const data = store.data.value; // reading .value subscribes this section to nook changes
   const nooks = data.nooks;
   const activeId = data.activeNookId;
 
-  const remove = (id: string) => {
+  const remove = (id: string): void => {
     const nook = nooks.find((n) => n.id === id);
     store.deleteNook(id);
     new Notice(`Removed nook “${nook?.name ?? id}”. Its notes are untouched.`);
@@ -63,9 +68,7 @@ export function NooksSection({ plugin }: { plugin: CarrelPlugin }) {
                 Edit
               </button>
               <button class="ob-btn ob-btn--icon ob-btn--danger" title="Delete nook" onClick={() => remove(n.id)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M5 7h14M9 7V5h6v2M10 11v6M14 11v6M6 7l1 13h10l1-13" />
-                </svg>
+                <TrashIcon />
               </button>
             </div>
           </div>
@@ -73,9 +76,7 @@ export function NooksSection({ plugin }: { plugin: CarrelPlugin }) {
       </div>
 
       <button class="ob-btn ob-btn--cta ob-addbtn" onClick={() => new CreateNookModal(plugin).open()}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
+        <PlusIcon />
         New nook
       </button>
     </>

@@ -155,6 +155,8 @@
 
   .ob-iconnote { font-size: 11.5px; color: var(--tx-faint); margin: 0 0 9px; display: flex; align-items: center; gap: 6px; line-height: 1.4; }
   .ob-iconnote svg, .ob-iconnote .cr-lucide { color: var(--accent); }
+  // sits below the Icons-section paragraph rather than inside the editor
+  .ob-iconnote--gap { margin-top: 6px; }
 
   .ob-iconsearch { position: relative; margin-bottom: 9px; }
   .ob-iconsearch input {

@@ -15,6 +15,7 @@
 import { MarkdownRenderChild, parseYaml } from "obsidian";
 import { render } from "preact";
 import type CarrelPlugin from "../main";
+import type { Nook } from "../types/data";
 import { CarrelIndex } from "../rules/index";
 import { PaneBoard } from "../components/pane/PaneBoard";
 
@@ -56,7 +57,7 @@ class CarrelInlineEmbed extends MarkdownRenderChild {
     }
   }
 
-  private resolveNook(ref: string) {
+  private resolveNook(ref: string): Nook | null {
     const nooks = this.plugin.store.nooks();
     return nooks.find((n) => n.id === ref) ?? nooks.find((n) => n.name === ref) ?? null;
   }

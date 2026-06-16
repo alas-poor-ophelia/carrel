@@ -29,7 +29,7 @@ export class CarrelApiImpl implements CarrelApi {
     root.className = "carrel-embed-root";
     el.appendChild(root);
 
-    const draw = (characterId: string) => {
+    const draw = (characterId: string): void => {
       const nookId = this.ensureCharacterNook(characterId);
       // Point the shared index at this character's nook so the embed populates.
       this.plugin.store.setActiveNook(nookId);
@@ -52,12 +52,13 @@ export class CarrelApiImpl implements CarrelApi {
 
   linkCharacterNook(characterId: string): string {
     const existing = this.getNookForCharacter(characterId);
-    if (existing) return existing;
+    if (existing != null && existing !== "") return existing;
     this.seedPf1eCategories();
     const ms = getWayfinder(this.plugin.app) as unknown as MiniSheetLike | null;
-    const folder = ms?.store?.data?.value?.settings?.rulesFolder || "Rules";
+    const rulesFolder = ms?.store?.data?.value?.settings?.rulesFolder;
+    const folder = rulesFolder != null && rulesFolder !== "" ? rulesFolder : "Rules";
     const charName = ms?.store?.getCharacter?.(characterId)?.name;
-    const name = charName ? `${charName} — Rules` : "Character rules";
+    const name = charName != null && charName !== "" ? `${charName} — Rules` : "Character rules";
     return this.plugin.store.createNook({ name, folders: [folder], theme: "brand", characterId }).id;
   }
 

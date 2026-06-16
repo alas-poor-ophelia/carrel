@@ -3,12 +3,13 @@
    setIcon. Both forward an optional class so callers control sizing. Used by the
    settings category/type pickers and the pane's type badges/chips/cards. */
 import { setIcon } from "obsidian";
+import type { JSX } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { refIconId } from "../../rules/icons";
 import { Icon } from "./Icon";
 
 /** A Lucide glyph rendered via Obsidian's setIcon (real, themeable). */
-export function LucideGlyph({ id, class: cls }: { id: string; class?: string }) {
+export function LucideGlyph({ id, class: cls }: { id: string; class?: string }): JSX.Element {
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -21,7 +22,7 @@ export function LucideGlyph({ id, class: cls }: { id: string; class?: string }) 
       svg.setAttribute("height", "100%");
     }
   }, [id]);
-  return <span class={"cr-lucide" + (cls ? " " + cls : "")} ref={ref} />;
+  return <span class={"cr-lucide" + (cls != null && cls !== "" ? " " + cls : "")} ref={ref} />;
 }
 
 /** Render a glyph by its source set. RPG ids are run through refIconId so bare
@@ -35,7 +36,7 @@ export function GlyphIcon({
   iconSet: "lucide" | "rpg";
   icon: string;
   class?: string;
-}) {
+}): JSX.Element {
   if (iconSet === "lucide") return <LucideGlyph id={icon} class={cls} />;
   return <Icon id={refIconId(icon)} class={cls} />;
 }

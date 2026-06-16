@@ -1,5 +1,5 @@
 import { signal, type Signal } from "@preact/signals";
-import { Component, TFile, type App } from "obsidian";
+import type { App, Component, TFile } from "obsidian";
 import type CarrelPlugin from "../main";
 import { parseNote } from "./parse";
 
@@ -17,6 +17,10 @@ export class CarrelIndex {
   readonly docs: Signal<RuleDoc[]> = signal([]);
   private folders: string[] = [];
   private app: App;
+  /** Bumped on each rebuild() so a slower, superseded rebuild abandons its
+   *  partial result instead of clobbering a newer one (file-change storms and
+   *  rename cascades fire rebuild() many times in quick succession). */
+  private rebuildGen = 0;
 
   constructor(private plugin: CarrelPlugin) {
     this.app = plugin.app;
@@ -75,13 +79,22 @@ export class CarrelIndex {
   }
 
   async rebuild(): Promise<void> {
-    const files = this.app.vault.getMarkdownFiles().filter((f) => this.inFolders(f.path));
-    const docs: RuleDoc[] = [];
-    for (const file of files) {
-      docs.push(await this.indexFile(file));
+    const gen = ++this.rebuildGen;
+    try {
+      const files = this.app.vault.getMarkdownFiles().filter((f) => this.inFolders(f.path));
+      const docs: RuleDoc[] = [];
+      for (const file of files) {
+        const doc = await this.indexFile(file);
+        // A newer rebuild started while we awaited — let it win, drop our work.
+        if (gen !== this.rebuildGen) return;
+        docs.push(doc);
+      }
+      docs.sort((a, b) => a.title.localeCompare(b.title));
+      this.docs.value = docs;
+    } catch (e) {
+      // Surfacing index failures to the console is intentional dev diagnostics.
+      console.error("Carrel: index rebuild failed", e);
     }
-    docs.sort((a, b) => a.title.localeCompare(b.title));
-    this.docs.value = docs;
   }
 
   private async indexFile(file: TFile): Promise<RuleDoc> {

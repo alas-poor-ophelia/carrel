@@ -2,9 +2,9 @@
    block renderers (hybrid: prose goes through Obsidian's MarkdownRenderer;
    everything else is bespoke), plus the small UI atoms (type badge, star, meta
    chips) and search-highlight helpers. */
-import { MarkdownRenderer } from "obsidian";
+import { MarkdownRenderer, MarkdownRenderChild } from "obsidian";
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ComponentChildren, VNode } from "preact";
+import type { ComponentChildren, JSX, VNode } from "preact";
 import type CarrelPlugin from "../../main";
 import type { CustomType } from "../../types/data";
 import type { RuleBlock, RuleDoc } from "../../rules/model";
@@ -13,10 +13,18 @@ import { getRollEngine, type RollResult } from "../../rules/rollEngine";
 import { getDiceRoller } from "../../util/plugins";
 import { Icon } from "../common/Icon";
 import { GlyphIcon } from "../common/GlyphIcon";
+import { STAR_PATH } from "../common/glyphs";
 
 /** Dispatched (bubbling) by ProseBlock once Obsidian's async markdown render
  *  finishes — the masonry listens so it can recompute a grown card's slot. */
 export const RENDERED_EVENT = "cr-rendered";
+
+/** First of the given values that is present and non-empty, falling through on
+ *  empty strings exactly like a chain of `||` (used for label/ref fallbacks). */
+function firstNonEmpty(...vals: (string | undefined)[]): string {
+  for (const v of vals) if (v != null && v !== "") return v;
+  return "";
+}
 
 /* ---------- search highlight ---------- */
 
@@ -41,7 +49,7 @@ export function hlFuzzy(text: string, positions: number[] | undefined): Componen
   const out: VNode[] = [];
   let buf = "";
   let on = false;
-  const flush = () => {
+  const flush = (): void => {
     if (buf) {
       out.push(
         on ? (
@@ -77,7 +85,7 @@ export function TypeBadge({
   type: string;
   customTypes?: CustomType[];
   mini?: boolean;
-}) {
+}): JSX.Element {
   const t = resolveType(type, customTypes);
   return (
     <span class={"r-badge" + (mini ? " r-badge--mini" : "")} style={{ "--bc": t.color }}>
@@ -87,10 +95,7 @@ export function TypeBadge({
   );
 }
 
-const STAR_PATH =
-  "M12 3.5l2.6 5.3 5.9.86-4.25 4.14 1 5.86L12 17.9l-5.25 2.76 1-5.86L3.5 9.66l5.9-.86z";
-
-export function StarButton({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+export function StarButton({ active, onToggle }: { active: boolean; onToggle: () => void }): JSX.Element {
   const [pop, setPop] = useState(false);
   return (
     <button
@@ -110,8 +115,8 @@ export function StarButton({ active, onToggle }: { active: boolean; onToggle: ()
   );
 }
 
-export function MetaChips({ meta }: { meta: RuleDoc["meta"] }) {
-  if (!meta || !meta.length) return null;
+export function MetaChips({ meta }: { meta: RuleDoc["meta"] }): JSX.Element | null {
+  if (meta.length === 0) return null;
   return (
     <div class="r-meta">
       {meta.map((m, i) => (
@@ -128,26 +133,32 @@ export function MetaChips({ meta }: { meta: RuleDoc["meta"] }) {
 /** Prose paragraph — rendered through Obsidian's MarkdownRenderer so
  *  wikilinks, embeds and inline markdown resolve. The optional lead term is
  *  reconstructed into the markdown (`**term** — text`) and styled via CSS. */
-function ProseBlock({ plugin, path, block }: { plugin: CarrelPlugin; path: string; block: Extract<RuleBlock, { t: "p" }> }) {
+function ProseBlock({ plugin, path, block }: { plugin: CarrelPlugin; path: string; block: Extract<RuleBlock, { t: "p" }> }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
-  const md = (block.term ? `**${block.term}** — ` : "") + block.text;
+  const md = (block.term != null && block.term !== "" ? `**${block.term}** — ` : "") + block.text;
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.empty();
+    // A render child scopes the rendered markdown's lifecycle (embeds, etc.) to
+    // this block: unloading it on cleanup avoids the leak of handing the
+    // long-lived plugin to MarkdownRenderer.
+    const child = new MarkdownRenderChild(el);
+    child.load();
     // Markdown fills in asynchronously and grows the card after the masonry has
     // already measured it — notify the board so it can recompute the slot.
-    void MarkdownRenderer.render(plugin.app, md, el, path, plugin).then(() => {
+    void MarkdownRenderer.render(plugin.app, md, el, path, child).then(() => {
       el.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
     });
-  }, [md, path]);
+    return () => child.unload();
+  }, [md, path, plugin.app]);
   return <div class="r-prose" ref={ref} />;
 }
 
-function TableBlock({ block, q }: { block: Extract<RuleBlock, { t: "table" }>; q: string }) {
+function TableBlock({ block, q }: { block: Extract<RuleBlock, { t: "table" }>; q: string }): JSX.Element {
   return (
     <div class="r-table-wrap">
-      {block.caption && (
+      {block.caption != null && block.caption !== "" && (
         <div class="r-table-cap">
           <Icon id="ra-scroll-unfurled" class="r-table-cap__ic" />
           {block.caption}
@@ -175,7 +186,7 @@ function TableBlock({ block, q }: { block: Extract<RuleBlock, { t: "table" }>; q
   );
 }
 
-function StepsBlock({ block, q }: { block: Extract<RuleBlock, { t: "steps" }>; q: string }) {
+function StepsBlock({ block, q }: { block: Extract<RuleBlock, { t: "steps" }>; q: string }): JSX.Element {
   return (
     <ol class="r-steps">
       {block.items.map((it, i) => (
@@ -188,12 +199,12 @@ function StepsBlock({ block, q }: { block: Extract<RuleBlock, { t: "steps" }>; q
   );
 }
 
-function BulletsBlock({ block, q }: { block: Extract<RuleBlock, { t: "bullets" }>; q: string }) {
+function BulletsBlock({ block, q }: { block: Extract<RuleBlock, { t: "bullets" }>; q: string }): JSX.Element {
   return (
     <ul class="r-bullets">
       {block.items.map((it, i) => (
         <li class="r-bullets__item" key={i}>
-          {it.term && <span class="r-term">{hl(it.term, q)} </span>}
+          {it.term != null && it.term !== "" && <span class="r-term">{hl(it.term, q)} </span>}
           {hl(it.text, q)}
         </li>
       ))}
@@ -201,17 +212,17 @@ function BulletsBlock({ block, q }: { block: Extract<RuleBlock, { t: "bullets" }
   );
 }
 
-function CalloutBlock({ block, q }: { block: Extract<RuleBlock, { t: "callout" }>; q: string }) {
+function CalloutBlock({ block, q }: { block: Extract<RuleBlock, { t: "callout" }>; q: string }): JSX.Element {
   return (
     <blockquote class="r-callout">
       <span class="r-callout__mark">“</span>
       <span class="r-callout__text">{hl(block.text, q)}</span>
-      {block.cite && <cite class="r-callout__cite">— {block.cite}</cite>}
+      {block.cite != null && block.cite !== "" && <cite class="r-callout__cite">— {block.cite}</cite>}
     </blockquote>
   );
 }
 
-function FlowBlock({ block, q }: { block: Extract<RuleBlock, { t: "flow" }>; q: string }) {
+function FlowBlock({ block, q }: { block: Extract<RuleBlock, { t: "flow" }>; q: string }): JSX.Element {
   return (
     <div class="r-flow">
       {block.nodes.map((n, i) => {
@@ -257,13 +268,13 @@ function DiceBlock({
   block: Extract<RuleBlock, { t: "dice" }>;
   q: string;
   plugin: CarrelPlugin;
-}) {
+}): JSX.Element {
   const [roll, setRoll] = useState<RollResult | null>(null);
   const [spin, setSpin] = useState(false);
-  const doRoll = async () => {
+  const doRoll = async (): Promise<void> => {
     setSpin(true);
     setTimeout(() => setSpin(false), 360);
-    const result = await getRollEngine(plugin.app).roll(block.expr, block.mod || 0);
+    const result = await getRollEngine(plugin.app).roll(block.expr, block.mod ?? 0);
     setRoll(result);
   };
   return (
@@ -271,7 +282,7 @@ function DiceBlock({
       <div class="r-dice__main">
         <div class="r-dice__expr">
           <span class="r-dice__notation">{hl(block.expr, q)}</span>
-          {block.label && <span class="r-dice__label">{hl(block.label, q)}</span>}
+          {block.label != null && block.label !== "" && <span class="r-dice__label">{hl(block.label, q)}</span>}
         </div>
         <button class={"r-dice__roll" + (spin ? " is-spin" : "")} onClick={doRoll}>
           <Icon id="ra-perspective-dice-five" class="r-dice__roll-ic" />
@@ -365,11 +376,11 @@ function RollTableBlock({
   block: Extract<RuleBlock, { t: "rolltable" }>;
   plugin: CarrelPlugin;
   path: string;
-}) {
+}): JSX.Element {
   const dr = getDiceRoller(plugin.app);
   const [res, setRes] = useState<{ value: string; num: string; tip: string } | null>(null);
   const [spin, setSpin] = useState(false);
-  const doRoll = async () => {
+  const doRoll = async (): Promise<void> => {
     if (!dr || !block.ref) return;
     setSpin(true);
     setTimeout(() => setSpin(false), 360);
@@ -385,7 +396,7 @@ function RollTableBlock({
   return (
     <div class="r-rolltable">
       <div class="r-rolltable__bar">
-        <span class="r-rolltable__label">{block.label || block.ref || "roll table"}</span>
+        <span class="r-rolltable__label">{firstNonEmpty(block.label, block.ref, "roll table")}</span>
         {dr ? (
           <button class={"r-rolltable__roll" + (spin ? " is-spin" : "")} onClick={doRoll}>
             <Icon id="ra-perspective-dice-five" class="r-rolltable__ic" />
@@ -419,11 +430,11 @@ function LookupTableBlock({
   plugin: CarrelPlugin;
   path: string;
   q: string;
-}) {
+}): JSX.Element {
   const resRef = useRef<HTMLDivElement>(null);
   const [hit, setHit] = useState<{ num: number; cell: string } | null>(null);
   const [spin, setSpin] = useState(false);
-  const doRoll = async () => {
+  const doRoll = async (): Promise<void> => {
     setSpin(true);
     setTimeout(() => setSpin(false), 360);
     const n = (await getRollEngine(plugin.app).roll(block.formula)).total;
@@ -434,14 +445,17 @@ function LookupTableBlock({
     const el = resRef.current;
     if (!el || !hit) return;
     el.empty();
-    void MarkdownRenderer.render(plugin.app, hit.cell, el, path, plugin).then(() => {
+    const child = new MarkdownRenderChild(el);
+    child.load();
+    void MarkdownRenderer.render(plugin.app, hit.cell, el, path, child).then(() => {
       el.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
     });
-  }, [hit, path]);
+    return () => child.unload();
+  }, [hit, path, plugin.app]);
   return (
     <div class="r-lookup">
       <div class="r-lookup__bar">
-        {block.caption && <span class="r-lookup__cap">{block.caption}</span>}
+        {block.caption != null && block.caption !== "" && <span class="r-lookup__cap">{block.caption}</span>}
         <span class="r-lookup__formula">{block.formula}</span>
         <button class={"r-lookup__roll" + (spin ? " is-spin" : "")} onClick={doRoll}>
           <Icon id="ra-perspective-dice-five" class="r-lookup__ic" />
@@ -490,7 +504,7 @@ function ChecklistBlock({
   blockKey: string;
   state: Record<string, boolean>;
   onToggle: (key: string, value: boolean) => void;
-}) {
+}): JSX.Element {
   const done = block.items.filter((_, i) => state[`${blockKey}#${i}`]).length;
   const pct = block.items.length ? Math.round((done / block.items.length) * 100) : 0;
   return (
@@ -538,7 +552,7 @@ export function Blocks({
   q: string;
   checklistState: Record<string, boolean>;
   onToggleCheck: (key: string, value: boolean) => void;
-}) {
+}): JSX.Element {
   return (
     <div class="r-blocks">
       {doc.blocks.map((b, i) => {

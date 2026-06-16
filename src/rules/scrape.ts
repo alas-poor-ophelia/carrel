@@ -10,7 +10,8 @@
  * and the in-Obsidian importer (src/rules/import-rule.ts, which feeds it HTML
  * fetched via Obsidian's mobile-safe requestUrl).
  */
-import { parse, type HTMLElement, type Node } from "node-html-parser";
+import { parse, TextNode, type HTMLElement, type Node } from "node-html-parser";
+import { truncateSummary } from "../util/text";
 
 export interface ScrapedNote {
   title: string;
@@ -21,7 +22,7 @@ export interface ScrapedNote {
 }
 
 function isEl(n: Node): n is HTMLElement {
-  return (n as HTMLElement).nodeType === 1;
+  return n.nodeType === 1;
 }
 
 function decode(s: string): string {
@@ -39,7 +40,7 @@ function decode(s: string): string {
 }
 
 function inline(node: Node): string {
-  if (!isEl(node)) return decode((node as Node & { rawText: string }).rawText ?? "");
+  if (!isEl(node)) return decode(node instanceof TextNode ? node.rawText : "");
   const tag = node.rawTagName?.toLowerCase();
   const inner = node.childNodes.map(inline).join("");
   switch (tag) {
@@ -71,7 +72,7 @@ function tableToMarkdown(table: HTMLElement): string {
   const bodyRows = rows.slice(1).map((r) => cells(r, "td")).filter((r) => r.length);
   const width = header.length || (bodyRows[0]?.length ?? 0);
   if (!width) return "";
-  const pad = (r: string[]) => {
+  const pad = (r: string[]): string => {
     const c = r.slice(0, width);
     while (c.length < width) c.push(" ");
     return `| ${c.join(" | ")} |`;
@@ -117,7 +118,7 @@ export function extractNote(html: string, fallbackTitle = "Rule"): ScrapedNote |
   const container = root.querySelector("#MainContent_DetailedOutput");
   if (!container) return null;
 
-  const h1 = container.querySelector("h1.title") || container.querySelector("h1");
+  const h1 = container.querySelector("h1.title") ?? container.querySelector("h1");
   const title = (h1?.text ?? "").trim() || fallbackTitle;
 
   // breadcrumb: the leading <a> links before the title; first = top category
@@ -129,7 +130,7 @@ export function extractNote(html: string, fallbackTitle = "Rule"): ScrapedNote |
       if (a) crumbs.push(a.text.trim());
     }
   }
-  const category = crumbs[0] || "Reference";
+  const category = crumbs[0] != null && crumbs[0] !== "" ? crumbs[0] : "Reference";
 
   // source: <b>Source</b> <i>book pg. N</i>
   const srcM = /<b>\s*Source\s*<\/b>\s*(?:<a[^>]*>)?\s*<i>([^<]+)<\/i>/i.exec(container.innerHTML);
@@ -144,7 +145,7 @@ export function extractNote(html: string, fallbackTitle = "Rule"): ScrapedNote |
   let sawSource = false;
   for (const n of body) {
     const t = isEl(n) ? n.rawTagName?.toLowerCase() : "";
-    const txt = (n as HTMLElement).text?.trim?.() ?? "";
+    const txt = isEl(n) ? n.text.trim() : n instanceof TextNode ? n.rawText.trim() : "";
     if (!sawSource && t === "b" && /source/i.test(txt)) { sawSource = true; skip++; continue; }
     if (sawSource && (t === "a" || t === "br" || txt === "")) { skip++; continue; }
     break;
@@ -157,12 +158,7 @@ export function extractNote(html: string, fallbackTitle = "Rule"): ScrapedNote |
     .replace(/\n+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  let summary = plain;
-  if (plain.length > 180) {
-    const cut = plain.slice(0, 179);
-    const sp = cut.lastIndexOf(" ");
-    summary = `${cut.slice(0, sp > 110 ? sp : 179)}…`;
-  }
+  const summary = truncateSummary(plain);
 
   return { title, category, source, summary, markdown };
 }

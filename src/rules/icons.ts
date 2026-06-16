@@ -29,7 +29,7 @@ const GLYPH_MAP: Record<string, string> = {
 };
 
 export function refIconId(glyph: string | undefined): string {
-  if (!glyph) return "ra-book";
+  if (glyph == null || glyph === "") return "ra-book";
   if (glyph.startsWith("ra-")) return glyph;
   return GLYPH_MAP[glyph] ?? "ra-book";
 }

@@ -5,7 +5,7 @@
    Detection is per-call and cheap; no build-time dependency on Dice Roller —
    we talk to the window global it exposes (see util/plugins.getDiceRoller). */
 import type { App } from "obsidian";
-import { getDiceRoller } from "../util/plugins";
+import { getDiceRoller, type DiceRollerLike } from "../util/plugins";
 
 export interface RollResult {
   total: number;
@@ -55,7 +55,7 @@ class BuiltinRollEngine implements RollEngine {
 class DiceRollerEngine implements RollEngine {
   readonly external = true;
   private readonly fallback = new BuiltinRollEngine();
-  constructor(private readonly dr: import("../util/plugins").DiceRollerLike) {}
+  constructor(private readonly dr: DiceRollerLike) {}
   async roll(expr: string, mod = 0): Promise<RollResult> {
     try {
       const full = mod ? `${expr}${mod > 0 ? "+" + mod : mod}` : expr;

@@ -22,7 +22,7 @@ export class CreateNookModal extends Modal {
     contentEl.createEl("h3", { text: "Create nook", cls: "cr-modal__title" });
 
     new Setting(contentEl).setName("Name").addText((t) => {
-      t.setPlaceholder("e.g. Combat rules");
+      t.setPlaceholder("Combat rules");
       t.onChange((v) => (this.name = v));
       window.setTimeout(() => t.inputEl.focus(), 0);
     });
@@ -103,6 +103,7 @@ export class NookSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName("Theme")
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- Ember, Wayfinder and Obsidian are proper nouns (theme/brand names)
       .setDesc("Ember uses the Wayfinder brand; Obsidian inherits your active theme.")
       .addDropdown((d) =>
         d

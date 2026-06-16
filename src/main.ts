@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf } from "obsidian";
+import { Plugin, type WorkspaceLeaf } from "obsidian";
 import { effect } from "@preact/signals";
 import { installBridge, removeBridge } from "./bridge/mcp-bridge";
 import { VIEW_TYPE_CARREL_PANE } from "./constants";
@@ -52,13 +52,14 @@ export default class CarrelPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE_CARREL_PANE, (leaf) => new PaneView(leaf, this));
 
+    // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Carrel" is the plugin's proper name
     this.addRibbonIcon("book-open", "Open Carrel", () => {
       void this.activatePaneView();
     });
 
     this.addCommand({
       id: "open-pane",
-      name: "Open Carrel pane",
+      name: "Open pane",
       callback: () => void this.activatePaneView(),
     });
 
@@ -69,8 +70,8 @@ export default class CarrelPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "insert-carrel-block",
-      name: "Insert Carrel block",
+      id: "insert-block",
+      name: "Insert block",
       editorCallback: (editor) => {
         new InsertNookBlockModal(this, (nook) => {
           editor.replaceSelection("```carrel\nnook: " + nook.id + "\n```\n");
@@ -102,7 +103,7 @@ export default class CarrelPlugin extends Plugin {
     const { workspace } = this.app;
     let leaf: WorkspaceLeaf | null =
       workspace.getLeavesOfType(VIEW_TYPE_CARREL_PANE)[0] ?? null;
-    if (!leaf) {
+    if (leaf == null) {
       leaf = workspace.getLeaf("tab");
       await leaf.setViewState({ type: VIEW_TYPE_CARREL_PANE, active: true });
     }

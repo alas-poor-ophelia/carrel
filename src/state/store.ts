@@ -9,12 +9,7 @@ import {
   type CustomType,
   type Nook,
 } from "../types/data";
-
-function genId(): string {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
-  if (c && typeof c.randomUUID === "function") return c.randomUUID().slice(0, 8);
-  return Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
-}
+import { genId } from "../util/id";
 
 /**
  * The persisted Carrel state: nooks + global categories, held in a signal and

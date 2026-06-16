@@ -21,19 +21,19 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const overflows = () => el.scrollWidth > el.clientWidth + 1;
-    const maxLeft = () => el.scrollWidth - el.clientWidth;
+    const overflows = (): boolean => el.scrollWidth > el.clientWidth + 1;
+    const maxLeft = (): number => el.scrollWidth - el.clientWidth;
 
     // ---- wheel: glide toward a target instead of snapping per notch ----
     let wheelTarget = 0;
     let wheelRaf = 0;
-    const stopWheel = () => {
+    const stopWheel = (): void => {
       if (wheelRaf) {
         cancelAnimationFrame(wheelRaf);
         wheelRaf = 0;
       }
     };
-    const easeWheel = () => {
+    const easeWheel = (): void => {
       const diff = wheelTarget - el.scrollLeft;
       if (Math.abs(diff) < 0.5) {
         el.scrollLeft = wheelTarget;
@@ -43,7 +43,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       el.scrollLeft += diff * 0.22; // glide ~22% of the gap each frame
       wheelRaf = requestAnimationFrame(easeWheel);
     };
-    const onWheel = (e: WheelEvent) => {
+    const onWheel = (e: WheelEvent): void => {
       if (!overflows()) return;
       // horizontal-dominant gestures (trackpad swipe, horizontal wheel) scroll
       // natively — smoother than anything we'd reproduce in JS
@@ -67,14 +67,14 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
     let vx = 0;
     let raf = 0;
 
-    const stopFling = () => {
+    const stopFling = (): void => {
       if (raf) {
         cancelAnimationFrame(raf);
         raf = 0;
       }
     };
 
-    const onDown = (e: PointerEvent) => {
+    const onDown = (e: PointerEvent): void => {
       // touch scrolls natively (touch-action: pan-x) — don't intercept it
       if (e.pointerType === "touch") return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -90,7 +90,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       lastT = e.timeStamp;
       vx = 0;
     };
-    const onMove = (e: PointerEvent) => {
+    const onMove = (e: PointerEvent): void => {
       if (!down) return;
       const dx = e.clientX - startX;
       if (!moved && Math.abs(dx) < 5) return;
@@ -113,7 +113,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       el.scrollLeft = startLeft - dx;
       e.preventDefault();
     };
-    const onUp = () => {
+    const onUp = (): void => {
       if (!down) return;
       down = false;
       if (!moved) return;
@@ -124,7 +124,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
         /* nothing captured */
       }
       // swallow the click synthesized after a drag so a pan doesn't open a card
-      const swallow = (ev: Event) => {
+      const swallow = (ev: Event): void => {
         ev.stopPropagation();
         ev.preventDefault();
         el.removeEventListener("click", swallow, true);
@@ -136,7 +136,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       let vel = -vx;
       if (Math.abs(vel) < 0.05) return;
       let prevT = 0;
-      const step = (t: number) => {
+      const step = (t: number): void => {
         if (!prevT) {
           prevT = t;
           raf = requestAnimationFrame(step);

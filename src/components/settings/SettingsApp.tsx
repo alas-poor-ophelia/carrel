@@ -6,8 +6,8 @@
    Both lists share the EntityManager widget. Icons come from Obsidian's Lucide set,
    or the RPG Awesome set when the Wayfinder character-sheet plugin is installed. */
 import { useMemo } from "preact/hooks";
+import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
-import type { Category, CustomType } from "../../types/data";
 import { CONTENT_TYPES, FILTERABLE_TYPES, customTypeToken } from "../../rules/registry";
 import { getWayfinder } from "../../util/plugins";
 import { GlyphIcon } from "../common/GlyphIcon";
@@ -18,7 +18,7 @@ import { NooksSection } from "./NooksSection";
 /** Built-in types shown read-only for reference, in chip order + the neutral fallback. */
 const BUILTIN_ORDER: (keyof typeof CONTENT_TYPES)[] = [...FILTERABLE_TYPES, "reference"];
 
-export function SettingsApp({ plugin }: { plugin: CarrelPlugin }) {
+export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
   const store = plugin.store;
   const data = store.data.value; // subscribe to store changes
   const cats = data.categories;
@@ -51,13 +51,13 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }) {
       </p>
       <EntityManager
         entities={cats}
-        onCommit={(next: IconEntity[]) => store.setCategories(next as Category[])}
+        onCommit={(next: IconEntity[]) => store.setCategories(next)}
         countFor={(e) => catCounts.get(e.name) ?? 0}
         rpgAvailable={rpgAvailable}
         noun="category"
         namePlaceholder="e.g. Hex, Maneuver, Item…"
-        removeNotice={(e, n) =>
-          `Removed category “${e.name}”. ${n} note${n === 1 ? "" : "s"} keep their front-matter tag (now unstyled).`
+        removeNotice={(name, n) =>
+          `Removed category “${name}”. ${n} note${n === 1 ? "" : "s"} keep their front-matter tag (now unstyled).`
         }
       />
 
@@ -90,13 +90,13 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }) {
       </div>
       <EntityManager
         entities={customTypes}
-        onCommit={(next: IconEntity[]) => store.setCustomTypes(next as CustomType[])}
+        onCommit={(next: IconEntity[]) => store.setCustomTypes(next)}
         countFor={(e) => typeCounts.get(customTypeToken(e)) ?? 0}
         rpgAvailable={rpgAvailable}
         noun="type"
         namePlaceholder="e.g. Bookmark, Recipe, Person…"
-        removeNotice={(e, n) =>
-          `Removed type “${e.name}”. ${n} note${n === 1 ? "" : "s"} keep their type: front-matter (now shown as plain references).`
+        removeNotice={(name, n) =>
+          `Removed type “${name}”. ${n} note${n === 1 ? "" : "s"} keep their type: front-matter (now shown as plain references).`
         }
       />
 
@@ -109,7 +109,7 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }) {
         {rpgAvailable
           ? "The RPG Awesome glyph set is unlocked because the Wayfinder character-sheet plugin is installed."
           : "Install the Wayfinder character-sheet plugin to unlock the RPG Awesome glyph set in the icon picker."}
-        <span class="ob-iconnote" style={{ marginTop: "6px" }}>
+        <span class="ob-iconnote ob-iconnote--gap">
           <LucideGlyph id="lucide-info" />
           {lucideIds().length} Lucide icons available.
         </span>

@@ -43,7 +43,7 @@ export const FILTERABLE_TYPES: ContentType[] = [
 ];
 
 export function isContentType(s: string | undefined): s is ContentType {
-  return !!s && Object.prototype.hasOwnProperty.call(CONTENT_TYPES, s);
+  return s != null && s !== "" && Object.prototype.hasOwnProperty.call(CONTENT_TYPES, s);
 }
 
 /** A type resolved for rendering — built-in or custom — in a single shape the

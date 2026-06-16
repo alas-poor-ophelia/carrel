@@ -4,8 +4,11 @@
    + dual Lucide/RPG icon picker) and the same drag-to-reorder FLIP, so the
    widget lives here once and SettingsApp binds it to each store list. */
 import { Notice } from "obsidian";
-import { useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import type { JSX } from "preact";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { CategoryIcon, iconDisplayName, lucideIds, rpgIds } from "./CategoryIcon";
+import { DragGrip, PlusIcon, TrashIcon } from "../common/glyphs";
+import { genId } from "../../util/id";
 
 /** The common shape of a Category and a CustomType. */
 export interface IconEntity {
@@ -23,11 +26,6 @@ export const PALETTE = [
 ];
 
 const GRID_CAP = 150;
-
-export function genId(): string {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
-  return c && typeof c.randomUUID === "function" ? "c" + c.randomUUID().slice(0, 7) : "c" + Math.floor(Math.random() * 1e9).toString(36);
-}
 
 interface Draft {
   id: string;
@@ -55,7 +53,7 @@ function Editor({
   onChange: (fn: (d: Draft) => Draft) => void;
   onSave: () => void;
   onCancel: () => void;
-}) {
+}): JSX.Element {
   const [tab, setTab] = useState<"lucide" | "rpg">(draft.iconSet);
   const [q, setQ] = useState("");
   const allIds = useMemo(() => (tab === "rpg" ? rpgIds() : lucideIds()), [tab]);
@@ -65,7 +63,7 @@ function Editor({
     return filtered.slice(0, GRID_CAP);
   }, [allIds, q]);
   // functional merge so batched edits (icon + color in one frame) accumulate
-  const set = (patch: Partial<Draft>) => onChange((d) => ({ ...d, ...patch }));
+  const set = (patch: Partial<Draft>): void => onChange((d) => ({ ...d, ...patch }));
   const valid = draft.name.trim().length > 0;
 
   return (
@@ -196,8 +194,8 @@ export function EntityManager({
   noun: string;
   namePlaceholder: string;
   /** Notice text shown after a delete. */
-  removeNotice: (e: IconEntity, count: number) => string;
-}) {
+  removeNotice: (name: string, count: number) => string;
+}): JSX.Element {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -208,32 +206,36 @@ export function EntityManager({
   const entRef = useRef(entities);
   entRef.current = entities;
 
-  const commit = (next: IconEntity[]) => onCommit(next.map((c, i) => ({ ...c, order: i })));
+  const commit = (next: IconEntity[]): void => onCommit(next.map((c, i) => ({ ...c, order: i })));
+  // latest-ref so the (stable) drag handlers always reorder against the current
+  // commit without taking it as a dependency (which would thrash their identity).
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
 
-  const startNew = () => {
+  const startNew = (): void => {
     setDraft({ id: genId(), name: "", color: PALETTE[0], iconSet: "lucide", icon: "lucide-book" });
     setEditing("new");
   };
-  const startEdit = (e: IconEntity) => {
+  const startEdit = (e: IconEntity): void => {
     setDraft({ id: e.id, name: e.name, color: e.color, iconSet: e.iconSet, icon: e.icon });
     setEditing(e.id);
   };
-  const cancel = () => {
+  const cancel = (): void => {
     setEditing(null);
     setDraft(null);
   };
-  const save = () => {
+  const save = (): void => {
     if (!draft) return;
     const entry: IconEntity = { id: draft.id, name: draft.name.trim(), color: draft.color, iconSet: draft.iconSet, icon: draft.icon, order: 0 };
     if (editing === "new") commit([...entities, entry]);
     else commit(entities.map((c) => (c.id === editing ? entry : c)));
     cancel();
   };
-  const remove = (id: string) => {
+  const remove = (id: string): void => {
     const ent = entities.find((c) => c.id === id);
     if (editing === id) cancel();
     commit(entities.filter((c) => c.id !== id));
-    new Notice(removeNotice(ent ?? ({ name: id } as IconEntity), ent ? countFor(ent) : 0));
+    new Notice(removeNotice(ent?.name ?? id, ent ? countFor(ent) : 0));
   };
 
   /* row reorder FLIP */
@@ -248,11 +250,10 @@ export function EntityManager({
       if (old && id !== dragId) {
         const dy = old.top - nr.top;
         if (Math.abs(dy) > 0.5) {
-          el.style.transition = "none";
+          el.setCssStyles({ transition: "none" });
           el.style.transform = `translateY(${dy}px)`;
           requestAnimationFrame(() => {
-            el.style.transition = "transform .22s cubic-bezier(.3,.8,.35,1)";
-            el.style.transform = "";
+            el.setCssStyles({ transition: "transform .22s cubic-bezier(.3,.8,.35,1)", transform: "" });
           });
         }
       }
@@ -262,7 +263,7 @@ export function EntityManager({
     prev.current = m;
   });
 
-  const onGripMove = useRef((e: PointerEvent) => {
+  const onGripMove = useCallback((e: PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
     const parentLeft = d.el.parentElement?.getBoundingClientRect().left ?? 0;
@@ -279,39 +280,48 @@ export function EntityManager({
         nearest = { id, cy };
       }
     });
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- nearest is assigned inside forEach; TS narrows it back to null but it can be set at runtime
     if (nearest) {
-      const near = nearest as { id: string; cy: number };
+      const near: { id: string; cy: number } = nearest;
       const cur = entRef.current;
       const order = cur.filter((c) => c.id !== d.id);
       const ni = order.findIndex((c) => c.id === near.id);
       const moving = cur.find((c) => c.id === d.id);
       if (moving) {
         order.splice(e.clientY > near.cy ? ni + 1 : ni, 0, moving);
-        if (order.map((c) => c.id).join() !== cur.map((c) => c.id).join()) commit(order);
+        if (order.map((c) => c.id).join() !== cur.map((c) => c.id).join()) commitRef.current(order);
       }
     }
-  }).current;
+  }, []);
 
-  const onGripUp = useRef(() => {
+  const onGripUp = useCallback(() => {
     const d = dragRef.current;
     if (d) Object.assign(d.el.style, { position: "", left: "", top: "", width: "", zIndex: "", pointerEvents: "", transform: "", transition: "" });
     dragRef.current = null;
     setDragId(null);
     window.removeEventListener("pointermove", onGripMove);
     window.removeEventListener("pointerup", onGripUp);
-  }).current;
+    window.removeEventListener("pointercancel", onGripUp);
+  }, [onGripMove]);
 
-  const onGripDown = (e: PointerEvent, id: string) => {
+  const onGripDown = (e: PointerEvent, id: string): void => {
     if (e.button !== 0) return;
     e.preventDefault();
-    const el = (e.currentTarget as HTMLElement).closest(".ob-cat") as HTMLElement | null;
+    const el = (e.currentTarget as HTMLElement).closest<HTMLElement>(".ob-cat");
     if (!el) return;
     const r = el.getBoundingClientRect();
     dragRef.current = { id, el, dy: e.clientY - r.top, w: r.width, h: r.height };
     setDragId(id);
     window.addEventListener("pointermove", onGripMove);
     window.addEventListener("pointerup", onGripUp);
+    // a cancelled gesture (Alt+Tab, OS dialog, palm rejection) never fires
+    // pointerup; without this the dragged row stays stuck until reload.
+    window.addEventListener("pointercancel", onGripUp);
   };
+
+  // tear down a drag-in-progress if settings unmounts mid-gesture, otherwise the
+  // window pointer listeners (and the fixed-position row) leak.
+  useEffect(() => () => onGripUp(), [onGripUp]);
 
   return (
     <>
@@ -320,11 +330,7 @@ export function EntityManager({
           <div class="ob-catwrap" key={ent.id}>
             <div class={"ob-cat" + (dragId === ent.id ? " is-drag" : "")} style={{ "--cc": ent.color }} ref={regRow(ent.id)}>
               <span class="ob-cat__grip" title="Drag to reorder" onPointerDown={(e) => onGripDown(e, ent.id)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
-                  <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
-                  <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
-                </svg>
+                <DragGrip size={15} />
               </span>
               <span class="ob-cat__chip">
                 <CategoryIcon iconSet={ent.iconSet} icon={ent.icon} />
@@ -335,7 +341,10 @@ export function EntityManager({
                   {ent.iconSet === "rpg" && <span class="ob-cat__tag">RPG</span>}
                 </div>
                 <div class="ob-cat__meta">
-                  {countFor(ent)} {countFor(ent) === 1 ? "note" : "notes"} ·{" "}
+                  {(() => {
+                    const n = countFor(ent);
+                    return `${n} ${n === 1 ? "note" : "notes"}`;
+                  })()} ·{" "}
                   {ent.iconSet === "rpg" ? "RPG Awesome" : "Lucide"} · {iconDisplayName(ent.icon)}
                 </div>
               </div>
@@ -344,9 +353,7 @@ export function EntityManager({
                   Edit
                 </button>
                 <button class="ob-btn ob-btn--icon ob-btn--danger" title={`Delete ${noun}`} onClick={() => remove(ent.id)}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 7h14M9 7V5h6v2M10 11v6M14 11v6M6 7l1 13h10l1-13" />
-                  </svg>
+                  <TrashIcon />
                 </button>
               </div>
             </div>
@@ -363,9 +370,7 @@ export function EntityManager({
 
       {editing !== "new" && (
         <button class="ob-btn ob-btn--cta ob-addbtn" onClick={startNew}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
+          <PlusIcon />
           Add {noun}
         </button>
       )}
