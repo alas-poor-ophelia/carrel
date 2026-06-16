@@ -1,6 +1,6 @@
 {
   "name": "carrel",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "description": "Carrel: a novel way to view your notes — an Obsidian plugin",
   "type": "module",
   "scripts": {
@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "check": "bun run typecheck && bun run lint",
-    "test:unit": "vitest run --config vitest.unit.config.ts"
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "version": "bun version-bump.mjs && git add manifest.json versions.json"
   },
   "devDependencies": {
     "@preact/signals": "^2.0.0",

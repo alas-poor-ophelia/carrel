@@ -1,0 +1,48 @@
+name: Release Obsidian plugin
+
+# Obsidian/BRAT require the release tag to equal the manifest version exactly
+# (e.g. "0.9.0", no leading "v"). Push such a tag to cut a release.
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify tag matches manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          MANIFEST_VERSION="$(jq -r .version manifest.json)"
+          if [ "$TAG" != "$MANIFEST_VERSION" ]; then
+            echo "::error::Tag '$TAG' does not match manifest.json version '$MANIFEST_VERSION'."
+            echo "Tag the commit with exactly the manifest version (no 'v' prefix)."
+            exit 1
+          fi
+
+      - name: Build (production)
+        run: bun run build:prod
+
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes "Carrel ${GITHUB_REF_NAME}. Install the three attached files into \`<vault>/.obsidian/plugins/carrel/\`, or add the repo via BRAT (\`alas-poor-ophelia/carrel\`)." \
+            main.js styles.css manifest.json
