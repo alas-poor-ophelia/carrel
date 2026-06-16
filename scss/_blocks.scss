@@ -209,6 +209,21 @@
   .r-dice__eq { color: var(--faint); font-size: 14px; }
   .r-dice__total { font: 700 19px/1 var(--f-title); color: var(--bc, var(--gold)); margin-left: auto; }
 
+  // ---- roll table (Dice Roller embed) ----
+  .r-rolltable {
+    border: 1px solid color-mix(in srgb, var(--bc, var(--gold)) 32%, transparent); border-radius: 8px;
+    background: color-mix(in srgb, var(--bc, var(--gold)) 9%, #18161a);
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .r-rolltable__label { font-family: var(--f-body); font-size: 12.5px; color: var(--muted); }
+  .r-rolltable__host { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 14px; }
+  .r-rolltable__fallback {
+    display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted);
+  }
+  .r-rolltable__ic { width: 14px; height: 14px; color: var(--bc, var(--gold)); }
+  .r-rolltable__ref { font-family: var(--f-ui); color: #efe7d9; }
+  .r-rolltable__hint { margin-left: auto; font-size: 11px; color: var(--faint); font-style: italic; }
+
   // ---- checklist ----
   .r-check { display: flex; flex-direction: column; gap: 8px; }
   .r-check__bar { height: 4px; border-radius: 3px; background: #ffffff12; overflow: hidden; }

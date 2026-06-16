@@ -186,6 +186,14 @@ function diceFromAttrs(a: Attrs): RuleBlock {
   };
 }
 
+function rollTableFromAttrs(a: Attrs): RuleBlock {
+  return {
+    t: "rolltable",
+    ref: attr(a, "ref") ?? "",
+    label: attr(a, "label"),
+  };
+}
+
 /** Classify a contiguous block of non-blank lines, honoring an optional
  *  per-block override directive. */
 function classify(group: string[], override: Attrs | null): RuleBlock {
@@ -242,9 +250,12 @@ function parseBlocks(text: string): RuleBlock[] {
     const bm = line.match(BLOCK_RE);
     if (bm) {
       pending = parseAttrs(bm[1]);
-      // dice carries its whole payload in the directive — emit immediately
+      // dice/rolltable carry their whole payload in the directive — emit now
       if (pending.type === "dice") {
         blocks.push(diceFromAttrs(pending));
+        pending = null;
+      } else if (pending.type === "rolltable") {
+        blocks.push(rollTableFromAttrs(pending));
         pending = null;
       }
       i++;
@@ -297,7 +308,7 @@ function parseBlocks(text: string): RuleBlock[] {
 
 function inferType(blocks: RuleBlock[]): ContentType {
   if (blocks.some((b) => b.t === "flow")) return "flowchart";
-  if (blocks.some((b) => b.t === "dice")) return "formula";
+  if (blocks.some((b) => b.t === "dice" || b.t === "rolltable")) return "formula";
   if (blocks.length && blocks[0].t === "callout") return "quote";
   if (blocks.some((b) => b.t === "checklist" || b.t === "steps")) return "process";
   const tables = blocks.filter((b) => b.t === "table").length;

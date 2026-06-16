@@ -40,6 +40,7 @@ export type RuleBlock =
   | { t: "table"; caption?: string; cols: string[]; rows: string[][] }
   | { t: "flow"; nodes: FlowNode[] }
   | { t: "dice"; expr: string; mod?: number; label?: string }
+  | { t: "rolltable"; ref: string; label?: string }
   | { t: "checklist"; items: { text: string }[] }
   | { t: "steps"; items: { text: string }[] }
   | { t: "bullets"; items: { term?: string; text: string }[] }

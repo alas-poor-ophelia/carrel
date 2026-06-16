@@ -10,6 +10,7 @@ import type { CustomType } from "../../types/data";
 import type { RuleBlock, RuleDoc } from "../../rules/model";
 import { resolveType } from "../../rules/registry";
 import { getRollEngine, type RollResult } from "../../rules/rollEngine";
+import { getDiceRoller } from "../../util/plugins";
 import { Icon } from "../common/Icon";
 import { GlyphIcon } from "../common/GlyphIcon";
 
@@ -301,6 +302,62 @@ function DiceBlock({
   );
 }
 
+/** Lookup / nested random tables. Mounts the Dice Roller plugin's OWN renderer
+ *  (its lookup-table range matching + nested-table recursion come for free), so
+ *  this block only lights up when Dice Roller is installed. The ref is a vault
+ *  link like `[[Encounters^wilderness]]`, resolved against the host note path. */
+function RollTableBlock({
+  block,
+  plugin,
+  path,
+}: {
+  block: Extract<RuleBlock, { t: "rolltable" }>;
+  plugin: CarrelPlugin;
+  path: string;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const dr = getDiceRoller(plugin.app);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !dr || !block.ref) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const roller = await dr.getRoller(block.ref, path);
+        if (cancelled || !roller?.containerEl) return;
+        host.appendChild(roller.containerEl);
+        try {
+          await roller.roll();
+        } catch {
+          /* leave the widget in its un-rolled state */
+        }
+        host.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
+      } catch {
+        if (!cancelled) host.textContent = "Couldn't load roll table.";
+      }
+    })();
+    return () => {
+      cancelled = true;
+      while (host.firstChild) host.removeChild(host.firstChild);
+    };
+  }, [block.ref, path, dr]);
+
+  return (
+    <div class="r-rolltable">
+      {block.label && <span class="r-rolltable__label">{block.label}</span>}
+      {dr ? (
+        <div class="r-rolltable__host" ref={hostRef} />
+      ) : (
+        <div class="r-rolltable__fallback">
+          <Icon id="ra-perspective-dice-five" class="r-rolltable__ic" />
+          <span class="r-rolltable__ref">{block.ref || "roll table"}</span>
+          <span class="r-rolltable__hint">Install Dice Roller to roll</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const CHECK_PATH = "M5 12.5l4.5 4.5L19 7";
 
 /** Tickable checklist — completion persists per-nook via the parent. */
@@ -381,6 +438,8 @@ export function Blocks({
             return <FlowBlock block={b} q={q} key={i} />;
           case "dice":
             return <DiceBlock block={b} q={q} plugin={plugin} key={i} />;
+          case "rolltable":
+            return <RollTableBlock block={b} plugin={plugin} path={doc.path} key={i} />;
           case "checklist":
             return (
               <ChecklistBlock
