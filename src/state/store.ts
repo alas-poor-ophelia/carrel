@@ -2,8 +2,10 @@ import { signal, type Signal } from "@preact/signals";
 import type CarrelPlugin from "../main";
 import {
   CARREL_SCHEMA_VERSION,
+  DEFAULT_CATEGORY_PROP,
   DEFAULT_DATA,
   DEFAULT_TWEAKS,
+  DEFAULT_TYPE_PROP,
   type CarrelData,
   type Category,
   type CustomType,
@@ -128,5 +130,27 @@ export class CarrelStore {
 
   setCustomTypes(customTypes: CustomType[]): void {
     this.commit({ ...this.data.value, customTypes });
+  }
+
+  /* ---------- front-matter property mapping ---------- */
+
+  categoryProp(): string {
+    return this.data.value.categoryProp || DEFAULT_CATEGORY_PROP;
+  }
+
+  setCategoryProp(prop: string): void {
+    const categoryProp = prop.trim() || DEFAULT_CATEGORY_PROP;
+    if (categoryProp === this.data.value.categoryProp) return;
+    this.commit({ ...this.data.value, categoryProp });
+  }
+
+  typeProp(): string {
+    return this.data.value.typeProp || DEFAULT_TYPE_PROP;
+  }
+
+  setTypeProp(prop: string): void {
+    const typeProp = prop.trim() || DEFAULT_TYPE_PROP;
+    if (typeProp === this.data.value.typeProp) return;
+    this.commit({ ...this.data.value, typeProp });
   }
 }

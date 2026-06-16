@@ -35,15 +35,23 @@ export default class CarrelPlugin extends Plugin {
       })
     );
     // Custom-type declarations change how notes resolve their `type:` and icon,
-    // so re-index when the set changes. Guarded by array identity (other commits
-    // keep the same reference) so routine pin/checklist edits don't rebuild.
+    // and the category/type front-matter property names change which fields are
+    // read at all — re-index when any of these change. Guarded by value/identity
+    // checks (other commits keep the same references) so routine pin/checklist
+    // edits don't rebuild.
     {
       let prevTypes = this.store.customTypes();
+      let prevCategoryProp = this.store.categoryProp();
+      let prevTypeProp = this.store.typeProp();
       this.register(
         effect(() => {
           const ct = this.store.customTypes();
-          if (ct !== prevTypes) {
+          const categoryProp = this.store.categoryProp();
+          const typeProp = this.store.typeProp();
+          if (ct !== prevTypes || categoryProp !== prevCategoryProp || typeProp !== prevTypeProp) {
             prevTypes = ct;
+            prevCategoryProp = categoryProp;
+            prevTypeProp = typeProp;
             void this.index.rebuild();
           }
         })

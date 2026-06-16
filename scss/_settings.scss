@@ -89,6 +89,13 @@
   .ob-builtin__name { font-size: 13px; font-weight: 550; }
   .ob-builtin__meta { font-size: 11.5px; color: var(--tx-faint); }
 
+  // front-matter property mapping (two fields side by side, stacking when narrow)
+  .ob-propmap {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px; margin-bottom: 6px;
+    .ob-field { margin-bottom: 0; }
+  }
+
   // nook rows (Nooks section)
   .ob-nookempty {
     font-size: 12.5px; color: var(--tx-faint); padding: 14px 4px;

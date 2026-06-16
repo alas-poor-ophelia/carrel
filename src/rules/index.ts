@@ -1,7 +1,7 @@
 import { signal, type Signal } from "@preact/signals";
 import type { App, Component, TFile } from "obsidian";
 import type CarrelPlugin from "../main";
-import { parseNote } from "./parse";
+import { parseNote, readFmProp } from "./parse";
 
 export type { RuleDoc } from "./model";
 import type { RuleDoc } from "./model";
@@ -100,11 +100,16 @@ export class CarrelIndex {
   private async indexFile(file: TFile): Promise<RuleDoc> {
     const cache = this.app.metadataCache.getFileCache(file);
     const headings = cache?.headings?.map((h) => h.heading) ?? [];
-    const category = (cache?.frontmatter?.category as string | undefined) ?? "General";
+    const category = readFmProp(cache?.frontmatter, this.plugin.store.categoryProp()) ?? "General";
     const raw = await this.app.vault.cachedRead(file);
     // strip frontmatter from the body we render/search
     const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
-    const parsed = parseNote(body, cache?.frontmatter ?? {}, this.plugin.store.customTypes());
+    const parsed = parseNote(
+      body,
+      cache?.frontmatter ?? {},
+      this.plugin.store.customTypes(),
+      this.plugin.store.typeProp()
+    );
     return {
       path: file.path,
       title: headings[0] ?? file.basename,

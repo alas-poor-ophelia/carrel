@@ -4,7 +4,7 @@
  * overrides and frontmatter. Mirrors the handoff sample notes.
  */
 import { describe, expect, it } from "vitest";
-import { parseNote } from "../../../src/rules/parse";
+import { parseNote, readFmProp } from "../../../src/rules/parse";
 import type { RuleBlock } from "../../../src/rules/model";
 import type { CustomType } from "../../../src/types/data";
 
@@ -62,6 +62,48 @@ describe("parseNote — content type", () => {
     // `deed` is no longer built-in; with no custom types it can't be honored
     expect(parseNote(`<!-- ref: deed -->\n\njust prose.`).type).toBe("reference");
     expect(parseNote(`plain prose.`, { type: "made-up" }).type).toBe("reference");
+  });
+});
+
+describe("readFmProp — configurable front-matter property", () => {
+  it("reads a plain string property", () => {
+    expect(readFmProp({ noteType: "deed" }, "noteType")).toBe("deed");
+  });
+
+  it("uses the first element of an array value", () => {
+    expect(readFmProp({ tags: ["npc", "location"] }, "tags")).toBe("npc");
+  });
+
+  it("coerces numbers/booleans and trims whitespace", () => {
+    expect(readFmProp({ n: 42 }, "n")).toBe("42");
+    expect(readFmProp({ pad: "  Item  " }, "pad")).toBe("Item");
+  });
+
+  it("returns undefined for missing, empty, or unparseable values", () => {
+    expect(readFmProp({}, "category")).toBeUndefined();
+    expect(readFmProp(undefined, "category")).toBeUndefined();
+    expect(readFmProp({ x: "" }, "x")).toBeUndefined();
+    expect(readFmProp({ x: [] }, "x")).toBeUndefined();
+    expect(readFmProp({ x: { nested: 1 } }, "x")).toBeUndefined();
+    expect(readFmProp({ x: null }, "x")).toBeUndefined();
+  });
+});
+
+describe("parseNote — configurable type property", () => {
+  it("reads the type from a custom property name", () => {
+    const p = parseNote(`plain prose.`, { noteType: "deed" }, CUSTOM, "noteType");
+    expect(p.type).toBe("deed");
+  });
+
+  it("takes the first array element for the type property", () => {
+    const p = parseNote(`plain prose.`, { tags: ["ability", "misc"] }, CUSTOM, "tags");
+    expect(p.type).toBe("ability");
+  });
+
+  it("falls back to structural inference when the configured property is absent", () => {
+    const p = parseNote(`| A | B |\n| - | - |\n| 1 | 2 |`, { type: "ability" }, CUSTOM, "noteType");
+    // `type` is ignored (we read `noteType`), so the table infers its own type
+    expect(p.type).toBe("table");
   });
 });
 

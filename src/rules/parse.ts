@@ -347,10 +347,29 @@ function firstProseText(blocks: RuleBlock[]): string {
 
 const HEADING_RE = /^\s*#{1,6}\s+.*(?:\r?\n|$)/;
 
+/**
+ * Read a configurable front-matter property as a single string. An array value
+ * uses its first element (e.g. a `tags` list). The result is coerced to a
+ * trimmed string; an empty, missing, or non-stringable value returns undefined
+ * so callers can fall through to their default. Fails silently by design.
+ */
+export function readFmProp(
+  frontmatter: Record<string, unknown> | undefined,
+  prop: string
+): string | undefined {
+  const raw = frontmatter?.[prop];
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  if (v == null) return undefined;
+  if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") return undefined;
+  const s = String(v).trim();
+  return s !== "" ? s : undefined;
+}
+
 export function parseNote(
   body: string,
   frontmatter: Record<string, unknown> = {},
-  customTypes: CustomType[] = []
+  customTypes: CustomType[] = [],
+  typeProp = "type"
 ): ParsedNote {
   let text = body;
 
@@ -382,9 +401,7 @@ export function parseNote(
 
   const blocks = parseBlocks(text);
 
-  const declared =
-    (typeof frontmatter.type === "string" ? frontmatter.type.toLowerCase() : undefined) ??
-    refAttrs.type;
+  const declared = readFmProp(frontmatter, typeProp)?.toLowerCase() ?? refAttrs.type;
   const type: string =
     declared != null && isKnownType(declared, customTypes) ? declared : inferType(blocks);
 

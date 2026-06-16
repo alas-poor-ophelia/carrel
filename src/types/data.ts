@@ -53,9 +53,19 @@ export interface CarrelData {
   categories: Category[];
   customTypes: CustomType[];
   activeNookId: string | null;
+  /** Front-matter property a note's category is read from (default `category`).
+   *  Array values use the first element; unparseable values fall through to "General". */
+  categoryProp: string;
+  /** Front-matter property a note's type is read from (default `type`).
+   *  Array values use the first element; unrecognized values fall back to structural inference. */
+  typeProp: string;
 }
 
-export const CARREL_SCHEMA_VERSION = 2;
+export const CARREL_SCHEMA_VERSION = 3;
+
+/** Built-in defaults for the configurable front-matter property names. */
+export const DEFAULT_CATEGORY_PROP = "category";
+export const DEFAULT_TYPE_PROP = "type";
 
 export const DEFAULT_TWEAKS: NookTweaks = {
   columns: "auto",
@@ -71,4 +81,6 @@ export const DEFAULT_DATA: CarrelData = {
   categories: [],
   customTypes: [],
   activeNookId: null,
+  categoryProp: DEFAULT_CATEGORY_PROP,
+  typeProp: DEFAULT_TYPE_PROP,
 };

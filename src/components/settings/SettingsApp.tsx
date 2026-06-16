@@ -5,7 +5,7 @@
      own for a custom label/color/icon (no new parsing).
    Both lists share the EntityManager widget. Icons come from Obsidian's Lucide set,
    or the RPG Awesome set when the Wayfinder character-sheet plugin is installed. */
-import { useMemo } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
 import { CONTENT_TYPES, FILTERABLE_TYPES, customTypeToken } from "../../rules/registry";
@@ -100,6 +100,30 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
         }
       />
 
+      <div class="ob-h">
+        <h3 class="ob-h__t">Front-matter mapping</h3>
+      </div>
+      <p class="ob-h__desc">
+        Choose which front-matter property Carrel reads for each note's category and type. Defaults are{" "}
+        <code>category</code> and <code>type</code> — point them elsewhere (e.g. read your <code>tags</code> list
+        for the category) to fit your vault. If the property holds a list, Carrel uses the first value; anything
+        it can't read falls through to the usual default.
+      </p>
+      <div class="ob-propmap">
+        <PropField
+          label="Category property"
+          value={data.categoryProp}
+          fallback="category"
+          onCommit={(v) => store.setCategoryProp(v)}
+        />
+        <PropField
+          label="Type property"
+          value={data.typeProp}
+          fallback="type"
+          onCommit={(v) => store.setTypeProp(v)}
+        />
+      </div>
+
       <NooksSection plugin={plugin} />
 
       <div class="ob-h">
@@ -114,6 +138,45 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
           {lucideIds().length} Lucide icons available.
         </span>
       </p>
+    </div>
+  );
+}
+
+/** A single front-matter property name input. Keeps a local draft and commits
+ *  on blur / Enter so a reindex fires once per edit rather than per keystroke;
+ *  a blank entry reverts to the built-in default. */
+function PropField({
+  label,
+  value,
+  fallback,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  fallback: string;
+  onCommit: (v: string) => void;
+}): JSX.Element {
+  const [draft, setDraft] = useState(value);
+  const commit = (): void => {
+    const next = draft.trim() || fallback;
+    setDraft(next);
+    onCommit(next);
+  };
+  return (
+    <div class="ob-field">
+      <div class="ob-field__label">{label}</div>
+      <input
+        class="ob-input"
+        type="text"
+        value={draft}
+        placeholder={fallback}
+        spellcheck={false}
+        onInput={(e) => setDraft((e.target as HTMLInputElement).value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+      />
     </div>
   );
 }
