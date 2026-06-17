@@ -21,12 +21,14 @@ const context = await esbuild.context({
   minify: prod,
   jsx: "automatic",
   jsxImportSource: "preact",
-  // Changes every build; window.__carrel.buildStamp exposes it so the MCP reload
-  // tool can verify the running code actually changed. Mirrors the sister plugin
-  // (Wayfinder) exactly — its build passes the store's "Build verified against
-  // source" check with this pattern, and reads no files at config time.
+  // Dev builds get a volatile per-build stamp so window.__carrel.buildStamp lets
+  // the MCP reload tool prove the running code actually changed. PRODUCTION builds
+  // get a STABLE stamp so the released main.js is byte-reproducible from source:
+  // the store's "Build verified against source" check rebuilds and diffs, and a
+  // Date.now() value is the only thing that would differ (confirmed: a clean-room
+  // build:prod of a release tag matches the published main.js except these digits).
   define: {
-    __BUILD_STAMP__: JSON.stringify(String(Date.now())),
+    __BUILD_STAMP__: JSON.stringify(prod ? "release" : String(Date.now())),
   },
   nodePaths: [path.resolve(__dirname, "node_modules")],
 });
