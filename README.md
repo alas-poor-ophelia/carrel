@@ -12,8 +12,6 @@ Carrel works as a full workspace pane and as an inline embed you can drop into a
 
 ### From the Community Plugins browser
 
-> Carrel is not yet in the Community Plugins directory. Once it is listed, these are the steps.
-
 1. Open **Settings → Community plugins**.
 2. Turn off **Restricted mode** if it is on.
 3. Click **Browse**, search for **Carrel**, and click **Install**.
@@ -21,7 +19,7 @@ Carrel works as a full workspace pane and as an inline embed you can drop into a
 
 ### From BRAT (beta releases)
 
-[BRAT](https://github.com/TfTHacker/obsidian42-brat) (the Beta Reviewers Auto-update Tool) installs and updates plugins that aren't in the directory yet.
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) (the Beta Reviewers Auto-update Tool) installs and updates pre-release builds ahead of the stable Community Plugins listing.
 
 1. Install **BRAT** from the Community Plugins browser and enable it.
 2. Open the command palette and run **BRAT: Add a beta plugin for testing**.
@@ -311,7 +309,6 @@ None of this is required — Carrel is fully standalone. The integration simply 
 
 ## Known limitations
 
-- Not yet published in the Community Plugins directory — install via BRAT or manually for now.
 - Card **type** is inferred, not user-assigned; the inference is heuristic and falls back to a plain Reference card when it can't tell.
 - Open cards, keyboard focus, the search query, and active filters are transient — they reset when the pane reloads. Pins, pin order, and checklist state persist per nook.
 
