@@ -4,6 +4,12 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 0.10.3
+
+### Reproducible release builds (store-verified)
+
+- Release builds now match the Obsidian store scanner's own rebuild exactly: the project ships a committed `package-lock.json` and builds via `npm ci` + `npm run build` (Node), so the published `main.js` can be byte-verified against source. No functional changes.
+
 ## 0.10.2
 
 ### Reproducible release builds
