@@ -4,6 +4,12 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 0.10.6
+
+### Build configuration aligned with the sister plugin
+
+- `esbuild.config.mjs` no longer reads `manifest.json` at build time; the build stamp is now a per-build value, mirroring the sister plugin (Wayfinder) exactly — whose build passes the store's "Build verified against source" check. This removes the only build-config difference between the two plugins. No functional changes to the plugin.
+
 ## 0.10.5
 
 ### Build/dependency alignment
