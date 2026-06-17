@@ -4,6 +4,12 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 0.10.5
+
+### Build/dependency alignment
+
+- Aligned the dev/test dependency tree with the sister plugin's known-good configuration: `vitest` pinned to 3.2.x with `vite` 6 / `rollup` 4 via `overrides`, dropping the pre-release `rolldown` + `vite` 8 chain that `vitest` 4 pulled in. No functional changes to the plugin — the compiled `main.js` is byte-for-byte identical to 0.10.4.
+
 ## 0.10.4
 
 ### Security and build hardening

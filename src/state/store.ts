@@ -22,7 +22,7 @@ import { genId } from "../util/id";
  */
 export class CarrelStore {
   readonly data: Signal<CarrelData> = signal(structuredClone(DEFAULT_DATA));
-  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveTimer: number | null = null;
 
   constructor(private readonly plugin: CarrelPlugin) {}
 
