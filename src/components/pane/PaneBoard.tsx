@@ -285,7 +285,8 @@ export function PaneBoard({
     lastToggled.current = id;
     setOpen((o) => {
       const n = new Set(o);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
     setFocusId(id);
@@ -302,7 +303,8 @@ export function PaneBoard({
   const togglePin = (path: string): void => {
     if (!nook) return;
     const set = new Set(nook.pins);
-    set.has(path) ? set.delete(path) : set.add(path);
+    if (set.has(path)) set.delete(path);
+    else set.add(path);
     const kept = nook.pinOrder.filter((id) => set.has(id));
     const added = [...set].filter((id) => !kept.includes(id));
     store.setNookPins(nook.id, [...set], [...kept, ...added]);
@@ -316,7 +318,8 @@ export function PaneBoard({
   };
   const toggleSet = (set: Set<string>, setter: (s: Set<string>) => void, val: string): void => {
     const n = new Set(set);
-    n.has(val) ? n.delete(val) : n.add(val);
+    if (n.has(val)) n.delete(val);
+    else n.add(val);
     setter(n);
   };
 

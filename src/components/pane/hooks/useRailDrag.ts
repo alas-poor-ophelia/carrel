@@ -45,7 +45,7 @@ export function useRailDrag(opts: RailDragOptions): {
         if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
           el.setCssStyles({ transition: "none" });
           el.style.transform = `translate(${dx}px, ${dy}px)`;
-          requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
             el.setCssStyles({ transition: "transform .24s var(--ease-back)", transform: "" });
           });
         }

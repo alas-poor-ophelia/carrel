@@ -52,13 +52,13 @@ export interface TaggedItem {
 }
 
 /** A global, colored, icon'd category tag (managed in settings; Phase 6). */
-export interface Category extends TaggedItem {}
+export type Category = TaggedItem;
 
 /** A user-declared content type (managed in settings). Carries label/color/icon
  *  only — no parsing logic; the built-in parsers stay compiled in. A note opts
  *  into one via its frontmatter `type:` (matched case-insensitively against `id`).
  *  Shares the Category shape, but `id` doubles as the matchable frontmatter token. */
-export interface CustomType extends TaggedItem {}
+export type CustomType = TaggedItem;
 
 export interface CarrelData {
   schemaVersion: number;

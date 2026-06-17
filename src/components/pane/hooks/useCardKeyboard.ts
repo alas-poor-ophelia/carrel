@@ -101,7 +101,7 @@ export function useCardKeyboard(opts: KeyboardOptions): void {
       }
     };
     const onKey = (e: KeyboardEvent): void => {
-      const ae = document.activeElement as HTMLElement | null;
+      const ae = activeDocument.activeElement as HTMLElement | null;
       const typing =
         ae != null &&
         (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT" || ae.isContentEditable);

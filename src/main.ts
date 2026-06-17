@@ -60,8 +60,7 @@ export default class CarrelPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE_CARREL_PANE, (leaf) => new PaneView(leaf, this));
 
-    // eslint-disable-next-line obsidianmd/ui/sentence-case -- "Carrel" is the plugin's proper name
-    this.addRibbonIcon("book-open", "Open Carrel", () => {
+    this.addRibbonIcon("book-open", "Carrel", () => {
       void this.activatePaneView();
     });
 

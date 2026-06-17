@@ -77,7 +77,7 @@ export function useMasonryPack(
     let raf = 0;
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(calc);
+      raf = window.requestAnimationFrame(calc);
     });
     ro.observe(el);
     return () => {
@@ -161,12 +161,12 @@ export function useMasonryPack(
     const f = (): void => force((x) => x + 1);
     let alive = true;
     const onRendered = (): void => f();
-    document.addEventListener(RENDERED_EVENT, onRendered);
-    void document.fonts?.ready.then(() => alive && f());
+    activeDocument.addEventListener(RENDERED_EVENT, onRendered);
+    void activeDocument.fonts?.ready.then(() => alive && f());
     window.addEventListener("resize", f);
     return () => {
       alive = false;
-      document.removeEventListener(RENDERED_EVENT, onRendered);
+      activeDocument.removeEventListener(RENDERED_EVENT, onRendered);
       window.removeEventListener("resize", f);
     };
   }, []);

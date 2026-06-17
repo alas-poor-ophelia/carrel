@@ -52,7 +52,7 @@ export function useCardDrag(opts: CardDragOptions): {
       // than the nearest center is what stops reorder oscillation: after a swap
       // the placeholder slot lands under the cursor, so the hit-test returns the
       // dragged card itself and nothing moves until the cursor leaves its slot.
-      const hit = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const hit = activeDocument.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
       const cellUnder = hit?.closest<HTMLElement>(".cr-cell") ?? null;
       if (!cellUnder) return;
       const targetPath = cellUnder.dataset.path ?? null;

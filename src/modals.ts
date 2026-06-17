@@ -103,8 +103,7 @@ export class NookSettingsModal extends Modal {
 
     new Setting(contentEl)
       .setName("Theme")
-      // eslint-disable-next-line obsidianmd/ui/sentence-case -- Ember, Wayfinder and Obsidian are proper nouns (theme/brand names)
-      .setDesc("Ember uses the Wayfinder brand; Obsidian inherits your active theme.")
+      .setDesc("Ember uses the warm brand palette; Obsidian inherits your active theme.")
       .addDropdown((d) =>
         d
           .addOption("brand", "Ember")
@@ -157,6 +156,9 @@ export class NookSettingsModal extends Modal {
       .addButton((b) =>
         b
           .setButtonText("Delete")
+          // setDestructive() needs Obsidian 1.13.0; setWarning still renders the
+          // destructive button at our minAppVersion (1.7.2). Store treats the
+          // deprecation as a non-blocking recommendation.
           .setWarning()
           .onClick(() => {
             this.plugin.store.deleteNook(nook.id);

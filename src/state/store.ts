@@ -45,16 +45,16 @@ export class CarrelStore {
 
   private commit(next: CarrelData): void {
     this.data.value = next;
-    if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => {
+    if (this.saveTimer != null) window.clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
       void this.plugin.saveData(this.data.value);
     }, 400);
   }
 
   async flush(): Promise<void> {
-    if (this.saveTimer) {
-      clearTimeout(this.saveTimer);
+    if (this.saveTimer != null) {
+      window.clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
     await this.plugin.saveData(this.data.value);

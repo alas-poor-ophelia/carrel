@@ -104,7 +104,7 @@ export function StarButton({ active, onToggle }: { active: boolean; onToggle: ()
       onClick={(e) => {
         e.stopPropagation();
         setPop(true);
-        setTimeout(() => setPop(false), 360);
+        window.setTimeout(() => setPop(false), 360);
         onToggle();
       }}
     >
@@ -273,7 +273,7 @@ function DiceBlock({
   const [spin, setSpin] = useState(false);
   const doRoll = async (): Promise<void> => {
     setSpin(true);
-    setTimeout(() => setSpin(false), 360);
+    window.setTimeout(() => setSpin(false), 360);
     const result = await getRollEngine(plugin.app).roll(block.expr, block.mod ?? 0);
     setRoll(result);
   };
@@ -284,7 +284,7 @@ function DiceBlock({
           <span class="r-dice__notation">{hl(block.expr, q)}</span>
           {block.label != null && block.label !== "" && <span class="r-dice__label">{hl(block.label, q)}</span>}
         </div>
-        <button class={"r-dice__roll" + (spin ? " is-spin" : "")} onClick={doRoll}>
+        <button class={"r-dice__roll" + (spin ? " is-spin" : "")} onClick={() => void doRoll()}>
           <Icon id="ra-perspective-dice-five" class="r-dice__roll-ic" />
           <span>Roll</span>
         </button>
@@ -383,7 +383,7 @@ function RollTableBlock({
   const doRoll = async (): Promise<void> => {
     if (!dr || !block.ref) return;
     setSpin(true);
-    setTimeout(() => setSpin(false), 360);
+    window.setTimeout(() => setSpin(false), 360);
     try {
       const roller = await dr.getRoller(block.ref, path);
       const value = await roller.roll();
@@ -398,7 +398,7 @@ function RollTableBlock({
       <div class="r-rolltable__bar">
         <span class="r-rolltable__label">{firstNonEmpty(block.label, block.ref, "roll table")}</span>
         {dr ? (
-          <button class={"r-rolltable__roll" + (spin ? " is-spin" : "")} onClick={doRoll}>
+          <button class={"r-rolltable__roll" + (spin ? " is-spin" : "")} onClick={() => void doRoll()}>
             <Icon id="ra-perspective-dice-five" class="r-rolltable__ic" />
             <span>Roll</span>
           </button>
@@ -436,7 +436,7 @@ function LookupTableBlock({
   const [spin, setSpin] = useState(false);
   const doRoll = async (): Promise<void> => {
     setSpin(true);
-    setTimeout(() => setSpin(false), 360);
+    window.setTimeout(() => setSpin(false), 360);
     const n = (await getRollEngine(plugin.app).roll(block.formula)).total;
     const row = block.rows.find((r) => rangeContains(r[0] ?? "", n));
     setHit({ num: n, cell: row ? (row[1] ?? row[0] ?? "—") : "—" });
@@ -457,7 +457,7 @@ function LookupTableBlock({
       <div class="r-lookup__bar">
         {block.caption != null && block.caption !== "" && <span class="r-lookup__cap">{block.caption}</span>}
         <span class="r-lookup__formula">{block.formula}</span>
-        <button class={"r-lookup__roll" + (spin ? " is-spin" : "")} onClick={doRoll}>
+        <button class={"r-lookup__roll" + (spin ? " is-spin" : "")} onClick={() => void doRoll()}>
           <Icon id="ra-perspective-dice-five" class="r-lookup__ic" />
           <span>Roll</span>
         </button>

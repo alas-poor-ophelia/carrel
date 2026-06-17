@@ -196,7 +196,7 @@ export function EntityManager({
   /** Notice text shown after a delete. */
   removeNotice: (name: string, count: number) => string;
 }): JSX.Element {
-  const [editing, setEditing] = useState<string | "new" | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -252,7 +252,7 @@ export function EntityManager({
         if (Math.abs(dy) > 0.5) {
           el.setCssStyles({ transition: "none" });
           el.style.transform = `translateY(${dy}px)`;
-          requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
             el.setCssStyles({ transition: "transform .22s cubic-bezier(.3,.8,.35,1)", transform: "" });
           });
         }

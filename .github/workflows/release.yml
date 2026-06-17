@@ -9,6 +9,9 @@ on:
 
 permissions:
   contents: write
+  # Required for cryptographic build-provenance attestation of the release assets.
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -20,7 +23,10 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pinned (not "latest") so the bundler output is reproducible: a floating
+          # Bun/esbuild was the likely cause of the "build output does not match the
+          # released main.js" check. Bump deliberately alongside a release.
+          bun-version: 1.3.10
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -37,6 +43,16 @@ jobs:
 
       - name: Build (production)
         run: bun run build:prod
+
+      # Cryptographically attest that main.js/styles.css were built from this
+      # source commit by this workflow run. Lets users verify provenance and
+      # clears the store's "Missing GitHub artifact attestations" recommendation.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            styles.css
 
       # Pull this tag's section out of CHANGELOG.md (heading must be exactly
       # "## <version>", matching the tag). Falls back to a generic stub so a

@@ -358,7 +358,7 @@ export function readFmProp(
   prop: string
 ): string | undefined {
   const raw = frontmatter?.[prop];
-  const v = Array.isArray(raw) ? raw[0] : raw;
+  const v: unknown = Array.isArray(raw) ? (raw as unknown[])[0] : raw;
   if (v == null) return undefined;
   if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") return undefined;
   const s = String(v).trim();

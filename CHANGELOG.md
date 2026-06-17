@@ -4,6 +4,17 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 0.10.1
+
+### Submission polish
+
+Housekeeping for the Obsidian community-plugin submission — no behaviour changes to your nooks, board, or notes.
+
+- **Popout-window ready** — timers and document access now resolve against the active window, so the board behaves correctly when opened in a popped-out Obsidian window.
+- **Type-safety and lint cleanups** across the codebase, now checked against the latest official Obsidian community lint rules.
+- **Minimum Obsidian version is now 1.7.2.**
+- **Release builds carry cryptographic provenance attestations**, so you can verify the published `main.js`/`styles.css` were built from this source.
+
 ## 0.10.0
 
 ### Group, sort, and arrange your board

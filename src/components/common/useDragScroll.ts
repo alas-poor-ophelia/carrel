@@ -41,7 +41,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
         return;
       }
       el.scrollLeft += diff * 0.22; // glide ~22% of the gap each frame
-      wheelRaf = requestAnimationFrame(easeWheel);
+      wheelRaf = window.requestAnimationFrame(easeWheel);
     };
     const onWheel = (e: WheelEvent): void => {
       if (!overflows()) return;
@@ -53,7 +53,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       if (!wheelRaf) wheelTarget = el.scrollLeft; // re-sync on a fresh gesture
       wheelTarget = Math.max(0, Math.min(wheelTarget + e.deltaY, maxLeft()));
       e.preventDefault();
-      if (!wheelRaf) wheelRaf = requestAnimationFrame(easeWheel);
+      if (!wheelRaf) wheelRaf = window.requestAnimationFrame(easeWheel);
     };
 
     let down = false;
@@ -130,7 +130,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
         el.removeEventListener("click", swallow, true);
       };
       el.addEventListener("click", swallow, true);
-      setTimeout(() => el.removeEventListener("click", swallow, true), 60);
+      window.setTimeout(() => el.removeEventListener("click", swallow, true), 60);
 
       // carry the release velocity and decelerate (scrollLeft moves opposite the pointer)
       let vel = -vx;
@@ -139,16 +139,16 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       const step = (t: number): void => {
         if (!prevT) {
           prevT = t;
-          raf = requestAnimationFrame(step);
+          raf = window.requestAnimationFrame(step);
           return;
         }
         const dt = t - prevT;
         prevT = t;
         el.scrollLeft += vel * dt;
         vel *= Math.pow(0.94, dt / 16.67); // ~frame-rate-independent friction
-        raf = Math.abs(vel) > 0.02 ? requestAnimationFrame(step) : 0;
+        raf = Math.abs(vel) > 0.02 ? window.requestAnimationFrame(step) : 0;
       };
-      raf = requestAnimationFrame(step);
+      raf = window.requestAnimationFrame(step);
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -165,7 +165,7 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps is the caller-supplied stable dependency list; the listener set is rebuilt only when it changes
   }, deps);
   return ref;
 }
