@@ -20,19 +20,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Mirror the community.obsidian.md store scanner EXACTLY so its build
-      # verification can reproduce main.js: Node 24 + `npm ci` (committed
-      # package-lock.json) + `npm run build`. The scanner rebuilds from the tag
-      # and byte-diffs against the released asset — any toolchain divergence
-      # (bun vs npm, floating deps) trips "build output does not match".
-      - name: Use Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: "npm"
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Verify tag matches manifest version
         run: |
@@ -45,7 +39,7 @@ jobs:
           fi
 
       - name: Build (production)
-        run: npm run build
+        run: bun run build:prod
 
       # Cryptographically attest that main.js/styles.css were built from this
       # source commit by this workflow run. Lets users verify provenance and

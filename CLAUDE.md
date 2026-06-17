@@ -37,22 +37,23 @@ Active plan: `C:\Users\whipl\.claude\plans\swirling-leaping-flame.md`.
 ## Build / Deploy / Loop
 
 ```
-bun run build        # PRODUCTION: sass + esbuild(production) -> minified main.js/styles.css
-bun run build:dev    # dev build (sourcemaps, per-build __BUILD_STAMP__); used by deploy
-bun run deploy       # build:dev + copy to BOTH carrel-test-vault and MiniSheet Dev
+bun run build        # sass + esbuild -> main.js/styles.css (dev)
+bun run build:prod   # PRODUCTION (minified); what release.yml ships
+bun run deploy       # build + copy to BOTH carrel-test-vault and MiniSheet Dev
 bun run typecheck    # tsc --noEmit
 bun run test:unit    # vitest (tests/unit)
 ```
 
-**Release reproducibility (store scanner):** the community.obsidian.md scanner rebuilds
-`main.js` with **Node 24 + `npm ci` + `npm run build`** and byte-diffs it against the
-released asset. So `npm run build` IS the production build (`node esbuild.config.mjs
-production`, runtime-agnostic — no `bun` in the `build`/`build:css` scripts), a
-**`package-lock.json` is committed** alongside `bun.lock`, and `.github/workflows/release.yml`
-builds via `npm ci` + `npm run build` (NOT bun) so CI output == scanner output. esbuild's
-bytes are identical under node or bun; what matters is the committed npm lockfile pinning
-esbuild. Local dev still uses bun. The prod `__BUILD_STAMP__` is the manifest version
-(deterministic); dev uses a clock. See [[carrel-eslint-store-gauge]] / release-process memory.
+**Release toolchain — mirror Wayfinder (the sister plugin that passes the store
+scanner).** Everything is **bun**: `bun.lock` is the only lockfile (NO
+`package-lock.json`), and `.github/workflows/release.yml` runs `bun install
+--frozen-lockfile` + `bun run build:prod` + `actions/attest-build-provenance`. Do NOT
+migrate to npm — the scanner detects `bun.lock` and rebuilds with bun; an all-bun repo
+that matches Wayfinder passes. **`bun audit` MUST be clean before release** — a HIGH
+esbuild advisory (GHSA-gv7w-rqvm-qjhr, `esbuild <0.28.1`) was the true cause of the
+store's "build output does not match" build-verification failure; fixed by pinning
+`esbuild ^0.28.1` + an `overrides` entry forcing the transitive copy. Run `bun audit`
+as a release gate. See [[carrel-release-process]] / [[carrel-eslint-store-gauge]].
 
 `deploy` copies `main.js`/`styles.css`/`manifest.json` to two plugin dirs:
 `carrel-test-vault/.obsidian/plugins/carrel` (clean-room) and the `MiniSheet Dev` vault's

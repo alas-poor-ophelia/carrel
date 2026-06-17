@@ -1,16 +1,15 @@
 {
   "name": "carrel",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "Carrel: a novel way to view your notes — an Obsidian plugin",
   "type": "module",
   "scripts": {
     "build:css": "sass scss/main.scss styles.css --no-source-map --no-charset",
     "build:css:watch": "sass scss/main.scss styles.css --no-source-map --no-charset --watch",
-    "build": "npm run build:css && node esbuild.config.mjs production",
-    "build:dev": "npm run build:css && node esbuild.config.mjs",
-    "build:prod": "npm run build",
-    "build:watch": "node esbuild.config.mjs --watch",
-    "deploy": "npm run build:dev && bun scripts/deploy.mjs",
+    "build": "bun run build:css && bun esbuild.config.mjs",
+    "build:prod": "bun run build:css && bun esbuild.config.mjs production",
+    "build:watch": "bun esbuild.config.mjs --watch",
+    "deploy": "bun run build && bun scripts/deploy.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -22,7 +21,7 @@
     "@preact/signals": "^2.0.0",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.1",
     "eslint": "^9.17.0",
     "eslint-plugin-obsidianmd": "0.3.0",
     "eslint-plugin-react-hooks": "^5.1.0",
@@ -32,6 +31,9 @@
     "sass": "^1.83.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
   },
   "license": "MIT"
 }

@@ -4,6 +4,12 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 0.10.4
+
+### Security and build hardening
+
+- **esbuild updated to 0.28.1**, clearing a high-severity advisory (GHSA-gv7w-rqvm-qjhr) so the dependency audit is clean. This was also the root cause of the store's build-verification mismatch — releases now build against a current, non-vulnerable bundler. No functional changes to the plugin.
+
 ## 0.10.3
 
 ### Reproducible release builds (store-verified)
