@@ -6,11 +6,7 @@ styles.css
 mcp/node_modules/
 mcp/screenshots/
 
-# test-vault: keep the seed notes + community-plugins.json, ignore the
-# deployed plugin build and Obsidian's per-machine runtime state.
-carrel-test-vault/.obsidian/plugins/
-carrel-test-vault/.obsidian/workspace.json
-carrel-test-vault/.obsidian/workspace-mobile.json
-carrel-test-vault/.obsidian/app.json
-carrel-test-vault/.obsidian/appearance.json
-carrel-test-vault/.obsidian/core-plugins.json
+# test-vault: a local dev/MCP fixture only — never part of the published plugin
+# repo. Kept on disk for the dev loop, fully untracked (the store scanner does
+# not ignore a dir named "carrel-test-vault", so it must not be committed).
+carrel-test-vault/

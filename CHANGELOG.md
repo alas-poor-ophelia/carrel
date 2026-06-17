@@ -4,6 +4,12 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 0.10.7
+
+### Repository hygiene
+
+- Removed the local development `carrel-test-vault/` fixture from version control (it remains on disk for the dev/MCP loop). It is a test-only Obsidian vault that never belonged in the published plugin repo. No functional changes to the plugin.
+
 ## 0.10.6
 
 ### Build configuration aligned with the sister plugin
