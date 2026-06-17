@@ -1,7 +1,7 @@
 {
 	"id": "carrel",
 	"name": "Carrel",
-	"version": "0.10.1",
+	"version": "0.10.2",
 	"minAppVersion": "1.7.2",
 	"description": "View, sort, and study any set of notes as a column-balancing board of typed reference cards. Integrates with the Wayfinder character sheet.",
 	"author": "alas, poor ophelia",

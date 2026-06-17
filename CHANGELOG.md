@@ -4,6 +4,12 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 0.10.2
+
+### Reproducible release builds
+
+- The build no longer embeds a per-build timestamp, so release `main.js` is now byte-for-byte reproducible and can be verified against its source provenance. No functional changes to the plugin.
+
 ## 0.10.1
 
 ### Submission polish
