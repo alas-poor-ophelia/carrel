@@ -326,10 +326,11 @@ function inferType(blocks: RuleBlock[]): ContentType {
   if (blocks.some((b) => b.t === "flow")) return "flowchart";
   if (blocks.some((b) => b.t === "lookuptable")) return "lookup";
   if (blocks.some((b) => b.t === "dice" || b.t === "rolltable")) return "formula";
-  if (blocks.length && blocks[0].t === "callout") return "quote";
+  // A leading section heading isn't content — look past it for the quote signal.
+  if (blocks.find((b) => !isHeadingProse(b))?.t === "callout") return "quote";
   if (blocks.some((b) => b.t === "checklist" || b.t === "steps")) return "process";
   const tables = blocks.filter((b) => b.t === "table").length;
-  const prose = blocks.filter((b) => b.t === "p").length;
+  const prose = blocks.filter((b) => b.t === "p" && !isHeadingProse(b)).length;
   if (tables > 0 && tables >= prose) return "table";
   return "reference";
 }
@@ -338,7 +339,9 @@ const MD_STRIP = /(\*\*|__|\*|_|`)/g;
 const WIKILINK = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 
 function firstProseText(blocks: RuleBlock[]): string {
-  const p = blocks.find((b): b is { t: "p"; term?: string; text: string } => b.t === "p");
+  const p = blocks.find(
+    (b): b is { t: "p"; term?: string; text: string } => b.t === "p" && !isHeadingProse(b)
+  );
   if (!p) return "";
   const raw = (p.term != null && p.term !== "" ? p.term + " — " : "") + p.text;
   const clean = raw.replace(WIKILINK, "$1").replace(MD_STRIP, "").replace(/\s+/g, " ").trim();
@@ -346,6 +349,19 @@ function firstProseText(blocks: RuleBlock[]): string {
 }
 
 const HEADING_RE = /^\s*#{1,6}\s+.*(?:\r?\n|$)/;
+
+/** True when a leading heading line merely repeats the note title (its filename),
+ *  so it should be dropped rather than re-rendered as a duplicate inside the card. */
+function headingMatchesTitle(headingLine: string, title: string): boolean {
+  if (!title) return false;
+  return headingLine.replace(/^\s*#{1,6}\s+/, "").trim() === title.trim();
+}
+
+/** A prose block that is really a markdown heading (`## Section`). Excluded from
+ *  type inference and summary selection — a heading is structure, not content. */
+function isHeadingProse(b: RuleBlock): boolean {
+  return b.t === "p" && /^\s*#{1,6}\s/.test(b.text);
+}
 
 /**
  * Read a configurable front-matter property as a single string. An array value
@@ -369,17 +385,26 @@ export function parseNote(
   body: string,
   frontmatter: Record<string, unknown> = {},
   customTypes: CustomType[] = [],
-  typeProp = "type"
+  typeProp = "type",
+  title = ""
 ): ParsedNote {
   let text = body;
 
-  // The card shows the note's title separately, so drop a leading heading that
-  // would otherwise re-render as a duplicate H1. A leading `<!-- ref: -->`
-  // comment may sit on either side of that heading.
+  // The card shows the note's title (its filename) separately, so drop a leading
+  // heading only when it duplicates that title; a real section heading that
+  // differs from the title stays in the body. A leading `<!-- ref: -->` comment
+  // may sit on either side of that heading.
   let refAttrs: Attrs = { pairs: [] };
   let refMatched = false;
+  let headingStripped = false;
   for (let i = 0; i < 2; i++) {
-    text = text.replace(HEADING_RE, "");
+    if (!headingStripped) {
+      const hM = HEADING_RE.exec(text);
+      if (hM && headingMatchesTitle(hM[0], title)) {
+        text = text.slice(hM[0].length);
+        headingStripped = true;
+      }
+    }
     const refM = text.match(REF_RE);
     if (refM && !refMatched) {
       refAttrs = parseAttrs(refM[1]);

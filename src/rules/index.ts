@@ -104,15 +104,19 @@ export class CarrelIndex {
     const raw = await this.app.vault.cachedRead(file);
     // strip frontmatter from the body we render/search
     const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
+    // The note's own title (its filename) is the card title; a heading is only a
+    // fallback for the rare title-less case — never let an early H2 win.
+    const title = file.basename || headings[0] || "Untitled";
     const parsed = parseNote(
       body,
       cache?.frontmatter ?? {},
       this.plugin.store.customTypes(),
-      this.plugin.store.typeProp()
+      this.plugin.store.typeProp(),
+      title
     );
     return {
       path: file.path,
-      title: headings[0] ?? file.basename,
+      title,
       category,
       headings,
       body,

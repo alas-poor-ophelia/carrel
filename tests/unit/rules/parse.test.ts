@@ -38,15 +38,33 @@ describe("parseNote — content type", () => {
   });
 
   it("strips a leading title heading (rendered separately) before the ref comment", () => {
-    const p = parseNote(`# Grapple\n\n<!-- ref: flowchart -->\n\nbody prose`);
+    const p = parseNote(`# Grapple\n\n<!-- ref: flowchart -->\n\nbody prose`, {}, [], "type", "Grapple");
     expect(p.type).toBe("flowchart");
     expect(p.blocks).toEqual([{ t: "p", text: "body prose" }]);
   });
 
   it("strips a leading heading when the ref comment precedes it", () => {
-    const p = parseNote(`<!-- ref: ability -->\n# Smite\n\nbody`, {}, CUSTOM);
+    const p = parseNote(`<!-- ref: ability -->\n# Smite\n\nbody`, {}, CUSTOM, "type", "Smite");
     expect(p.type).toBe("ability");
     expect(p.blocks).toEqual([{ t: "p", text: "body" }]);
+  });
+
+  it("keeps a leading heading that is NOT the note title (a real section heading)", () => {
+    const p = parseNote(`## Overview\n\nbody prose`, {}, [], "type", "Grapple");
+    expect(p.blocks).toEqual([
+      { t: "p", text: "## Overview" },
+      { t: "p", text: "body prose" },
+    ]);
+  });
+
+  it("does not let a non-title leading heading become the card summary", () => {
+    const p = parseNote(`# Fireball Spell\n\nHurls a bead of fire.`, {}, [], "type", "fireball");
+    expect(p.summary).toBe("Hurls a bead of fire.");
+  });
+
+  it("infers quote even when a non-title heading precedes the blockquote", () => {
+    const p = parseNote(`## Note\n\n> a solemn oath`, {}, [], "type", "Something");
+    expect(p.type).toBe("quote");
   });
 
   it("infers flowchart / formula / process / table / quote when undeclared", () => {
