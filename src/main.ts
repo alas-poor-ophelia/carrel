@@ -43,15 +43,27 @@ export default class CarrelPlugin extends Plugin {
       let prevTypes = this.store.customTypes();
       let prevCategoryProp = this.store.categoryProp();
       let prevTypeProp = this.store.typeProp();
+      let prevTypeRules = this.store.typeRules();
+      let prevDisabled = this.store.disabledBuiltinTypes();
       this.register(
         effect(() => {
           const ct = this.store.customTypes();
           const categoryProp = this.store.categoryProp();
           const typeProp = this.store.typeProp();
-          if (ct !== prevTypes || categoryProp !== prevCategoryProp || typeProp !== prevTypeProp) {
+          const typeRules = this.store.typeRules();
+          const disabled = this.store.disabledBuiltinTypes();
+          if (
+            ct !== prevTypes ||
+            categoryProp !== prevCategoryProp ||
+            typeProp !== prevTypeProp ||
+            typeRules !== prevTypeRules ||
+            disabled !== prevDisabled
+          ) {
             prevTypes = ct;
             prevCategoryProp = categoryProp;
             prevTypeProp = typeProp;
+            prevTypeRules = typeRules;
+            prevDisabled = disabled;
             void this.index.rebuild();
           }
         })

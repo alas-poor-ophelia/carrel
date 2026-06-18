@@ -1,6 +1,8 @@
 // Persisted Carrel data (saveData/loadData). Nooks + the global category list
 // live here. Categories fill in in Phase 6.
 
+import type { ContentType } from "../rules/model";
+
 /** How the board groups cards into sections. */
 export type GroupBy = "category" | "type" | "folder" | "none";
 
@@ -36,6 +38,10 @@ export interface Nook {
    *  rules/grouping.groupKeyOf). Each value is an ordered list of note paths;
    *  cards not listed fall to the end in A–Z order. */
   cardOrder: Record<string, string[]>;
+  /** RESERVED for a future release — per-nook type-rule overrides. Declared and
+   *  persisted (merge-preserved) so per-nook scoping won't need another schema
+   *  migration; the current parser IGNORES this. */
+  typeRuleOverrides?: TypeRule[];
 }
 
 /** Shared shape of a colored, icon'd, user-managed tag: a stable id, a display
@@ -60,6 +66,27 @@ export type Category = TaggedItem;
  *  Shares the Category shape, but `id` doubles as the matchable frontmatter token. */
 export type CustomType = TaggedItem;
 
+/** The kind of metadata a TypeRule inspects. All read the metadata cache only
+ *  (frontmatter + tags) — never the note body, so there is no regex/ReDoS
+ *  surface in this version. */
+export type TypeRuleKind = "frontmatter-key" | "frontmatter-key-value" | "tag";
+
+/** A user-declared rule that redirects a note to a target type by matching
+ *  metadata-cache fields. Detection ONLY — it never changes how a type renders. */
+export interface TypeRule {
+  id: string;
+  /** User-visible label for the rule row in settings. */
+  name: string;
+  /** A built-in ContentType or a CustomType id (validated via isKnownType). */
+  targetType: string;
+  kind: TypeRuleKind;
+  /** A frontmatter key (frontmatter-* kinds) or the bare tag without `#` (tag). */
+  key: string;
+  /** Required for `frontmatter-key-value`; compared case-insensitively. */
+  value?: string;
+  enabled: boolean;
+}
+
 export interface CarrelData {
   schemaVersion: number;
   nooks: Nook[];
@@ -72,9 +99,16 @@ export interface CarrelData {
   /** Front-matter property a note's type is read from (default `type`).
    *  Array values use the first element; unrecognized values fall back to structural inference. */
   typeProp: string;
+  /** Built-in types whose structural INFERENCE is suppressed. An explicit,
+   *  recognized frontmatter `type:` still classifies a note; disabling only
+   *  stops auto-detection (and hides the type's filter chip / group). */
+  disabledBuiltinTypes: ContentType[];
+  /** Global user type-detection rules, evaluated in array order (first enabled
+   *  match wins) between an explicit known `type:` and structural inference. */
+  typeRules: TypeRule[];
 }
 
-export const CARREL_SCHEMA_VERSION = 4;
+export const CARREL_SCHEMA_VERSION = 5;
 
 /** Built-in defaults for the configurable front-matter property names. */
 export const DEFAULT_CATEGORY_PROP = "category";
@@ -98,4 +132,6 @@ export const DEFAULT_DATA: CarrelData = {
   activeNookId: null,
   categoryProp: DEFAULT_CATEGORY_PROP,
   typeProp: DEFAULT_TYPE_PROP,
+  disabledBuiltinTypes: [],
+  typeRules: [],
 };

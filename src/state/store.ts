@@ -1,3 +1,4 @@
+import { Notice } from "obsidian";
 import { signal, type Signal } from "@preact/signals";
 import type CarrelPlugin from "../main";
 import {
@@ -12,7 +13,10 @@ import {
   type GroupBy,
   type Nook,
   type SortMode,
+  type TypeRule,
 } from "../types/data";
+import type { ContentType } from "../rules/model";
+import { isContentType, isKnownType } from "../rules/registry";
 import { genId } from "../util/id";
 
 /**
@@ -23,11 +27,29 @@ import { genId } from "../util/id";
 export class CarrelStore {
   readonly data: Signal<CarrelData> = signal(structuredClone(DEFAULT_DATA));
   private saveTimer: number | null = null;
+  /** Set when on-disk data is from a NEWER schema than this build understands.
+   *  While locked, in-memory edits work but are never persisted (see commit). */
+  private locked = false;
 
   constructor(private readonly plugin: CarrelPlugin) {}
 
   async load(): Promise<void> {
     const raw = (await this.plugin.loadData()) as Partial<CarrelData> | null;
+    const storedVersion = typeof raw?.schemaVersion === "number" ? raw.schemaVersion : 0;
+    if (storedVersion > CARREL_SCHEMA_VERSION) {
+      // Data saved by a NEWER Carrel. Load it so the UI still works, but LOCK
+      // persistence: re-stamping the version here would silently drop fields
+      // this build doesn't understand (data loss). Stays read-only until the
+      // plugin is updated.
+      this.locked = true;
+      this.data.value = { ...structuredClone(DEFAULT_DATA), ...(raw ?? {}) };
+      new Notice(
+        "Carrel: this vault's data was saved by a newer version of the plugin — " +
+          "changes won't be saved until you update Carrel.",
+        0
+      );
+      return;
+    }
     const merged: CarrelData = {
       ...structuredClone(DEFAULT_DATA),
       ...(raw ?? {}),
@@ -40,11 +62,20 @@ export class CarrelStore {
       cardOrder: n.cardOrder ?? {},
       tweaks: { ...DEFAULT_TWEAKS, ...(n.tweaks ?? {}) },
     }));
+    // Prune type config that references types no longer present or invalid: a
+    // since-removed custom type (orphan rule), `reference`, or a stray token.
+    merged.disabledBuiltinTypes = (merged.disabledBuiltinTypes ?? []).filter(
+      (t) => isContentType(t) && t !== "reference"
+    );
+    merged.typeRules = (merged.typeRules ?? []).filter((r) =>
+      isKnownType(r.targetType, merged.customTypes)
+    );
     this.data.value = merged;
   }
 
   private commit(next: CarrelData): void {
     this.data.value = next;
+    if (this.locked) return;
     if (this.saveTimer != null) window.clearTimeout(this.saveTimer);
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
@@ -57,6 +88,7 @@ export class CarrelStore {
       window.clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
+    if (this.locked) return;
     await this.plugin.saveData(this.data.value);
   }
 
@@ -162,6 +194,26 @@ export class CarrelStore {
 
   setCustomTypes(customTypes: CustomType[]): void {
     this.commit({ ...this.data.value, customTypes });
+  }
+
+  /* ---------- type detection rules + disabled built-ins (Phase 4) ---------- */
+
+  /** Returns the stable underlying array (not a copy) so the re-index effect's
+   *  identity comparison fires only on real change — see main.ts. */
+  typeRules(): TypeRule[] {
+    return this.data.value.typeRules;
+  }
+
+  setTypeRules(typeRules: TypeRule[]): void {
+    this.commit({ ...this.data.value, typeRules });
+  }
+
+  disabledBuiltinTypes(): ContentType[] {
+    return this.data.value.disabledBuiltinTypes;
+  }
+
+  setDisabledBuiltinTypes(disabledBuiltinTypes: ContentType[]): void {
+    this.commit({ ...this.data.value, disabledBuiltinTypes });
   }
 
   /* ---------- front-matter property mapping ---------- */

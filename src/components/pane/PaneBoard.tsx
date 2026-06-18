@@ -224,14 +224,20 @@ export function PaneBoard({
     for (const d of docs) if (!seen.includes(d.category)) seen.push(d.category);
     return seen.sort(categoryComparator(data.categories));
   }, [docs, data.categories]);
+  const disabledBuiltins = useMemo(
+    () => new Set<string>(data.disabledBuiltinTypes),
+    [data.disabledBuiltinTypes]
+  );
   const presentTypes = useMemo(() => {
-    const builtins: string[] = FILTERABLE_TYPES.filter((t) => docs.some((d) => d.type === t));
+    const builtins: string[] = FILTERABLE_TYPES.filter(
+      (t) => !disabledBuiltins.has(t) && docs.some((d) => d.type === t)
+    );
     const custom = [...customTypes]
       .sort((a, b) => a.order - b.order)
       .map(customTypeToken)
       .filter((tok) => docs.some((d) => d.type === tok));
     return [...builtins, ...custom];
-  }, [docs, customTypes]);
+  }, [docs, customTypes, disabledBuiltins]);
 
   const filtered = docs.filter((d) => {
     if (pinnedOnly && !pins.has(d.path)) return false;
@@ -261,6 +267,7 @@ export function PaneBoard({
       categories: data.categories,
       customTypes,
       cardOrder,
+      disabledBuiltinTypes: disabledBuiltins,
     })) {
       sections.push({ key: g.key, label: g.label, docs: g.docs, results: false });
     }

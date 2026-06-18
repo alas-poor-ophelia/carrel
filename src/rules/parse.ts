@@ -13,7 +13,7 @@
    never tags still render — they just lean on inference.
    ===================================================================== */
 
-import type { CustomType } from "../types/data";
+import type { CustomType, TypeRule } from "../types/data";
 import type {
   ContentType,
   FlowNode,
@@ -346,17 +346,62 @@ function parseBlocks(text: string): RuleBlock[] {
   return blocks;
 }
 
-function inferType(blocks: RuleBlock[]): ContentType {
-  if (blocks.some((b) => b.t === "flow")) return "flowchart";
-  if (blocks.some((b) => b.t === "lookuptable")) return "lookup";
-  if (blocks.some((b) => b.t === "dice" || b.t === "rolltable")) return "formula";
+function inferType(blocks: RuleBlock[], disabled: ContentType[] = []): ContentType {
+  const on = (t: ContentType): boolean => !disabled.includes(t);
+  if (on("flowchart") && blocks.some((b) => b.t === "flow")) return "flowchart";
+  if (on("lookup") && blocks.some((b) => b.t === "lookuptable")) return "lookup";
+  if (on("formula") && blocks.some((b) => b.t === "dice" || b.t === "rolltable")) return "formula";
   // A leading section heading isn't content — look past it for the quote signal.
-  if (blocks.find((b) => !isHeadingProse(b))?.t === "callout") return "quote";
-  if (blocks.some((b) => b.t === "checklist" || b.t === "steps")) return "process";
+  if (on("quote") && blocks.find((b) => !isHeadingProse(b))?.t === "callout") return "quote";
+  if (on("process") && blocks.some((b) => b.t === "checklist" || b.t === "steps")) return "process";
   const tables = blocks.filter((b) => b.t === "table").length;
   const prose = blocks.filter((b) => b.t === "p" && !isHeadingProse(b)).length;
-  if (tables > 0 && tables >= prose) return "table";
+  if (on("table") && tables > 0 && tables >= prose) return "table";
   return "reference";
+}
+
+/** Stringify only primitive frontmatter values; objects/arrays/null -> "". */
+function asScalarString(v: unknown): string {
+  return typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+    ? String(v)
+    : "";
+}
+
+/** Does a user TypeRule match this note's metadata (frontmatter + tags)? Reads
+ *  the metadata cache only — never the note body. An unknown kind (e.g. data
+ *  written by a newer build) never matches. */
+function ruleMatches(
+  rule: TypeRule,
+  frontmatter: Record<string, unknown>,
+  tags: string[]
+): boolean {
+  switch (rule.kind) {
+    case "frontmatter-key":
+      return frontmatter[rule.key] != null;
+    case "frontmatter-key-value": {
+      if (rule.value == null || rule.value === "") return false;
+      const want = rule.value.toLowerCase();
+      const v = frontmatter[rule.key];
+      const match = (x: unknown): boolean => asScalarString(x).toLowerCase() === want;
+      return Array.isArray(v) ? v.some(match) : match(v);
+    }
+    case "tag":
+      return tags.includes(rule.key.toLowerCase());
+    default:
+      return false;
+  }
+}
+
+/** The target type of the first enabled rule that matches, or undefined. */
+function matchTypeRule(
+  rules: TypeRule[],
+  frontmatter: Record<string, unknown>,
+  tags: string[]
+): string | undefined {
+  for (const r of rules) {
+    if (r.enabled && ruleMatches(r, frontmatter, tags)) return r.targetType;
+  }
+  return undefined;
 }
 
 const MD_STRIP = /(\*\*|__|\*|_|`)/g;
@@ -410,7 +455,10 @@ export function parseNote(
   frontmatter: Record<string, unknown> = {},
   customTypes: CustomType[] = [],
   typeProp = "type",
-  title = ""
+  title = "",
+  tags: string[] = [],
+  typeRules: TypeRule[] = [],
+  disabledBuiltinTypes: ContentType[] = []
 ): ParsedNote {
   let text = body;
 
@@ -451,8 +499,15 @@ export function parseNote(
   const blocks = parseBlocks(text);
 
   const declared = readFmProp(frontmatter, typeProp)?.toLowerCase() ?? refAttrs.type;
-  const type: string =
-    declared != null && isKnownType(declared, customTypes) ? declared : inferType(blocks);
+  let type: string;
+  if (declared != null && isKnownType(declared, customTypes)) {
+    // 1. An explicit, recognized declaration always wins.
+    type = declared;
+  } else {
+    // 2. The first enabled user rule that matches, else 3. structural inference
+    //    (skipping disabled built-ins); inferType falls back to "reference".
+    type = matchTypeRule(typeRules, frontmatter, tags) ?? inferType(blocks, disabledBuiltinTypes);
+  }
 
   // A frontmatter/ref `icon:` override wins; otherwise inherit the type's icon
   // (built-in glyph or the custom type's chosen lucide/rpg icon).

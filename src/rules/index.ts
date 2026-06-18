@@ -1,10 +1,35 @@
 import { signal, type Signal } from "@preact/signals";
-import type { App, Component, TFile } from "obsidian";
+import type { App, CachedMetadata, Component, TFile } from "obsidian";
 import type CarrelPlugin from "../main";
 import { parseNote, readFmProp } from "./parse";
 
 export type { RuleDoc } from "./model";
 import type { RuleDoc } from "./model";
+
+/** Union of a note's frontmatter `tags:` and inline `#tags` from the metadata
+ *  cache — `#`-stripped, lowercased, deduped. The note body is never scanned. */
+function normalizeTags(cache: CachedMetadata | null): string[] {
+  const out = new Set<string>();
+  const addToken = (raw: string): void => {
+    const s = raw.replace(/^#/, "").trim().toLowerCase();
+    if (s) out.add(s);
+  };
+  const addFm = (v: unknown): void => {
+    if (v == null) return;
+    if (Array.isArray(v)) {
+      v.forEach(addFm);
+      return;
+    }
+    if (typeof v === "string" || typeof v === "number") {
+      String(v)
+        .split(/[,\s]+/)
+        .forEach(addToken);
+    }
+  };
+  addFm(cache?.frontmatter?.tags);
+  for (const t of cache?.tags ?? []) addToken(t.tag);
+  return [...out];
+}
 
 /**
  * Multi-folder note index. Unlike MiniSheet's single-folder RulesIndex, a
@@ -107,12 +132,16 @@ export class CarrelIndex {
     // The note's own title (its filename) is the card title; a heading is only a
     // fallback for the rare title-less case — never let an early H2 win.
     const title = file.basename || headings[0] || "Untitled";
+    const tags = normalizeTags(cache);
     const parsed = parseNote(
       body,
       cache?.frontmatter ?? {},
       this.plugin.store.customTypes(),
       this.plugin.store.typeProp(),
-      title
+      title,
+      tags,
+      this.plugin.store.typeRules(),
+      this.plugin.store.disabledBuiltinTypes()
     );
     return {
       path: file.path,

@@ -7,13 +7,16 @@
    or the RPG Awesome set when the Wayfinder character-sheet plugin is installed. */
 import { useMemo, useState } from "preact/hooks";
 import type { JSX } from "preact";
+import { Notice } from "obsidian";
 import type CarrelPlugin from "../../main";
+import type { ContentType } from "../../rules/model";
 import { CONTENT_TYPES, FILTERABLE_TYPES, customTypeToken } from "../../rules/registry";
 import { getWayfinder } from "../../util/plugins";
 import { GlyphIcon } from "../common/GlyphIcon";
 import { LucideGlyph, lucideIds } from "./CategoryIcon";
 import { EntityManager, type IconEntity } from "./EntityManager";
 import { NooksSection } from "./NooksSection";
+import { TypeRulesSection } from "./TypeRulesSection";
 
 /** Built-in types shown read-only for reference, in chip order + the neutral fallback. */
 const BUILTIN_ORDER: (keyof typeof CONTENT_TYPES)[] = [...FILTERABLE_TYPES, "reference"];
@@ -24,6 +27,27 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
   const cats = data.categories;
   const customTypes = data.customTypes;
   const rpgAvailable = !!getWayfinder(plugin.app);
+
+  const disabledSet = new Set<ContentType>(data.disabledBuiltinTypes);
+  const toggleBuiltin = (t: ContentType): void => {
+    if (t === "reference") return; // the terminal fallback can't be disabled
+    const next = new Set(disabledSet);
+    if (next.has(t)) {
+      next.delete(t);
+    } else {
+      // A rule still targeting this type blocks disabling it — disabling stops
+      // inference, but a rule would keep assigning it (refuse the half-state).
+      if (data.typeRules.some((r) => r.targetType === t)) {
+        new Notice(
+          `Can't disable “${CONTENT_TYPES[t].label}” — a type rule targets it. ` +
+            "Remove or retarget that rule first."
+        );
+        return;
+      }
+      next.add(t);
+    }
+    store.setDisabledBuiltinTypes([...next]);
+  };
 
   const docs = plugin.index.docs.value;
   // note counts: categories by `category:` name, types by the parsed `type:` token
@@ -74,8 +98,9 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
       <div class="ob-builtins">
         {BUILTIN_ORDER.map((t) => {
           const info = CONTENT_TYPES[t];
+          const off = disabledSet.has(t);
           return (
-            <div class="ob-builtin" key={t} style={{ "--cc": info.color }}>
+            <div class={"ob-builtin" + (off ? " is-off" : "")} key={t} style={{ "--cc": info.color }}>
               <span class="ob-cat__chip">
                 <GlyphIcon iconSet="rpg" icon={info.glyph} />
               </span>
@@ -83,7 +108,21 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
               <span class="ob-builtin__meta">
                 {typeCounts.get(t) ?? 0} {(typeCounts.get(t) ?? 0) === 1 ? "note" : "notes"}
               </span>
-              <span class="ob-cat__tag">built-in</span>
+              {t === "reference" ? (
+                <span class="ob-cat__tag">built-in</span>
+              ) : (
+                <button
+                  class={"ob-btn ob-toggle" + (off ? "" : " is-on")}
+                  title={
+                    off
+                      ? "Auto-detection off — click to enable"
+                      : "Auto-detection on — click to disable"
+                  }
+                  onClick={() => toggleBuiltin(t)}
+                >
+                  {off ? "Off" : "On"}
+                </button>
+              )}
             </div>
           );
         })}
@@ -99,6 +138,8 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
           `Removed type “${name}”. ${n} note${n === 1 ? "" : "s"} keep their type: front-matter (now shown as plain references).`
         }
       />
+
+      <TypeRulesSection plugin={plugin} />
 
       <div class="ob-h">
         <h3 class="ob-h__t">Front-matter mapping</h3>

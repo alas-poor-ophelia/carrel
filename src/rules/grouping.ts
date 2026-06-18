@@ -28,6 +28,8 @@ export interface GroupOpts {
   categories: Category[];
   customTypes: CustomType[];
   cardOrder: Record<string, string[]>;
+  /** Built-in types the user disabled — omitted from type-rank ordering. */
+  disabledBuiltinTypes?: Set<string>;
 }
 
 const END = Number.MAX_SAFE_INTEGER;
@@ -66,9 +68,10 @@ export function categoryComparator(categories: Category[]): (a: string, b: strin
 
 /** Rank lookup for type tokens: built-in filterable types, then the neutral
  *  `reference`, then custom types by their configured order. */
-function typeRanks(customTypes: CustomType[]): Map<string, number> {
+function typeRanks(customTypes: CustomType[], disabled?: Set<string>): Map<string, number> {
+  const builtins = disabled ? FILTERABLE_TYPES.filter((t) => !disabled.has(t)) : FILTERABLE_TYPES;
   const ordered: string[] = [
-    ...FILTERABLE_TYPES,
+    ...builtins,
     "reference",
     ...[...customTypes].sort((a, b) => a.order - b.order).map(customTypeToken),
   ];
@@ -97,7 +100,7 @@ function keyComparator(
 ): (a: string, b: string) => number {
   if (groupBy === "category") return categoryComparator(opts.categories);
   if (groupBy === "type") {
-    const ranks = typeRanks(opts.customTypes);
+    const ranks = typeRanks(opts.customTypes, opts.disabledBuiltinTypes);
     return (a, b) => {
       const ra = ranks.has(a) ? (ranks.get(a) as number) : END;
       const rb = ranks.has(b) ? (ranks.get(b) as number) : END;
@@ -119,7 +122,7 @@ export function sortDocs(
   if (sort === "az") return [...docs].sort(az);
   if (sort === "za") return [...docs].sort((a, b) => b.title.localeCompare(a.title));
   if (sort === "type") {
-    const ranks = typeRanks(opts.customTypes);
+    const ranks = typeRanks(opts.customTypes, opts.disabledBuiltinTypes);
     const rank = (d: RuleDoc): number => (ranks.has(d.type) ? (ranks.get(d.type) as number) : END);
     return [...docs].sort((a, b) => rank(a) - rank(b) || az(a, b));
   }

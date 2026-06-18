@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { parseNote, readFmProp } from "../../../src/rules/parse";
 import type { RuleBlock } from "../../../src/rules/model";
-import type { CustomType } from "../../../src/types/data";
+import type { CustomType, TypeRule } from "../../../src/types/data";
 
 function types(blocks: RuleBlock[]): string[] {
   return blocks.map((b) => b.t);
@@ -118,6 +118,63 @@ describe("parseNote — Obsidian callouts / infobox", () => {
     expect(parseNote("> a solemn oath").type).toBe("quote");
     const p = parseNote("> a solemn oath");
     expect(p.blocks[0].t).toBe("callout");
+  });
+});
+
+describe("parseNote — type rules + disabled built-ins (Phase 4)", () => {
+  const rule = (over: Partial<TypeRule>): TypeRule => ({
+    id: "r",
+    name: "",
+    targetType: "formula",
+    kind: "tag",
+    key: "spell",
+    enabled: true,
+    ...over,
+  });
+
+  it("assigns the target type when a tag rule matches", () => {
+    const r = [rule({ kind: "tag", key: "spell", targetType: "formula" })];
+    expect(parseNote("plain prose.", {}, [], "type", "", ["spell"], r).type).toBe("formula");
+    // no matching tag -> falls through to inference (reference)
+    expect(parseNote("plain prose.", {}, [], "type", "", ["other"], r).type).toBe("reference");
+  });
+
+  it("matches a frontmatter-key rule (key present, any value)", () => {
+    const r = [rule({ kind: "frontmatter-key", key: "statblock", targetType: "table" })];
+    expect(parseNote("plain.", { statblock: "x" }, [], "type", "", [], r).type).toBe("table");
+    expect(parseNote("plain.", {}, [], "type", "", [], r).type).toBe("reference");
+  });
+
+  it("matches frontmatter-key-value case-insensitively, incl. array values", () => {
+    const r = [rule({ kind: "frontmatter-key-value", key: "system", value: "pf2e", targetType: "process" })];
+    expect(parseNote("x.", { system: "PF2E" }, [], "type", "", [], r).type).toBe("process");
+    expect(parseNote("x.", { system: ["dnd", "pf2e"] }, [], "type", "", [], r).type).toBe("process");
+    expect(parseNote("x.", { system: "5e" }, [], "type", "", [], r).type).toBe("reference");
+  });
+
+  it("first ENABLED matching rule wins; disabled rules are skipped", () => {
+    const rules = [
+      rule({ id: "a", kind: "tag", key: "spell", targetType: "quote", enabled: false }),
+      rule({ id: "b", kind: "tag", key: "spell", targetType: "formula", enabled: true }),
+    ];
+    expect(parseNote("x.", {}, [], "type", "", ["spell"], rules).type).toBe("formula");
+  });
+
+  it("a known explicit type beats a rule; an unknown token falls through to it", () => {
+    const rules = [rule({ kind: "tag", key: "spell", targetType: "formula" })];
+    expect(parseNote("x.", { type: "table" }, [], "type", "", ["spell"], rules).type).toBe("table");
+    expect(parseNote("x.", { type: "madeup" }, [], "type", "", ["spell"], rules).type).toBe("formula");
+  });
+
+  it("a rule can target a custom type by its token", () => {
+    const rules = [rule({ kind: "tag", key: "spell", targetType: "ability" })];
+    expect(parseNote("x.", {}, CUSTOM, "type", "", ["spell"], rules).type).toBe("ability");
+  });
+
+  it("disabledBuiltinTypes suppresses structural inference for that type", () => {
+    const table = "| A | B |\n| - | - |\n| 1 | 2 |";
+    expect(parseNote(table).type).toBe("table");
+    expect(parseNote(table, {}, [], "type", "", [], [], ["table"]).type).toBe("reference");
   });
 });
 
