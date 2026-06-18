@@ -34,7 +34,7 @@ function fakeConfig(opts: {
 }
 
 describe("basesToRuleDocs", () => {
-  it("maps an entry: filename title, configured type, property table + chips", () => {
+  it("maps an entry: filename title, configured type, property table (no chips)", () => {
     const config = fakeConfig({
       typeProperty: "note.type",
       order: ["note.type", "note.cr", "file.name"],
@@ -52,7 +52,7 @@ describe("basesToRuleDocs", () => {
     expect(doc.blocks).toEqual([
       { t: "table", cols: ["Property", "Value"], rows: [["CR", "20"], ["Name", "Ancient Dragon"]] },
     ]);
-    expect(doc.meta).toEqual([{ k: "CR: 20" }, { k: "Name: Ancient Dragon" }]);
+    expect(doc.meta).toEqual([]); // chips are not used (sized for short tags)
   });
 
   it("uses a configured title property and falls back to reference for an unset type", () => {
@@ -68,15 +68,35 @@ describe("basesToRuleDocs", () => {
     expect(doc.title).toBe("Friendly Name");
     expect(doc.type).toBe("reference"); // no typeProperty configured
     expect(doc.blocks).toEqual([]); // title prop is skipped, nothing else -> no table
-    expect(doc.meta).toEqual([]);
   });
 
-  it("skips empty property values", () => {
-    const config = fakeConfig({ order: ["note.a", "note.b"], names: { "note.a": "A", "note.b": "B" } });
-    const entry = fakeEntry("x", { "note.a": "present" }); // note.b missing
+  it("hides absent values (JS null AND Bases NullValue rendering as 'null')", () => {
+    const config = fakeConfig({
+      order: ["note.summary", "note.source"],
+      names: { "note.summary": "Summary", "note.source": "Source" },
+    });
+    // summary -> a NullValue-like Value (toString "null"); source -> JS null
+    const entry = {
+      file: { path: "Rules/X.md", basename: "X" },
+      getValue: (p: BasesPropertyId) =>
+        p === "note.summary" ? ({ toString: () => "null" } as never) : null,
+    } as unknown as BasesEntry;
 
     const [doc] = basesToRuleDocs([entry], config, []);
 
-    expect(doc.meta).toEqual([{ k: "A: present" }]);
+    expect(doc.blocks).toEqual([]); // both hidden -> no table
+    expect(doc.summary).toBe("");
+  });
+
+  it("uses a summary/description property as the card summary", () => {
+    const config = fakeConfig({ order: ["note.summary"], names: { "note.summary": "Summary" } });
+    const entry = fakeEntry("X", { "note.summary": "A short blurb." });
+
+    const [doc] = basesToRuleDocs([entry], config, []);
+
+    expect(doc.summary).toBe("A short blurb.");
+    expect(doc.blocks).toEqual([
+      { t: "table", cols: ["Property", "Value"], rows: [["Summary", "A short blurb."]] },
+    ]);
   });
 });

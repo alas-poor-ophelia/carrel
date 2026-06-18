@@ -13,9 +13,14 @@ import { truncateSummary } from "../util/text";
 export const TYPE_PROPERTY_KEY = "typeProperty";
 export const TITLE_PROPERTY_KEY = "titleProperty";
 
+/** A property's display string, or "" when the value is absent. Bases returns a
+ *  NullValue (which renders as the literal "null"), not JS null, for a missing
+ *  property — treat both as empty so null values auto-hide. */
 function valueStr(entry: BasesEntry, propId: BasesPropertyId): string {
   const v = entry.getValue(propId);
-  return v ? v.toString() : "";
+  if (v == null) return "";
+  const s = v.toString();
+  return s === "null" ? "" : s;
 }
 
 export function basesToRuleDocs(
@@ -33,15 +38,19 @@ export function basesToRuleDocs(
     const type = typeToken || "reference";
     const resolved = resolveType(type, customTypes);
 
+    // Non-empty displayed properties (minus the ones surfaced as type/title)
+    // become the card's Property/Value table. A `summary`/`description` property
+    // doubles as the card's summary line. Chips are NOT used — they are sized for
+    // short tags, and key/value pairs belong in the table.
     const rows: string[][] = [];
-    const meta: { k: string }[] = [];
+    let summary = "";
     for (const pid of order) {
-      if (pid === typeProp || pid === titleProp) continue; // already surfaced
+      if (pid === typeProp || pid === titleProp) continue;
       const val = valueStr(entry, pid);
       if (val === "") continue;
       const name = config.getDisplayName(pid);
       rows.push([name, val]);
-      meta.push({ k: `${name}: ${val}` });
+      if (summary === "" && /summary|description/i.test(name)) summary = val;
     }
     const blocks: RuleBlock[] = rows.length
       ? [{ t: "table", cols: ["Property", "Value"], rows }]
@@ -56,8 +65,8 @@ export function basesToRuleDocs(
       type,
       icon: resolved.icon,
       iconSet: resolved.iconSet,
-      summary: truncateSummary(rows.map((r) => r[1]).join(" · ")),
-      meta,
+      summary: truncateSummary(summary),
+      meta: [],
       blocks,
     };
   });
