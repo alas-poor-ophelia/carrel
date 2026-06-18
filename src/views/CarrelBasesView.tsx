@@ -66,7 +66,10 @@ class CarrelBasesView extends BasesView {
 
     if (!this.root) {
       this.containerEl.empty();
-      this.root = this.containerEl.createDiv({ cls: "carrel-bases-root" });
+      // MUST carry `carrel-pane-root` — ALL of Carrel's CSS (tokens, variables,
+      // pane layout/columns, block + icon sizing) is scoped to that root class.
+      // Without it the board renders unstyled (giant SVGs, no columns).
+      this.root = this.containerEl.createDiv({ cls: "carrel-pane-root carrel-bases-root" });
       render(
         <PaneBoard plugin={this.plugin} boardNookId={this.nookId} index={this.index} />,
         this.root
