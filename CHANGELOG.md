@@ -4,6 +4,26 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.0.0
+
+The first stable release. **Requires Obsidian 1.10+.**
+
+### New
+
+- **Obsidian callouts & infoboxes render natively.** A card whose note uses a `> [!type]` callout — including the worldbuilding "infobox" pattern — now renders through Obsidian's own renderer, so embedded images, headings and tables inside the callout resolve correctly.
+- **Type detection rules.** Disable any built-in type you don't use, and auto-assign a type to notes that match a metadata rule — a frontmatter key, a frontmatter key/value pair, or a tag (Settings → Types).
+- **Bases view.** With Obsidian Bases, a `.base` file can switch to a new "Carrel" view and render its filtered notes as the full Carrel board — real types, flowcharts, colors and all. Each Bases view keeps its own grouping, sort and pins.
+
+### Changed
+
+- **Card titles now come from the note's filename**, not its first heading — an early `##` can no longer hijack a card's title.
+- **The "Quote" type matches real markdown blockquotes only**, and no longer mistakes a styled `> [!callout]` for a quote.
+- **Minimum Obsidian version raised to 1.10.0** (required by the Bases integration; the rest of the plugin is unaffected).
+
+### Fixed
+
+- The default `build` script now produces the production (minified) bundle, so the community store's build-verification rebuild matches the released `main.js`.
+
 ## 0.10.8
 
 ### Build reproducibility
