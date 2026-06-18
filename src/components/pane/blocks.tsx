@@ -222,6 +222,34 @@ function CalloutBlock({ block, q }: { block: Extract<RuleBlock, { t: "callout" }
   );
 }
 
+/** An Obsidian callout / infobox (`> [!type] …`) — rendered through Obsidian's
+ *  own MarkdownRenderer so the native callout chrome plus any embedded images,
+ *  headings and tables inside it all resolve (mirrors ProseBlock's lifecycle). */
+function ObsidianCalloutBlock({
+  plugin,
+  path,
+  block,
+}: {
+  plugin: CarrelPlugin;
+  path: string;
+  block: Extract<RuleBlock, { t: "obsidian-callout" }>;
+}): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null);
+  const md = block.content;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.empty();
+    const child = new MarkdownRenderChild(el);
+    child.load();
+    void MarkdownRenderer.render(plugin.app, md, el, path, child).then(() => {
+      el.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
+    });
+    return () => child.unload();
+  }, [md, path, plugin.app]);
+  return <div class="r-obsidian-callout" ref={ref} />;
+}
+
 function FlowBlock({ block, q }: { block: Extract<RuleBlock, { t: "flow" }>; q: string }): JSX.Element {
   return (
     <div class="r-flow">
@@ -567,6 +595,8 @@ export function Blocks({
             return <BulletsBlock block={b} q={q} key={i} />;
           case "callout":
             return <CalloutBlock block={b} q={q} key={i} />;
+          case "obsidian-callout":
+            return <ObsidianCalloutBlock plugin={plugin} path={doc.path} block={b} key={i} />;
           case "flow":
             return <FlowBlock block={b} q={q} key={i} />;
           case "dice":

@@ -58,6 +58,10 @@ const CHECK_RE = /^\s*[-*+]\s+\[[ xX]\]\s+/;
 const BULLET_RE = /^\s*[-*+]\s+/;
 const ORDERED_RE = /^\s*\d+[.)]\s+/;
 const QUOTE_RE = /^\s*>\s?/;
+/** An Obsidian callout/admonition opener: `> [!type]` with an optional
+ *  `|fold`/metadata suffix. Captures the bare callout type. Distinguishes a
+ *  styled callout (e.g. an `infobox`) from a plain literary blockquote. */
+const OBSIDIAN_CALLOUT_RE = /^\s*>\s*\[!([^\]|]+)(?:\|[^\]]*)?\]/;
 const TERM_RE = /^\*\*(.+?)\*\*\s*(?:[—–-]{1,2}|:)\s*([\s\S]+)$/;
 
 function isTableGroup(group: string[]): boolean {
@@ -300,6 +304,26 @@ function parseBlocks(text: string): RuleBlock[] {
         i++;
       }
       blocks.push({ t: "flow", nodes: parseFlow(group) });
+      pending = null;
+      continue;
+    }
+    // An Obsidian callout/infobox (`> [!type]`): consume the whole run of
+    // `>`-prefixed lines (internal blank `>` separators included) as ONE block,
+    // rendered later through Obsidian's MarkdownRenderer so embeds, headings and
+    // tables inside resolve. Sits ABOVE the generic grouper so it is never
+    // misread as a GFM table or a plain literary blockquote.
+    if (OBSIDIAN_CALLOUT_RE.test(line)) {
+      const buf: string[] = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      const m = buf[0].match(OBSIDIAN_CALLOUT_RE);
+      blocks.push({
+        t: "obsidian-callout",
+        calloutType: (m?.[1] ?? "").trim().toLowerCase(),
+        content: buf.join("\n"),
+      });
       pending = null;
       continue;
     }

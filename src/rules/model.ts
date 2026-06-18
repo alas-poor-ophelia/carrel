@@ -46,7 +46,8 @@ export type RuleBlock =
   | { t: "checklist"; items: { text: string }[] }
   | { t: "steps"; items: { text: string }[] }
   | { t: "bullets"; items: { term?: string; text: string }[] }
-  | { t: "callout"; text: string; cite?: string };
+  | { t: "callout"; text: string; cite?: string }
+  | { t: "obsidian-callout"; calloutType: string; content: string };
 
 /** The parser's output for one note body (the per-note fields beyond the
  *  index-level path/title/category/headings). */

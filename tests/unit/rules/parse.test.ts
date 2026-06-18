@@ -83,6 +83,44 @@ describe("parseNote — content type", () => {
   });
 });
 
+describe("parseNote — Obsidian callouts / infobox", () => {
+  it("captures a `> [!type]` callout (with inner table + image) as ONE block, not a table", () => {
+    const body = [
+      "> [!infobox|left]",
+      "> # Name",
+      "> ![[Image.png|cover hsmall]]",
+      "> ###### Stats",
+      "> | Type | Stat |",
+      "> | ---- | ---- |",
+      "> | Test | Testing |",
+    ].join("\n");
+    const p = parseNote(body);
+    expect(p.blocks).toEqual([{ t: "obsidian-callout", calloutType: "infobox", content: body }]);
+    // an infobox is a styled callout, NOT a blockquote-style quote
+    expect(p.type).not.toBe("quote");
+  });
+
+  it("keeps internal blank `>` separator lines inside one callout block", () => {
+    const body = "> [!infobox]\n> ###### A\n> \n> ###### B";
+    const p = parseNote(body);
+    expect(p.blocks).toEqual([{ t: "obsidian-callout", calloutType: "infobox", content: body }]);
+  });
+
+  it("ends the callout at the first non-`>` line", () => {
+    const p = parseNote("> [!note] heads up\n> inside\n\nregular paragraph");
+    expect(p.blocks).toEqual([
+      { t: "obsidian-callout", calloutType: "note", content: "> [!note] heads up\n> inside" },
+      { t: "p", text: "regular paragraph" },
+    ]);
+  });
+
+  it("still treats a bare blockquote (no `[!...]`) as a quote", () => {
+    expect(parseNote("> a solemn oath").type).toBe("quote");
+    const p = parseNote("> a solemn oath");
+    expect(p.blocks[0].t).toBe("callout");
+  });
+});
+
 describe("readFmProp — configurable front-matter property", () => {
   it("reads a plain string property", () => {
     expect(readFmProp({ noteType: "deed" }, "noteType")).toBe("deed");
