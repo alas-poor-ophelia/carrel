@@ -18,9 +18,10 @@
     .r-star { height: auto; padding: 3px; box-shadow: none; }
 
     // the drag grip has no hover on touch — keep it gently visible and strip
-    // Obsidian's mobile button chrome (background/border/box-shadow/min-height)
+    // Obsidian's mobile button chrome (background/border/box-shadow/min-height).
+    // Geometry (absolute, gutter-pinned) is inherited from the base rule.
     .cr-card__grip {
-      height: auto; min-height: 0; padding: 3px;
+      min-height: 0;
       background: none; border: 0; box-shadow: none; opacity: 0.5;
     }
 

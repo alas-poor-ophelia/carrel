@@ -4,6 +4,12 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.0.1
+
+### Fixed
+
+- The drag-to-reorder handle no longer reserves space on collapsed cards, so each card's type icon sits flush at the left edge instead of being indented by the width of the handle. The handle still fades in on hover and the card stays draggable.
+
 ## 1.0.0
 
 The first stable release. **Requires Obsidian 1.10+.**
