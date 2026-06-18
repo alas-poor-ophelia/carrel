@@ -37,9 +37,10 @@ Active plan: `C:\Users\whipl\.claude\plans\swirling-leaping-flame.md`.
 ## Build / Deploy / Loop
 
 ```
-bun run build        # sass + esbuild -> main.js/styles.css (dev)
-bun run build:prod   # PRODUCTION (minified); what release.yml ships
-bun run deploy       # build + copy to BOTH carrel-test-vault and MiniSheet Dev
+bun run build        # PRODUCTION (minified) — also what the store scanner runs (first of build/build:plugin/compile)
+bun run build:dev    # dev build (non-minified, fast); used by `deploy`
+bun run build:prod   # alias of `build` (production); what release.yml ships
+bun run deploy       # build:dev + copy to BOTH carrel-test-vault and MiniSheet Dev
 bun run typecheck    # tsc --noEmit
 bun run test:unit    # vitest (tests/unit)
 ```
@@ -49,11 +50,14 @@ scanner).** Everything is **bun**: `bun.lock` is the only lockfile (NO
 `package-lock.json`), and `.github/workflows/release.yml` runs `bun install
 --frozen-lockfile` + `bun run build:prod` + `actions/attest-build-provenance`. Do NOT
 migrate to npm — the scanner detects `bun.lock` and rebuilds with bun; an all-bun repo
-that matches Wayfinder passes. **`bun audit` MUST be clean before release** — a HIGH
-esbuild advisory (GHSA-gv7w-rqvm-qjhr, `esbuild <0.28.1`) was the true cause of the
-store's "build output does not match" build-verification failure; fixed by pinning
-`esbuild ^0.28.1` + an `overrides` entry forcing the transitive copy. Run `bun audit`
-as a release gate. See [[carrel-release-process]] / [[carrel-eslint-store-gauge]].
+that matches Wayfinder passes. **The store scanner rebuilds with the FIRST of
+`build`/`build:plugin`/`compile` and diffs against the released `main.js`** — so `build`
+MUST be the production (minified) build, never a dev build, or the bytes can't match
+("build output does not match"). `build` is therefore the prod build; `build:dev` drives the
+non-minified dev loop. **`bun audit` MUST also be clean before release** — a HIGH esbuild
+advisory (GHSA-gv7w-rqvm-qjhr, `esbuild <0.28.1`) can likewise make the scanner's rebuild
+diverge; pinned via `esbuild ^0.28.1` + an `overrides` entry. Run `bun audit` as a release
+gate. See [[carrel-release-process]] / [[carrel-eslint-store-gauge]].
 
 `deploy` copies `main.js`/`styles.css`/`manifest.json` to two plugin dirs:
 `carrel-test-vault/.obsidian/plugins/carrel` (clean-room) and the `MiniSheet Dev` vault's

@@ -1,6 +1,3 @@
-/* eslint-disable obsidianmd/no-unsupported-api -- Bases APIs (Obsidian 1.10+)
-   are reached only behind a `registerBasesView` feature-detect, so the core
-   plugin keeps its lower minAppVersion and simply skips this view on old builds. */
 /* Carrel as a custom Bases view. A `.base` file can switch to the "Carrel" view
    and render its filtered notes as the column-balancing typed-card board. The
    board is fed by a bare CarrelIndex whose docs signal we push the adapted

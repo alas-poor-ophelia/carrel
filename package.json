@@ -6,10 +6,11 @@
   "scripts": {
     "build:css": "sass scss/main.scss styles.css --no-source-map --no-charset",
     "build:css:watch": "sass scss/main.scss styles.css --no-source-map --no-charset --watch",
-    "build": "bun run build:css && bun esbuild.config.mjs",
+    "build": "bun run build:css && bun esbuild.config.mjs production",
+    "build:dev": "bun run build:css && bun esbuild.config.mjs",
     "build:prod": "bun run build:css && bun esbuild.config.mjs production",
     "build:watch": "bun esbuild.config.mjs --watch",
-    "deploy": "bun run build && bun scripts/deploy.mjs",
+    "deploy": "bun run build:dev && bun scripts/deploy.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

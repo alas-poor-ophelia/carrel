@@ -1,5 +1,3 @@
-/* eslint-disable obsidianmd/no-unsupported-api -- Bases APIs (Obsidian 1.10+);
-   this adapter runs only from the feature-detected CarrelBasesView. */
 /* Bases → Carrel adapter. Maps a Base query's entries (a note + its property
    values) into the RuleDoc shape the board already renders, reading metadata
    only — no note-body parsing (the "properties as the body", B4a, model). The
