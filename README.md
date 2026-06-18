@@ -4,7 +4,7 @@ A novel way to view, sort, and study any set of notes — as a column-balancing 
 
 ![The Carrel pane in Obsidian's default theme: a column-balancing board of reference cards with search, filter chips, and category sections](docs/images/pane-overview.png)
 
-Carrel works as a full workspace pane and as an inline embed you can drop into any note. It started as the References tab of the [Wayfinder](https://github.com/alas-poor-ophelia) character sheet and now runs on its own — when both are installed, the two integrate.
+Carrel works as a full workspace pane, as an inline embed you can drop into any note, and as a custom view for [Obsidian Bases](https://help.obsidian.md/bases). It started as the References tab of the [Wayfinder](https://github.com/alas-poor-ophelia) character sheet and now runs on its own — when both are installed, the two integrate.
 
 ---
 
@@ -168,6 +168,18 @@ Inside a note, certain Markdown shapes render as rich blocks when the card is ex
 > — The first oath
 ```
 
+**Obsidian callouts & infoboxes** — an Obsidian [callout](https://help.obsidian.md/callouts) (`> [!type]`), including the worldbuilding **infobox** pattern, renders through Obsidian's own pipeline, so the native callout chrome plus any embedded images, headings, and tables inside it all resolve:
+
+```markdown
+> [!infobox|left]
+> # Ser Aldric
+> ![[aldric.png|cover]]
+> | Trait | Value |
+> | --- | --- |
+> | Class | Paladin |
+> | Level | 7 |
+```
+
 **Flowchart** — a fenced `ref-flow` block written in a small step language:
 
 ````markdown
@@ -196,6 +208,22 @@ The keys are `start`, `note`, `check`, `branch` (followed by indented `success:`
 
 ---
 
+## Customizing types — disable and detect
+
+The built-in types and their inference fit most vaults, but **Settings → Carrel → Types** adds two levers for the rest:
+
+- **Disable a built-in type.** Toggle off any type you don't use. Carrel stops *inferring* it — those notes fall through to the next match — and its filter chip and type section disappear. Notes that *declare* the type in front matter keep it.
+- **Type detection rules.** Auto-assign a type to notes that match a metadata rule, without parsing the note body. Each rule maps a condition to a target type, checked in order — the first enabled match wins:
+  - **Has frontmatter key** — the note has a given property (any value).
+  - **Frontmatter key equals** — a property equals a given value.
+  - **Has tag** — the note carries a given tag.
+
+So "notes tagged `#spell` are **Formula**" or "notes with a `statblock` property are **Table**." An explicit `type:` in front matter still wins over a rule; rules only fill in where you'd otherwise rely on inference.
+
+![Carrel's Type detection rules editor — two rules mapping a tag and a frontmatter key to target types, each with an enable toggle and target dropdown](docs/images/type-rules.png)
+
+---
+
 ## Embedding Carrel in a note
 
 Besides the full-width pane, Carrel can render a board **inline inside any note** — a more compact view meant to live alongside your writing. Add a `carrel` code block naming the nook:
@@ -217,6 +245,18 @@ An inline embed is deliberately different from the full pane:
 - It runs its **own index**, so it always shows the nook you named — independent of whichever nook is active in the pane.
 
 It still updates live as the underlying notes change, and you can expand cards and follow links right inside the note.
+
+---
+
+## Bases view
+
+[Obsidian Bases](https://help.obsidian.md/bases) (Obsidian 1.10+) turns a set of notes into a filtered, queryable view. Carrel registers a **"Carrel" view type** for any `.base` file: switch a Base to the Carrel view and its filtered results render as the full Carrel board — real types, flowcharts, colors, and your type rules, all of it. Each note is parsed exactly as it is in a nook, so a flowchart note is a flowchart and a table is a table.
+
+![A `.base` file in the Carrel view: filtered notes rendered as the column-balancing board, grouped into type sections, with a flowchart card expanded](docs/images/bases-view.png)
+
+To use it, open a `.base` file, add or open a view, and choose **Carrel** as the view type. The board updates live as you change the Base's filters and formulas or edit the underlying notes. Each Carrel Bases view keeps its own grouping, sort, and pins (stored with the view), and the usual board controls — search, filter chips, density, theme — are on its toolbar.
+
+Carrel renders the *notes'* content here, not the Base's columns, so reach for it when you want to **read** a filtered slice of your vault as cards; use the built-in Table or Cards views when you want the property grid.
 
 ---
 
@@ -309,7 +349,7 @@ None of this is required — Carrel is fully standalone. The integration simply 
 
 ## Known limitations
 
-- Card **type** is inferred, not user-assigned; the inference is heuristic and falls back to a plain Reference card when it can't tell.
+- Card **type** is inferred from structure by default. You can disable individual types and add metadata-based detection rules (Settings → Carrel → Types), but the inference itself is heuristic and falls back to a plain Reference card when nothing else matches.
 - Open cards, keyboard focus, the search query, and active filters are transient — they reset when the pane reloads. Pins, pin order, and checklist state persist per nook.
 
 ---
