@@ -1,8 +1,8 @@
 /* Carrel as a custom Bases view. A `.base` file can switch to the "Carrel" view
-   and render its filtered notes as the column-balancing typed-card board. The
-   board is fed by a bare CarrelIndex whose docs signal we push the adapted
-   entries into (no folder watching), and it is driven by a hidden, persisted
-   "bases" nook so grouping/sort/pins/theme are fully controllable and survive
+   and render its filtered notes as the column-balancing typed-card board. We
+   hand the bare CarrelIndex the FILES from the Bases query and let it parse each
+   note exactly like the main pane (real types, flowcharts, colors, rules). It is
+   driven by a hidden, persisted "bases" nook so grouping/sort/pins/theme survive
    across sessions (the nook id is stored in the view's own config).
 
    Gated behind a feature-detect on registerBasesView, so older Obsidian builds
@@ -12,11 +12,6 @@ import { render } from "preact";
 import type CarrelPlugin from "../main";
 import { CarrelIndex } from "../rules/index";
 import { PaneBoard } from "../components/pane/PaneBoard";
-import {
-  basesToRuleDocs,
-  TITLE_PROPERTY_KEY,
-  TYPE_PROPERTY_KEY,
-} from "../adapters/basesToRuleDocs";
 import { genId } from "../util/id";
 
 const NOOK_ID_KEY = "carrelNookId";
@@ -58,11 +53,9 @@ class CarrelBasesView extends BasesView {
       if (id !== stored) this.config.set(NOOK_ID_KEY, id);
     }
 
-    this.index.docs.value = basesToRuleDocs(
-      this.data.data,
-      this.config,
-      this.plugin.store.customTypes()
-    );
+    // Parse every note in the Bases result set into a real Carrel card. Async;
+    // the docs signal updates when it resolves and the board re-renders.
+    void this.index.indexFiles(this.data.data.map((e) => e.file));
 
     if (!this.root) {
       this.containerEl.empty();
@@ -85,19 +78,5 @@ export function registerCarrelBasesView(plugin: CarrelPlugin): void {
     name: "Carrel",
     icon: "book-open",
     factory: (controller, containerEl) => new CarrelBasesView(controller, containerEl, plugin),
-    options: () => [
-      {
-        type: "property",
-        key: TYPE_PROPERTY_KEY,
-        displayName: "Card type property",
-        placeholder: "(reference)",
-      },
-      {
-        type: "property",
-        key: TITLE_PROPERTY_KEY,
-        displayName: "Card title property",
-        placeholder: "(file name)",
-      },
-    ],
   });
 }

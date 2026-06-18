@@ -122,6 +122,26 @@ export class CarrelIndex {
     }
   }
 
+  /** Index an EXPLICIT set of files (e.g. a Bases query result) into `docs`,
+   *  parsing each note exactly like the watched-folder path — so Bases cards are
+   *  real Carrel cards (types, flowcharts, colors, rules). Respects the rebuild
+   *  generation guard so a superseded call drops its partial work. */
+  async indexFiles(files: TFile[]): Promise<void> {
+    const gen = ++this.rebuildGen;
+    try {
+      const docs: RuleDoc[] = [];
+      for (const file of files) {
+        const doc = await this.indexFile(file);
+        if (gen !== this.rebuildGen) return;
+        docs.push(doc);
+      }
+      docs.sort((a, b) => a.title.localeCompare(b.title));
+      this.docs.value = docs;
+    } catch (e) {
+      console.error("Carrel: bases index failed", e);
+    }
+  }
+
   private async indexFile(file: TFile): Promise<RuleDoc> {
     const cache = this.app.metadataCache.getFileCache(file);
     const headings = cache?.headings?.map((h) => h.heading) ?? [];
