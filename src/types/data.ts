@@ -27,6 +27,10 @@ export interface Nook {
   id: string;
   name: string;
   folders: string[];
+  /** A nook auto-created to back a Bases "Carrel" view (its display settings +
+   *  pins/order persist here, keyed by an id stored in the `.base` file). Hidden
+   *  from the main pane's nook switcher. Absent for ordinary folder nooks. */
+  kind?: "bases";
   theme: "brand" | "obsidian";
   /** MiniSheet character id this nook is linked to, or null for a free nook. */
   characterId: string | null;

@@ -10,6 +10,7 @@ import { CreateNookModal, InsertNookBlockModal } from "./modals";
 import { CarrelSettingTab } from "./settings";
 import { PaneView } from "./views/PaneView";
 import { registerInlineEmbed } from "./views/InlineEmbed";
+import { registerCarrelBasesView } from "./views/CarrelBasesView";
 
 export default class CarrelPlugin extends Plugin {
   /** Persisted nooks + global categories. */
@@ -100,6 +101,9 @@ export default class CarrelPlugin extends Plugin {
 
     // The inline `carrel` codeblock renders one nook's cards + pins in a note.
     registerInlineEmbed(this);
+
+    // Register Carrel as a custom Bases view (no-op on Obsidian builds without Bases).
+    registerCarrelBasesView(this);
 
     this.addSettingTab(new CarrelSettingTab(this));
 

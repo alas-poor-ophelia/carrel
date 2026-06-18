@@ -130,6 +130,28 @@ export class CarrelStore {
     return nook;
   }
 
+  /** Ensure a hidden Bases-backed nook exists for a `.base` Carrel view, keyed
+   *  by the id persisted in that view's config. Created once; its grouping,
+   *  sort, pins and card order then persist across sessions like any nook. */
+  ensureBasesNook(id: string, name: string): void {
+    const d = this.data.value;
+    if (d.nooks.some((n) => n.id === id)) return;
+    const nook: Nook = {
+      id,
+      name: name || "Bases",
+      folders: [],
+      kind: "bases",
+      theme: "brand",
+      characterId: null,
+      pins: [],
+      pinOrder: [],
+      checklist: {},
+      tweaks: { ...DEFAULT_TWEAKS, groupBy: "type" },
+      cardOrder: {},
+    };
+    this.commit({ ...d, nooks: [...d.nooks, nook] });
+  }
+
   updateNook(id: string, patch: Partial<Omit<Nook, "id">>): void {
     const d = this.data.value;
     this.commit({

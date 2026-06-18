@@ -174,12 +174,17 @@ export function PaneBoard({
   plugin,
   embed = false,
   embedNookId,
+  boardNookId,
   chromeless = false,
   index,
 }: {
   plugin: CarrelPlugin;
   embed?: boolean;
   embedNookId?: string;
+  /** Drive the board from a specific nook in FULL (non-embed) mode, hiding the
+   *  global nook switcher / new-nook controls. Used by the Bases view, which
+   *  owns a dedicated hidden nook. */
+  boardNookId?: string;
   /** Hide all chrome (toolbar, search, filters, controls) — cards + pins only.
    *  Used by the inline `carrel` codeblock embed. */
   chromeless?: boolean;
@@ -202,9 +207,13 @@ export function PaneBoard({
   const store = plugin.store;
   const data = store.data.value; // subscribe to store changes
   const customTypes = data.customTypes;
-  const nook = embed
-    ? data.nooks.find((n) => n.id === embedNookId) ?? null
-    : data.nooks.find((n) => n.id === data.activeNookId) ?? data.nooks[0] ?? null;
+  // Bases-backed nooks are hidden from the main pane's switcher / fallback.
+  const switchableNooks = data.nooks.filter((n) => n.kind !== "bases");
+  const nook = boardNookId != null
+    ? data.nooks.find((n) => n.id === boardNookId) ?? null
+    : embed
+      ? data.nooks.find((n) => n.id === embedNookId) ?? null
+      : data.nooks.find((n) => n.id === data.activeNookId) ?? switchableNooks[0] ?? null;
   const nookRef = useRef(nook);
   nookRef.current = nook;
 
@@ -367,13 +376,13 @@ export function PaneBoard({
               </div>
             </div>
           )}
-          {!embed && data.nooks.length > 0 && (
+          {!embed && boardNookId == null && switchableNooks.length > 0 && (
             <select
               class="cr-nooksel"
               value={nook?.id ?? ""}
               onChange={(e) => store.setActiveNook((e.target as HTMLSelectElement).value)}
             >
-              {data.nooks.map((n) => (
+              {switchableNooks.map((n) => (
                 <option key={n.id} value={n.id}>
                   {n.name}
                 </option>
@@ -398,7 +407,7 @@ export function PaneBoard({
                 </svg>
               </button>
             )}
-            {!embed && (
+            {!embed && boardNookId == null && (
               <button class="cr-tbtn cr-tbtn--icon" title="New nook" onClick={() => new CreateNookModal(plugin).open()}>
                 +
               </button>
