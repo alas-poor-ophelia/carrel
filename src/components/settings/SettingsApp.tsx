@@ -9,6 +9,7 @@ import { useMemo, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import { Notice } from "obsidian";
 import type CarrelPlugin from "../../main";
+import { defaultStoragePath, type StorageMode } from "../../types/data";
 import type { ContentType } from "../../rules/model";
 import { CONTENT_TYPES, FILTERABLE_TYPES, customTypeToken } from "../../rules/registry";
 import { getWayfinder } from "../../util/plugins";
@@ -24,6 +25,7 @@ const BUILTIN_ORDER: (keyof typeof CONTENT_TYPES)[] = [...FILTERABLE_TYPES, "ref
 export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
   const store = plugin.store;
   const data = store.data.value; // subscribe to store changes
+  const storage = store.storage.value; // subscribe to storage-mode changes
   const cats = data.categories;
   const customTypes = data.customTypes;
   const rpgAvailable = !!getWayfinder(plugin.app);
@@ -61,6 +63,14 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
     for (const d of docs) m.set(d.type, (m.get(d.type) ?? 0) + 1);
     return m;
   }, [docs]);
+
+  // Switch storage backend. Keep a user-customized path; if the path is still a
+  // default, swap it to the new mode's default so the extension matches.
+  const onStorageMode = (mode: StorageMode): void => {
+    const keepPath = storage.path.trim() !== "" && storage.path !== defaultStoragePath(storage.mode);
+    const path = keepPath ? storage.path : defaultStoragePath(mode);
+    void store.setStorageConfig({ mode, path });
+  };
 
   return (
     <div class="ob">
@@ -166,6 +176,36 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
       </div>
 
       <NooksSection plugin={plugin} />
+
+      <div class="ob-h">
+        <h3 class="ob-h__t">Data storage</h3>
+      </div>
+      <p class="ob-h__desc">
+        Where Carrel saves your nooks, categories and settings. <code>Plugin data file</code> keeps everything
+        inside the plugin (the default). The vault options instead write a single file into your vault — handy
+        for syncing or hand-editing, and YAML reads more cleanly by hand. Switching moves your current data to
+        the new location automatically; the old file is left behind as a backup.
+      </p>
+      <div class="ob-field">
+        <div class="ob-field__label">Save to</div>
+        <select
+          class="dropdown"
+          value={storage.mode}
+          onChange={(e) => onStorageMode((e.target as HTMLSelectElement).value as StorageMode)}
+        >
+          <option value="plugin">Plugin data file (data.json)</option>
+          <option value="vault-json">Vault file — JSON</option>
+          <option value="vault-yaml">Vault file — YAML</option>
+        </select>
+      </div>
+      {storage.mode !== "plugin" && (
+        <PropField
+          label="Vault file path"
+          value={storage.path}
+          fallback={defaultStoragePath(storage.mode)}
+          onCommit={(v) => void store.setStorageConfig({ ...storage, path: v })}
+        />
+      )}
 
       <div class="ob-h">
         <h3 class="ob-h__t">Icons</h3>

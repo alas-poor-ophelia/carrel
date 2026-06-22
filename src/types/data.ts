@@ -112,6 +112,29 @@ export interface CarrelData {
   typeRules: TypeRule[];
 }
 
+/** Where and how Carrel persists its nook data. `plugin` keeps it inside the
+ *  plugin's own data.json (default, JSON, current behaviour). `vault-json` and
+ *  `vault-yaml` instead write a single file at `path` inside the vault, as JSON
+ *  or YAML respectively. The storage CONFIG itself always lives in data.json —
+ *  it's the only store guaranteed to be readable before we know the mode. */
+export type StorageMode = "plugin" | "vault-json" | "vault-yaml";
+
+export interface StorageConfig {
+  mode: StorageMode;
+  /** Vault-relative file path for the vault-* modes (ignored when `plugin`). */
+  path: string;
+}
+
+export const DEFAULT_STORAGE: StorageConfig = {
+  mode: "plugin",
+  path: "carrel-data.json",
+};
+
+/** The default vault file name for a mode — extension matches the serializer. */
+export function defaultStoragePath(mode: StorageMode): string {
+  return mode === "vault-yaml" ? "carrel-data.yaml" : "carrel-data.json";
+}
+
 export const CARREL_SCHEMA_VERSION = 5;
 
 /** Built-in defaults for the configurable front-matter property names. */

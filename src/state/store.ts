@@ -1,40 +1,77 @@
-import { Notice } from "obsidian";
+import { Notice, parseYaml, stringifyYaml } from "obsidian";
 import { signal, type Signal } from "@preact/signals";
 import type CarrelPlugin from "../main";
 import {
   CARREL_SCHEMA_VERSION,
   DEFAULT_CATEGORY_PROP,
   DEFAULT_DATA,
+  DEFAULT_STORAGE,
   DEFAULT_TWEAKS,
   DEFAULT_TYPE_PROP,
+  defaultStoragePath,
   type CarrelData,
   type Category,
   type CustomType,
   type GroupBy,
   type Nook,
   type SortMode,
+  type StorageConfig,
   type TypeRule,
 } from "../types/data";
 import type { ContentType } from "../rules/model";
 import { isContentType, isKnownType } from "../rules/registry";
 import { genId } from "../util/id";
 
+/** The shape written to the plugin's data.json. In `plugin` mode `data` holds
+ *  the nook blob; in vault modes `data` is null and the blob lives in a vault
+ *  file (data.json then carries only the storage config). A legacy data.json is
+ *  a bare CarrelData with no `storage` key — detected and treated as plugin mode. */
+interface PersistedRoot {
+  storage: StorageConfig;
+  data: CarrelData | null;
+}
+
+function isPersistedRoot(raw: unknown): raw is PersistedRoot {
+  if (raw == null || typeof raw !== "object" || !("storage" in raw)) return false;
+  const s: unknown = raw.storage;
+  return s != null && typeof s === "object" && "mode" in s && typeof s.mode === "string";
+}
+
 /**
  * The persisted Carrel state: nooks + global categories, held in a signal and
- * saved (debounced) to the plugin's data.json. Components read store.data.value
- * to subscribe; mutations replace the value immutably and schedule a save.
+ * saved (debounced) to the configured backend (plugin data.json by default, or
+ * a single JSON/YAML file in the vault — see StorageConfig). Components read
+ * store.data.value to subscribe; mutations replace the value immutably and
+ * schedule a save.
  */
 export class CarrelStore {
   readonly data: Signal<CarrelData> = signal(structuredClone(DEFAULT_DATA));
+  /** Where the nook blob is persisted. Always read from / written to data.json;
+   *  held in a signal so the settings UI re-renders when the mode changes. */
+  readonly storage: Signal<StorageConfig> = signal({ ...DEFAULT_STORAGE });
   private saveTimer: number | null = null;
-  /** Set when on-disk data is from a NEWER schema than this build understands.
-   *  While locked, in-memory edits work but are never persisted (see commit). */
+  /** Set when on-disk data is from a NEWER schema than this build understands,
+   *  OR a vault data file failed to read/parse. While locked, in-memory edits
+   *  work but are never persisted, so we never clobber recoverable on-disk data. */
   private locked = false;
 
   constructor(private readonly plugin: CarrelPlugin) {}
 
   async load(): Promise<void> {
-    const raw = (await this.plugin.loadData()) as Partial<CarrelData> | null;
+    const root: unknown = await this.plugin.loadData();
+    // Resolve the storage config + raw nook blob, tolerating a legacy data.json
+    // that is a bare CarrelData (written before storage modes existed).
+    let cfg: StorageConfig;
+    let raw: Partial<CarrelData> | null;
+    if (isPersistedRoot(root)) {
+      cfg = { ...DEFAULT_STORAGE, ...root.storage };
+      raw = cfg.mode === "plugin" ? root.data : await this.loadVaultBlob(cfg, root.data);
+    } else {
+      cfg = { ...DEFAULT_STORAGE };
+      raw = root ?? null;
+    }
+    this.storage.value = cfg;
+
     const storedVersion = typeof raw?.schemaVersion === "number" ? raw.schemaVersion : 0;
     if (storedVersion > CARREL_SCHEMA_VERSION) {
       // Data saved by a NEWER Carrel. Load it so the UI still works, but LOCK
@@ -50,6 +87,48 @@ export class CarrelStore {
       );
       return;
     }
+    this.data.value = this.migrate(raw);
+  }
+
+  /** Read + parse the nook blob from the configured vault file. Returns the
+   *  data.json `inline` snapshot as a fallback when the file is missing (e.g. a
+   *  mode just switched but no save has flushed yet). On a read/parse error it
+   *  LOCKS persistence and returns the fallback, so a corrupt file is never
+   *  silently overwritten with an empty board. */
+  private async loadVaultBlob(
+    cfg: StorageConfig,
+    inline: CarrelData | null
+  ): Promise<Partial<CarrelData> | null> {
+    const adapter = this.plugin.app.vault.adapter;
+    let text: string;
+    try {
+      if (!(await adapter.exists(cfg.path))) return inline;
+      text = await adapter.read(cfg.path);
+    } catch {
+      this.locked = true;
+      new Notice(
+        `Carrel: couldn't read the data file “${cfg.path}”. Using last known data; ` +
+          "changes won't be saved until it's reachable.",
+        0
+      );
+      return inline;
+    }
+    try {
+      const parsed: unknown = cfg.mode === "vault-yaml" ? parseYaml(text) : JSON.parse(text);
+      return parsed as Partial<CarrelData>;
+    } catch {
+      this.locked = true;
+      new Notice(
+        `Carrel: the data file “${cfg.path}” is corrupt and couldn't be parsed. ` +
+          "Changes won't be saved until it's fixed.",
+        0
+      );
+      return inline;
+    }
+  }
+
+  /** Apply schema defaults + pruning to a raw blob (shared by every load path). */
+  private migrate(raw: Partial<CarrelData> | null): CarrelData {
     const merged: CarrelData = {
       ...structuredClone(DEFAULT_DATA),
       ...(raw ?? {}),
@@ -70,7 +149,7 @@ export class CarrelStore {
     merged.typeRules = (merged.typeRules ?? []).filter((r) =>
       isKnownType(r.targetType, merged.customTypes)
     );
-    this.data.value = merged;
+    return merged;
   }
 
   private commit(next: CarrelData): void {
@@ -79,7 +158,7 @@ export class CarrelStore {
     if (this.saveTimer != null) window.clearTimeout(this.saveTimer);
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
-      void this.plugin.saveData(this.data.value);
+      void this.persist(this.data.value);
     }, 400);
   }
 
@@ -89,7 +168,45 @@ export class CarrelStore {
       this.saveTimer = null;
     }
     if (this.locked) return;
-    await this.plugin.saveData(this.data.value);
+    await this.persist(this.data.value);
+  }
+
+  /** Write data to whichever backend the storage config selects. The config
+   *  itself always goes to data.json; in vault modes the nook blob is written to
+   *  the vault file and data.json carries data:null. */
+  private async persist(data: CarrelData): Promise<void> {
+    const cfg = this.storage.value;
+    const root: PersistedRoot = { storage: cfg, data: cfg.mode === "plugin" ? data : null };
+    await this.plugin.saveData(root);
+    if (cfg.mode === "plugin") return;
+    const text = cfg.mode === "vault-yaml" ? stringifyYaml(data) : JSON.stringify(data, null, 2);
+    await this.writeVaultFile(cfg.path, text);
+  }
+
+  private async writeVaultFile(path: string, text: string): Promise<void> {
+    const adapter = this.plugin.app.vault.adapter;
+    const slash = path.lastIndexOf("/");
+    if (slash > 0) {
+      const dir = path.slice(0, slash);
+      if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
+    }
+    await adapter.write(path, text);
+  }
+
+  /** Switch where data is stored, AUTO-MIGRATING the current in-memory data to
+   *  the new target immediately (the old file is left in place as a backup). A
+   *  blank path falls back to the mode's default name. No-op while locked — we
+   *  won't risk writing over data we couldn't fully load. */
+  async setStorageConfig(next: StorageConfig): Promise<void> {
+    if (this.locked) {
+      new Notice(
+        "Carrel: data couldn't be fully loaded, so the save location is locked right now."
+      );
+      return;
+    }
+    const path = next.path.trim() || defaultStoragePath(next.mode);
+    this.storage.value = { mode: next.mode, path };
+    await this.persist(this.data.value);
   }
 
   /* ---------- nooks ---------- */
