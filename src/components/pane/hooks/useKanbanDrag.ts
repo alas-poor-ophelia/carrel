@@ -22,6 +22,26 @@ export interface KanbanDragColumn {
   paths: string[];
 }
 
+// auto-scroll: how close (px) the pointer must get to a viewport edge to start
+// hauling the board, and the peak px/frame speed at the very edge.
+const EDGE = 64;
+const MAX_SPEED = 22;
+
+/** Signed px/frame to scroll so a near-edge (or past-edge) pointer hauls the
+ *  viewport toward the hidden content; 0 in the comfortable middle. */
+function edgeVelocity(pos: number, lo: number, hi: number): number {
+  const dLo = pos - lo;
+  const dHi = hi - pos;
+  if (dLo < dHi) {
+    if (dLo < EDGE) return -MAX_SPEED * Math.min(1, Math.max(0, (EDGE - dLo) / EDGE));
+  } else if (dHi < EDGE) {
+    return MAX_SPEED * Math.min(1, Math.max(0, (EDGE - dHi) / EDGE));
+  }
+  return 0;
+}
+
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+
 interface KanbanDragOptions {
   store: CarrelStore;
   nookRef: { current: Nook | null };
@@ -30,6 +50,8 @@ interface KanbanDragOptions {
   cells: { current: Map<string, HTMLElement> };
   appRef: { current: HTMLElement | null };
   layerRef: { current: HTMLElement | null };
+  /** The both-axis scroll viewport — driven by the edge auto-scroll. */
+  scrollRef: { current: HTMLElement | null };
   setDragId: (id: string | null) => void;
   /** Optimistic category override for the dragged card (null clears it). */
   setOverride: (path: string, category: string | null) => void;
@@ -42,7 +64,7 @@ interface KanbanDragOptions {
 export function useKanbanDrag(opts: KanbanDragOptions): {
   onCardDown: (e: PointerEvent, id: string) => void;
 } {
-  const { store, nookRef, columnsRef, cells, appRef, layerRef, setDragId, setOverride, canMoveCategory } = opts;
+  const { store, nookRef, columnsRef, cells, appRef, layerRef, scrollRef, setDragId, setOverride, canMoveCategory } = opts;
   const dragRef = useRef<{
     id: string;
     ghost: HTMLElement;
@@ -56,20 +78,23 @@ export function useKanbanDrag(opts: KanbanDragOptions): {
     warned: boolean;
     cbx: number;
     cby: number;
+    lastX: number;
+    lastY: number;
+    autoRaf: number;
   } | null>(null);
 
-  const onMove = useCallback(
-    (e: PointerEvent) => {
+  // Resolve the drop target for a pointer position and rewrite the live order /
+  // category override. Driven by pointer moves AND the auto-scroll loop (where the
+  // board slides under a stationary pointer), so it takes raw coords, not an event.
+  const place = useCallback(
+    (clientX: number, clientY: number) => {
       const d = dragRef.current;
       const layer = layerRef.current;
       if (!d || !layer) return;
-      d.ghost.style.left = e.clientX - d.dx - d.cbx + "px";
-      d.ghost.style.top = e.clientY - d.dy - d.cby + "px";
-
       const rect = layer.getBoundingClientRect();
       const nCols = d.colKeys.length;
       if (nCols === 0) return;
-      let ti = Math.floor((e.clientX - rect.left) / d.stride);
+      let ti = Math.floor((clientX - rect.left) / d.stride);
       ti = Math.max(0, Math.min(nCols - 1, ti));
       let targetKey = d.colKeys[ti];
 
@@ -90,7 +115,7 @@ export function useKanbanDrag(opts: KanbanDragOptions): {
         const c = cells.current.get(targetPaths[k]);
         if (!c) continue;
         const r = c.getBoundingClientRect();
-        if (e.clientY < r.top + r.height / 2) {
+        if (clientY < r.top + r.height / 2) {
           insertAt = k;
           break;
         }
@@ -122,9 +147,23 @@ export function useKanbanDrag(opts: KanbanDragOptions): {
     [store, nookRef, cells, layerRef, setOverride, canMoveCategory]
   );
 
+  const onMove = useCallback(
+    (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      d.lastX = e.clientX;
+      d.lastY = e.clientY;
+      d.ghost.style.left = e.clientX - d.dx - d.cbx + "px";
+      d.ghost.style.top = e.clientY - d.dy - d.cby + "px";
+      place(e.clientX, e.clientY);
+    },
+    [place]
+  );
+
   const onUp = useCallback(() => {
     const d = dragRef.current;
     if (d) {
+      if (d.autoRaf !== 0) window.cancelAnimationFrame(d.autoRaf);
       d.ghost.remove();
       // persist the category change on drop; the board holds the override until
       // the reindex confirms doc.category, so no flicker back to the old column.
@@ -196,7 +235,34 @@ export function useKanbanDrag(opts: KanbanDragOptions): {
       warned: false,
       cbx,
       cby,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      autoRaf: 0,
     };
+    // edge auto-scroll: while the pointer hugs a viewport edge, haul the board so
+    // off-screen columns / rows come into reach, re-placing the card each frame as
+    // the content slides under the (possibly stationary) pointer.
+    const autoScroll = (): void => {
+      const d = dragRef.current;
+      if (!d) return;
+      const sc = scrollRef.current;
+      if (sc) {
+        const r = sc.getBoundingClientRect();
+        const vx = edgeVelocity(d.lastX, r.left, r.right);
+        const vy = edgeVelocity(d.lastY, r.top, r.bottom);
+        if (vx !== 0 || vy !== 0) {
+          const nl = clamp(sc.scrollLeft + vx, 0, Math.max(0, sc.scrollWidth - sc.clientWidth));
+          const nt = clamp(sc.scrollTop + vy, 0, Math.max(0, sc.scrollHeight - sc.clientHeight));
+          if (nl !== sc.scrollLeft || nt !== sc.scrollTop) {
+            sc.scrollLeft = nl;
+            sc.scrollTop = nt;
+            place(d.lastX, d.lastY);
+          }
+        }
+      }
+      d.autoRaf = window.requestAnimationFrame(autoScroll);
+    };
+    dragRef.current.autoRaf = window.requestAnimationFrame(autoScroll);
     // pin the origin column's current order as the custom baseline and switch to
     // custom sort so the arrangement doesn't jump as the drag begins
     store.setNookCardOrder(cur.id, origCol, work.get(origCol) ?? []);

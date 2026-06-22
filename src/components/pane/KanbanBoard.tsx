@@ -146,7 +146,7 @@ export function KanbanBoard(props: KanbanBoardProps): JSX.Element {
 
   useKanbanPack({ appRef, scrollRef, layerRef, stripRef, cells, lastToggled }, open, query, spanOf, columnDocs);
   const { onCardDown } = useKanbanDrag({
-    store, nookRef, columnsRef, cells, appRef, layerRef, setDragId: setCardDragId, setOverride,
+    store, nookRef, columnsRef, cells, appRef, layerRef, scrollRef, setDragId: setCardDragId, setOverride,
     canMoveCategory: nook.kind !== "bases",
   });
 
