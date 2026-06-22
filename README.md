@@ -54,7 +54,7 @@ A **nook** is a saved board that reads from one or more vault folders. You can k
 
 Each note is rendered as a **card**. Closed, a card shows its icon, type badge, title, and a one-line summary. The board lays cards out as a **column-balancing masonry** — it fits as many columns as your pane is wide (roughly one per 330px) and drops each card into the shortest column so the wall stays even instead of leaving ragged gaps.
 
-Click a card to **expand** it in place. The full note renders inline (wikilinks, embeds, and markdown all work), and the card claims **one to three columns** depending on how much content it holds — a one-line note stays narrow; a multi-paragraph entry with a table widens out and flows into reading-width text columns. Opening a card slides its neighbors out of the way; you can have any number open at once and clear them all with **Collapse**.
+Click a card to **expand** it in place. The full note renders inline (wikilinks, embeds, and markdown all work), and the card claims **one to three columns** depending on how much content it holds — a one-line note stays narrow; a multi-paragraph entry with a table widens out and flows into reading-width text columns. Opening a card slides its neighbors out of the way; you can have any number open at once and clear them all with **Collapse**. (Prefer your categories laid out as columns instead of a balanced wall? Switch the nook to the [Kanban layout](#kanban-layout).)
 
 ![Two expanded cards on the board — a table and a flowchart rendered inline](docs/images/expanded-cards.png)
 
@@ -97,6 +97,24 @@ The board is fully keyboard-drivable:
 
 ---
 
+## Kanban layout
+
+Every nook can switch from the masonry **Board** to a **Kanban** layout — choose it from the **Layout** dropdown on the toolbar (the choice is saved per nook). Instead of a balanced wall, your categories become **columns** (swimlanes) laid out left to right, with each card sitting under its category.
+
+![A nook in the Kanban layout: categories as swimlane columns, with several image-cover cards](docs/images/kanban.png)
+
+**Curating the columns.** The columns are yours to choose, with the **＋ Add column** button. Its menu lists every category your notes already use and every category you've defined in Settings — plus a **New category…** entry to spin up a brand-new swimlane on the spot. Remove a column with the **×** on its header; the notes are untouched, they just stop showing until you add the column back.
+
+**Drag to recategorize.** Drag a card from one column to another and Carrel writes the new category into the note's front matter — so the move sticks to the note, not just the board. Drop a card into a new, empty column and that category is written onto it. Drag within a column to reorder (saved per nook). Dragging toward a column that's scrolled off-screen auto-scrolls the board to bring it into reach.
+
+**Expanding across columns.** Open a card and it expands *sideways*, spanning as many columns as its content needs and flowing the neighbouring swimlanes' cards down to make room — then snapping them back when you collapse it.
+
+**Scrolling.** A wide board scrolls horizontally — spin the wheel over the column headers, drag the header row, or use the scrollbar — while the columns scroll vertically. Column width is adjustable through [Style Settings](https://github.com/mgmeyers/obsidian-style-settings) (Carrel → Kanban column width).
+
+Kanban reads and writes the same `category` property as the rest of Carrel, so a card's column always reflects its note. In a [Bases](#bases-view) view, cards can be reordered but not moved between columns — a category write could drop them from the Base's filter.
+
+---
+
 ## Card types
 
 Most card types are **inferred** from a note's structure — you write ordinary Markdown and Carrel recognizes it. A few are **declared** explicitly in front matter.
@@ -111,7 +129,7 @@ type: ability
 ---
 ```
 
-The full set is `ability`, `deed`, `trait`, `flowchart`, `table`, `formula`, `process`, `lore`, and `reference`. The first three plus `lore` carry Carrel's character-sheet heritage — handy for RPG and worldbuilding vaults — but any vault can use them. The rest are usually left to inference.
+The full set is `ability`, `deed`, `trait`, `flowchart`, `table`, `formula`, `process`, `lore`, `image`, and `reference`. The first three plus `lore` carry Carrel's character-sheet heritage — handy for RPG and worldbuilding vaults — but any vault can use them. The rest are usually left to inference (or, for `image`, to a cover property — see [Image cards](#image-cards)).
 
 ### How a type is inferred
 
@@ -121,10 +139,25 @@ When you don't declare one, Carrel chooses a type from the note's blocks, in thi
 | --- | --- |
 | **Flowchart** | contains a `ref-flow` block |
 | **Formula** | contains a dice block |
+| **Image** | is mostly a picture — one or more image embeds and little other text |
 | **Lore** | opens with a blockquote (callout) |
 | **Process** | contains a checklist or a numbered list |
 | **Table** | contains tables, and at least as many tables as prose paragraphs |
 | **Reference** | none of the above — the neutral fallback |
+
+### Image cards
+
+A note that's **mostly a picture** — an image embed or two with little other text — renders as an **image card**: a cover-cropped thumbnail when collapsed, and the full image, bounds-contained, when expanded. Handy for maps, character art, reference shots, and mood boards.
+
+You can also give any note a **cover image** with a front-matter property, which forces an image card and supplies the thumbnail even when the note has other content:
+
+```yaml
+---
+image: "[[ser-aldric.png]]"
+---
+```
+
+The property defaults to `image`, and its name is configurable (Settings → Carrel). It accepts an embed (`![[pic.png]]`), a wikilink (`[[pic.png]]`), a bare path or filename, or an external URL — and it doubles as the cover mapping for [Bases](#bases-view) views, so a Base of notes with cover images renders as a wall of image cards.
 
 ### Typed blocks
 
@@ -339,6 +372,7 @@ None of this is required — Carrel is fully standalone. The integration simply 
 - Primary accent (red), secondary accent (gold).
 - Display, label, and body fonts.
 - Inline embed maximum height (200–1200px).
+- Kanban column width (150–460px).
 
 **Commands**
 - Carrel: Open Carrel pane
