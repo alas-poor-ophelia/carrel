@@ -79,6 +79,9 @@
   // min-height keeps an empty / short board droppable (cross-column drop hit-tests
   // by column x over the full layer area).
   .cr-kbn-layer { position: relative; width: 100%; min-height: 140px; }
+  // A top-row card's hover lift (translateY) rises into the sticky headers' band;
+  // raise the hovered card above the header (z-index 4) so its edge isn't clipped.
+  .cr-kbn-layer .cr-cell:not(.is-open):hover { z-index: 5; }
 
   .cr-kbn-empty {
     padding: 32px 12px; color: var(--faint); font: 500 13px/1.5 var(--f-ui); text-align: center;
