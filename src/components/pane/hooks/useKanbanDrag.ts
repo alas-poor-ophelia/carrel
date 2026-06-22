@@ -54,6 +54,8 @@ export function useKanbanDrag(opts: KanbanDragOptions): {
     curCol: string;
     work: Map<string, string[]>;
     warned: boolean;
+    cbx: number;
+    cby: number;
   } | null>(null);
 
   const onMove = useCallback(
@@ -61,8 +63,8 @@ export function useKanbanDrag(opts: KanbanDragOptions): {
       const d = dragRef.current;
       const layer = layerRef.current;
       if (!d || !layer) return;
-      d.ghost.style.left = e.clientX - d.dx + "px";
-      d.ghost.style.top = e.clientY - d.dy + "px";
+      d.ghost.style.left = e.clientX - d.dx - d.cbx + "px";
+      d.ghost.style.top = e.clientY - d.dy - d.cby + "px";
 
       const rect = layer.getBoundingClientRect();
       const nCols = d.colKeys.length;
@@ -170,6 +172,14 @@ export function useKanbanDrag(opts: KanbanDragOptions): {
       pointerEvents: "none",
     });
     host.appendChild(ghost);
+    // Correct for a position:fixed containing block: Obsidian sets `contain:strict`
+    // on the active workspace leaf, which makes a fixed child resolve against the
+    // leaf, not the viewport. Measure the rendered origin and offset all coords by it.
+    const g0 = ghost.getBoundingClientRect();
+    const cbx = g0.left - rect.left;
+    const cby = g0.top - rect.top;
+    ghost.style.left = rect.left - cbx + "px";
+    ghost.style.top = rect.top - cby + "px";
 
     const work = new Map<string, string[]>();
     for (const c of colsNow) work.set(c.key, c.paths.slice());
@@ -184,6 +194,8 @@ export function useKanbanDrag(opts: KanbanDragOptions): {
       curCol: origCol,
       work,
       warned: false,
+      cbx,
+      cby,
     };
     // pin the origin column's current order as the custom baseline and switch to
     // custom sort so the arrangement doesn't jump as the drag begins

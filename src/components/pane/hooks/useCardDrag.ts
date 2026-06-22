@@ -35,6 +35,8 @@ export function useCardDrag(opts: CardDragOptions): {
     ghost: HTMLElement;
     dx: number;
     dy: number;
+    cbx: number;
+    cby: number;
     sectionKey: string;
     order: string[];
     members: Set<string>;
@@ -44,9 +46,10 @@ export function useCardDrag(opts: CardDragOptions): {
     (e: PointerEvent) => {
       const d = dragRef.current;
       if (!d) return;
-      // carry the ghost under the cursor
-      d.ghost.style.left = e.clientX - d.dx + "px";
-      d.ghost.style.top = e.clientY - d.dy + "px";
+      // carry the ghost under the cursor (cbx/cby correct for the leaf's
+      // position:fixed containing block — see onCardDown)
+      d.ghost.style.left = e.clientX - d.dx - d.cbx + "px";
+      d.ghost.style.top = e.clientY - d.dy - d.cby + "px";
       // Hit-test the card directly under the cursor (the ghost is pointer-events:
       // none, so it's transparent to this). Using what's UNDER the pointer rather
       // than the nearest center is what stops reorder oscillation: after a swap
@@ -114,11 +117,21 @@ export function useCardDrag(opts: CardDragOptions): {
       pointerEvents: "none",
     });
     host.appendChild(ghost);
+    // Correct for a position:fixed containing block: Obsidian sets `contain:strict`
+    // on the active workspace leaf, which makes a fixed child resolve against the
+    // leaf, not the viewport. Measure the rendered origin and offset all coords by it.
+    const g0 = ghost.getBoundingClientRect();
+    const cbx = g0.left - rect.left;
+    const cby = g0.top - rect.top;
+    ghost.style.left = rect.left - cbx + "px";
+    ghost.style.top = rect.top - cby + "px";
     dragRef.current = {
       id,
       ghost,
       dx: e.clientX - rect.left,
       dy: e.clientY - rect.top,
+      cbx,
+      cby,
       sectionKey: sec.key,
       order,
       members: new Set(order),
