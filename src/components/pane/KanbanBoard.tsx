@@ -10,6 +10,7 @@
    stacking + sideways-displacement transforms. Dragging a card across columns
    writes its new category to the note's frontmatter (useKanbanDrag); an in-flight
    override keeps the card under the new column until the reindex confirms. */
+import { Menu } from "obsidian";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
@@ -17,6 +18,7 @@ import type { RuleDoc } from "../../rules/model";
 import type { Category, CustomType, Nook, SortMode } from "../../types/data";
 import type { CarrelStore } from "../../state/store";
 import { categoryComparator, sortDocs } from "../../rules/grouping";
+import { PromptModal } from "../../modals";
 import { GlyphIcon } from "../common/GlyphIcon";
 import { useDragScroll } from "../common/useDragScroll";
 import { Card } from "./PaneBoard";
@@ -123,8 +125,6 @@ export function KanbanBoard(props: KanbanBoardProps): JSX.Element {
     }
   }, [nook.kanbanColumns, nook.id, presentCats, store]);
 
-  const hiddenCats = presentCats.filter((c) => !cols.includes(c));
-
   // per-column ordered docs (within-column order honours the nook's sort mode)
   const columnDocs: KanbanColumnDocs[] = cols.map((key) => {
     const ds = docs.filter((d) => effectiveCat(d) === key);
@@ -151,35 +151,50 @@ export function KanbanBoard(props: KanbanBoardProps): JSX.Element {
   });
 
   const addColumn = (name: string): void => {
-    if (!name || cols.includes(name)) return;
-    store.setNookKanbanColumns(nook.id, [...cols, name]);
+    const n = name.trim();
+    if (n === "" || cols.includes(n)) return;
+    store.setNookKanbanColumns(nook.id, [...cols, n]);
   };
   const removeColumn = (name: string): void => {
     store.setNookKanbanColumns(nook.id, cols.filter((c) => c !== name));
   };
 
+  // categories that could become a column: those present on notes plus the
+  // global category list, minus the ones already shown (ordered by category order)
+  const addableCats = [...new Set([...presentCats, ...categories.map((c) => c.name)])]
+    .filter((c) => !cols.includes(c))
+    .sort(categoryComparator(categories));
+
+  // the persistent "+ Add column" menu: existing addable categories + a
+  // "New category…" entry that creates a brand-new (empty) swimlane on the spot
+  const openAddMenu = (e: MouseEvent): void => {
+    const menu = new Menu();
+    for (const name of addableCats) {
+      menu.addItem((item) => item.setTitle(name).onClick(() => addColumn(name)));
+    }
+    if (addableCats.length > 0) menu.addSeparator();
+    menu.addItem((item) =>
+      item
+        .setTitle("New category…")
+        .setIcon("plus")
+        .onClick(() =>
+          new PromptModal(plugin.app, {
+            title: "New column",
+            placeholder: "Category name",
+            cta: "Add column",
+            onSubmit: (v) => addColumn(v),
+          }).open()
+        )
+    );
+    menu.showAtMouseEvent(e);
+  };
+
   return (
     <div class="cr-kanban">
       <div class="cr-kbn-bar">
-        {hiddenCats.length > 0 && (
-          <select
-            class="cr-sortsel cr-kbn-add"
-            value=""
-            title="Add a category column"
-            onChange={(e) => {
-              const sel = e.target as HTMLSelectElement;
-              addColumn(sel.value);
-              sel.value = "";
-            }}
-          >
-            <option value="">+ Add column</option>
-            {hiddenCats.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        )}
+        <button class="cr-tbtn cr-kbn-addbtn" title="Add a category column" onClick={openAddMenu}>
+          ＋ Add column
+        </button>
       </div>
 
       <div class="cr-kbn-scroll" ref={scrollRef}>

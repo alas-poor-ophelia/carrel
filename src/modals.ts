@@ -1,4 +1,4 @@
-import { FuzzySuggestModal, Modal, Notice, Setting } from "obsidian";
+import { type App, FuzzySuggestModal, Modal, Notice, Setting } from "obsidian";
 import type CarrelPlugin from "./main";
 import type { Nook, NookTweaks } from "./types/data";
 import { listVaultFolders } from "./util/folders";
@@ -165,6 +165,61 @@ export class NookSettingsModal extends Modal {
             this.close();
           })
       );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/** Minimal single-text-field prompt (e.g. naming a new kanban column). Submits
+ *  on the CTA button or Enter; a blank / whitespace-only value is ignored. */
+export class PromptModal extends Modal {
+  private value: string;
+
+  constructor(
+    app: App,
+    private readonly opts: {
+      title: string;
+      placeholder?: string;
+      cta?: string;
+      initial?: string;
+      onSubmit: (value: string) => void;
+    }
+  ) {
+    super(app);
+    this.value = opts.initial ?? "";
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("carrel-modal");
+    contentEl.createEl("h3", { text: this.opts.title, cls: "cr-modal__title" });
+    new Setting(contentEl).addText((t) => {
+      t.setPlaceholder(this.opts.placeholder ?? "");
+      t.setValue(this.value);
+      t.onChange((v) => (this.value = v));
+      t.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.submit();
+        }
+      });
+      window.setTimeout(() => t.inputEl.focus(), 0);
+    });
+    new Setting(contentEl).addButton((b) =>
+      b
+        .setButtonText(this.opts.cta ?? "OK")
+        .setCta()
+        .onClick(() => this.submit())
+    );
+  }
+
+  private submit(): void {
+    const v = this.value.trim();
+    this.close();
+    if (v !== "") this.opts.onSubmit(v);
   }
 
   onClose(): void {

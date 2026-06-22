@@ -20,7 +20,8 @@
     margin: 2px 0 8px;
   }
   .cr-kbn-bar:empty { display: none; }
-  .cr-kbn-add { color: var(--gold-dim); }
+  // the "+ Add column" button reuses .cr-tbtn (and its .is-tablet override)
+  .cr-kbn-addbtn { color: var(--gold-dim); }
 
   // ---- scroll viewport ----
   // Fallback (embed / inline): a horizontal strip; vertical scroll rides the
@@ -75,7 +76,9 @@
   .cr-kbn-head__rm:hover { color: var(--text); background: #ffffff14; }
 
   // ---- shared card layer (height set in JS; cards are .cr-cell, absolute) ----
-  .cr-kbn-layer { position: relative; width: 100%; }
+  // min-height keeps an empty / short board droppable (cross-column drop hit-tests
+  // by column x over the full layer area).
+  .cr-kbn-layer { position: relative; width: 100%; min-height: 140px; }
 
   .cr-kbn-empty {
     padding: 32px 12px; color: var(--faint); font: 500 13px/1.5 var(--f-ui); text-align: center;
