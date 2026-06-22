@@ -566,6 +566,65 @@ function ChecklistBlock({
   );
 }
 
+/* ---------- image ---------- */
+
+/** Resolve an image block's raw src to a usable URL. External/explicit-scheme
+ *  sources pass through; a vault embed/path resolves via the metadata cache
+ *  (relative to the owning note) to a vault resource URL. Null = unresolved. */
+function resolveImageUrl(plugin: CarrelPlugin, src: string, notePath: string): string | null {
+  if (/^(?:https?:|data:|app:|file:)/i.test(src)) return src;
+  const dest = plugin.app.metadataCache.getFirstLinkpathDest(src, notePath);
+  return dest ? plugin.app.vault.getResourcePath(dest) : null;
+}
+
+/** Alt text for an image block: the explicit alt, else the filename stem. */
+function imageAlt(block: Extract<RuleBlock, { t: "image" }>): string {
+  if (block.alt != null && block.alt !== "") return block.alt;
+  const base = block.src.split(/[\\/]/).pop() ?? block.src;
+  return base.replace(/\.[a-z0-9]+$/i, "");
+}
+
+/** A resolved image — the collapsed-card `thumb` (cover-cropped to a thumbnail
+ *  aspect) or the expanded-body `full` (contained within the card's grown
+ *  bounds). Dispatches RENDERED_EVENT on load so the masonry re-measures once the
+ *  natural image size is known. */
+export function CardImage({
+  plugin,
+  path,
+  block,
+  variant,
+}: {
+  plugin: CarrelPlugin;
+  path: string;
+  block: Extract<RuleBlock, { t: "image" }>;
+  variant: "thumb" | "full";
+}): JSX.Element {
+  const url = resolveImageUrl(plugin, block.src, path);
+  const cls = "cr-image cr-image--" + variant;
+  if (url == null) {
+    return (
+      <div class={cls + " cr-image--missing"} title={block.src}>
+        <GlyphIcon iconSet="lucide" icon="lucide-image-off" class="cr-image__missing-ic" />
+        <span class="cr-image__missing-label">Image not found</span>
+      </div>
+    );
+  }
+  return (
+    <div class={cls}>
+      <img
+        class="cr-image__img"
+        src={url}
+        alt={imageAlt(block)}
+        loading="lazy"
+        decoding="async"
+        onLoad={(e) =>
+          e.currentTarget.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }))
+        }
+      />
+    </div>
+  );
+}
+
 /* ---------- block dispatcher ---------- */
 
 export function Blocks({
@@ -597,6 +656,8 @@ export function Blocks({
             return <CalloutBlock block={b} q={q} key={i} />;
           case "obsidian-callout":
             return <ObsidianCalloutBlock plugin={plugin} path={doc.path} block={b} key={i} />;
+          case "image":
+            return <CardImage plugin={plugin} path={doc.path} block={b} variant="full" key={i} />;
           case "flow":
             return <FlowBlock block={b} q={q} key={i} />;
           case "dice":

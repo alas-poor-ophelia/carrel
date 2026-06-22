@@ -14,7 +14,7 @@ import { useCallback, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
 import type { CarrelIndex } from "../../rules/index";
-import type { RuleDoc } from "../../rules/model";
+import type { RuleBlock, RuleDoc } from "../../rules/model";
 import type { CustomType, GroupBy, SortMode } from "../../types/data";
 import { searchRules } from "../../rules/search";
 import { FILTERABLE_TYPES, customTypeToken, resolveType } from "../../rules/registry";
@@ -24,7 +24,7 @@ import { GlyphIcon } from "../common/GlyphIcon";
 import { DragGrip, STAR_PATH } from "../common/glyphs";
 import { useDragScroll } from "../common/useDragScroll";
 import { CreateNookModal, NookSettingsModal } from "../../modals";
-import { Blocks, MetaChips, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
+import { Blocks, CardImage, MetaChips, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
 import { useMasonryPack, type Section } from "./hooks/useMasonryPack";
 import { useRailDrag } from "./hooks/useRailDrag";
 import { useCardDrag } from "./hooks/useCardDrag";
@@ -43,10 +43,16 @@ function contentWeight(doc: RuleDoc): number {
       case "checklist": w += 0.6 + b.items.length * 0.32; break;
       case "dice": w += 0.7; break;
       case "callout": w += 1.4; break;
+      case "image": w += 2.2; break;
       default: w += 0.8;
     }
   }
   return w;
+}
+
+/** The first image block on a doc (drives the collapsed-card thumbnail). */
+function firstImageBlock(doc: RuleDoc): Extract<RuleBlock, { t: "image" }> | undefined {
+  return doc.blocks.find((b): b is Extract<RuleBlock, { t: "image" }> => b.t === "image");
 }
 function baseSpan(doc: RuleDoc): number {
   const w = contentWeight(doc);
@@ -114,8 +120,15 @@ interface CardProps {
 
 function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck, onGripDown }: CardProps): JSX.Element {
   const t = resolveType(doc.type, customTypes);
+  // An image card shows a cover-cropped thumbnail in place of the summary when
+  // collapsed; the expanded body renders the full image via the block dispatcher.
+  const thumb = !isOpen && doc.type === "image" ? firstImageBlock(doc) : undefined;
   return (
-    <div class={"cr-card" + (isOpen ? " is-open" : "")} style={{ "--bc": t.color }} onClick={isOpen ? undefined : onToggle}>
+    <div
+      class={"cr-card" + (isOpen ? " is-open" : "") + (doc.type === "image" ? " is-image" : "")}
+      style={{ "--bc": t.color }}
+      onClick={isOpen ? undefined : onToggle}
+    >
       {isOpen && <span class="cr-card__accent" />}
       <div class="cr-card__head" onClick={isOpen ? onToggle : undefined}>
         <div class="cr-card__toprow">
@@ -163,6 +176,8 @@ function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle,
           <MetaChips meta={doc.meta} />
           <Blocks plugin={plugin} doc={doc} q={q} checklistState={checklistState} onToggleCheck={onToggleCheck} />
         </div>
+      ) : thumb ? (
+        <CardImage plugin={plugin} path={doc.path} block={thumb} variant="thumb" />
       ) : (
         <p class="cr-card__sum">{hl(doc.summary, q)}</p>
       )}

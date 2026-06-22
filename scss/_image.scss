@@ -1,0 +1,86 @@
+// Image cards — the collapsed-card thumbnail (cover-cropped to a thumbnail
+// aspect) and the expanded-body full image (contained within the card's grown
+// bounds, never blowing past them). Scoped under the Carrel roots like the
+// other block styles. The renderers live in components/pane/blocks.tsx
+// (CardImage) and are wired into the card in PaneBoard.tsx.
+
+.carrel-pane-root,
+.carrel-embed-root,
+.carrel-inline-root {
+  .cr-image {
+    display: block;
+  }
+
+  .cr-image__img {
+    display: block;
+  }
+
+  // Collapsed thumbnail: a typical-thumbnail aspect, cover-cropped, capped so a
+  // tall portrait can't make a collapsed card absurdly tall. The container
+  // reserves its box via aspect-ratio so the masonry measures the right height
+  // before the image loads (CardImage also re-packs on load as a safety net).
+  .cr-image--thumb {
+    margin-top: 8px;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    max-height: 220px;
+    overflow: hidden;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+
+    .cr-image__img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  // Expanded image: scaled to fit WITHIN the card's granted width (span * colW)
+  // and a vertical clamp, so it respects the board's growth bounds.
+  .cr-image--full {
+    margin: 2px 0 6px;
+
+    .cr-image__img {
+      max-width: 100%;
+      height: auto;
+      max-height: 60vh;
+      object-fit: contain;
+      border-radius: 6px;
+      margin-inline: auto;
+    }
+  }
+
+  // A span-2+ open card normally splits its body into CSS columns; an image
+  // wants the full card width, so force a single column for image cards.
+  .cr-card.is-image .cr-card__body {
+    columns: 1;
+    column-width: auto;
+  }
+
+  // Unresolved link — a quiet placeholder rather than a broken-image glyph.
+  .cr-image--missing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--faint);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+    font-size: 12px;
+    text-align: center;
+
+    &.cr-image--full {
+      min-height: 120px;
+      padding: 16px;
+    }
+  }
+
+  .cr-image__missing-ic {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    opacity: 0.7;
+  }
+}

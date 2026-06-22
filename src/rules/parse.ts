@@ -64,6 +64,74 @@ const QUOTE_RE = /^\s*>\s?/;
 const OBSIDIAN_CALLOUT_RE = /^\s*>\s*\[!([^\]|]+)(?:\|[^\]]*)?\]/;
 const TERM_RE = /^\*\*(.+?)\*\*\s*(?:[—–-]{1,2}|:)\s*([\s\S]+)$/;
 
+/* ---------- image embeds ---------- */
+
+const IMAGE_EXT = "png|jpe?g|gif|webp|svg|bmp|avif";
+/** `![[path/pic.png|alias]]` (with optional `#anchor` and size/alias suffix). */
+const IMG_EMBED_RE = new RegExp(
+  `^!\\[\\[\\s*([^\\]|#]+?\\.(?:${IMAGE_EXT}))\\s*(?:#[^|\\]]*)?(?:\\|([^\\]]*))?\\]\\]$`,
+  "i"
+);
+/** `![alt](path/pic.png "title")`. */
+const IMG_MD_RE = new RegExp(
+  `^!\\[([^\\]]*)\\]\\(\\s*(\\S+?\\.(?:${IMAGE_EXT}))(?:\\s+"[^"]*")?\\s*\\)$`,
+  "i"
+);
+/** `[[path/pic]]` wikilink (no `!`) — only used when normalizing an explicit
+ *  image front-matter value, never for body scanning. */
+const WIKI_REF_RE = /^\[\[\s*([^\]|#]+?)\s*(?:#[^|\]]*)?(?:\|([^\]]*))?\]\]$/;
+
+interface ImageRef {
+  src: string;
+  alt?: string;
+  isEmbed: boolean;
+}
+
+/** A `|alias` on an image embed is alt text UNLESS it's purely an Obsidian size
+ *  hint (`200` / `200x100`), in which case there is no real alt. */
+function aliasAlt(alias: string | undefined): string | undefined {
+  const a = alias?.trim();
+  if (a == null || a === "" || /^\d+(?:x\d+)?$/.test(a)) return undefined;
+  return a;
+}
+
+/** Match a line that is SOLELY an image embed (`![[…]]` or `![](…)`). Returns
+ *  null for prose, a `>`-quoted line, or an image mixed with other text. */
+function matchImageLine(line: string): ImageRef | null {
+  const t = line.trim();
+  const em = IMG_EMBED_RE.exec(t);
+  if (em) return { src: em[1].trim(), alt: aliasAlt(em[2]), isEmbed: true };
+  const md = IMG_MD_RE.exec(t);
+  if (md) {
+    const alt = md[1].trim();
+    return { src: md[2].trim(), alt: alt !== "" ? alt : undefined, isEmbed: false };
+  }
+  return null;
+}
+
+/** Normalize a configurable image front-matter value (`![[x.png]]`, `[[x.png]]`,
+ *  a bare `x.png`, or an external URL) into an ImageRef. */
+function normalizeImageRef(raw: string): ImageRef {
+  const s = raw.trim();
+  const embed = matchImageLine(s);
+  if (embed) return embed;
+  const wiki = WIKI_REF_RE.exec(s);
+  if (wiki) return { src: wiki[1].trim(), alt: aliasAlt(wiki[2]), isEmbed: true };
+  // a bare filename/path (common Bases/Dataview cover form) or an external URL
+  return { src: s, isEmbed: !/^[a-z]+:\/\//i.test(s) };
+}
+
+function imageBasename(src: string): string {
+  const noQuery = src.split(/[?#]/)[0];
+  return (noQuery.split(/[\\/]/).pop() ?? noQuery).trim().toLowerCase();
+}
+
+/** Dedupe key so an explicit `image: cover.png` and a body `![[cover.png]]` are
+ *  recognized as the same picture and not rendered twice. */
+function sameImageSrc(a: string, b: string): boolean {
+  return imageBasename(a) === imageBasename(b);
+}
+
 function isTableGroup(group: string[]): boolean {
   if (group.length < 2) return false;
   const pipey = group.filter((l) => l.includes("|")).length;
@@ -327,6 +395,21 @@ function parseBlocks(text: string): RuleBlock[] {
       pending = null;
       continue;
     }
+    // A standalone image embed (or a run of stacked ones) becomes image
+    // block(s). Sits ABOVE the generic grouper so a lone `![[pic.png]]` is
+    // promoted rather than swallowed into a prose paragraph; an image MIXED with
+    // adjacent prose (no blank line between) is left to the grouper, where
+    // Obsidian's renderer draws it inline. Only when no block type is forced.
+    if (pending?.type === undefined && matchImageLine(line)) {
+      while (i < lines.length) {
+        const im = matchImageLine(lines[i]);
+        if (!im) break;
+        blocks.push({ t: "image", src: im.src, alt: im.alt, isEmbed: im.isEmbed });
+        i++;
+      }
+      pending = null;
+      continue;
+    }
     const group: string[] = [];
     while (
       i < lines.length &&
@@ -346,8 +429,26 @@ function parseBlocks(text: string): RuleBlock[] {
   return blocks;
 }
 
+/** Maximum non-image, non-heading prose a note may carry and still count as
+ *  "image-prominent" (a caption / one short line). */
+const IMAGE_PROSE_BUDGET = 160;
+
+/** The image is the only — or close to the only — content: ≥1 image block, no
+ *  structured (table/list/flow/…) content, and prose under the caption budget. */
+function isImageProminent(blocks: RuleBlock[]): boolean {
+  if (!blocks.some((b) => b.t === "image")) return false;
+  let proseChars = 0;
+  for (const b of blocks) {
+    if (b.t === "image" || isHeadingProse(b)) continue;
+    if (b.t !== "p") return false; // structured content -> a real note, not an image
+    proseChars += (b.term?.length ?? 0) + b.text.length;
+  }
+  return proseChars <= IMAGE_PROSE_BUDGET;
+}
+
 function inferType(blocks: RuleBlock[], disabled: ContentType[] = []): ContentType {
   const on = (t: ContentType): boolean => !disabled.includes(t);
+  if (on("image") && isImageProminent(blocks)) return "image";
   if (on("flowchart") && blocks.some((b) => b.t === "flow")) return "flowchart";
   if (on("lookup") && blocks.some((b) => b.t === "lookuptable")) return "lookup";
   if (on("formula") && blocks.some((b) => b.t === "dice" || b.t === "rolltable")) return "formula";
@@ -458,7 +559,8 @@ export function parseNote(
   title = "",
   tags: string[] = [],
   typeRules: TypeRule[] = [],
-  disabledBuiltinTypes: ContentType[] = []
+  disabledBuiltinTypes: ContentType[] = [],
+  imageProp = "image"
 ): ParsedNote {
   let text = body;
 
@@ -498,13 +600,29 @@ export function parseNote(
 
   const blocks = parseBlocks(text);
 
+  // A configurable image front-matter property (the "cover" / Bases-image path):
+  // attach a leading image block (unless the body already shows that picture) and
+  // force the `image` type, even when the note also has prose. Suppressed when the
+  // image built-in is disabled.
+  const imageEnabled = !disabledBuiltinTypes.includes("image");
+  const explicitImage = imageEnabled ? readFmProp(frontmatter, imageProp) : undefined;
+  if (explicitImage != null) {
+    const ref = normalizeImageRef(explicitImage);
+    if (!blocks.some((b) => b.t === "image" && sameImageSrc(b.src, ref.src))) {
+      blocks.unshift({ t: "image", src: ref.src, alt: ref.alt, isEmbed: ref.isEmbed });
+    }
+  }
+
   const declared = readFmProp(frontmatter, typeProp)?.toLowerCase() ?? refAttrs.type;
   let type: string;
   if (declared != null && isKnownType(declared, customTypes)) {
     // 1. An explicit, recognized declaration always wins.
     type = declared;
+  } else if (explicitImage != null) {
+    // 2. An explicit image property forces the image type (over rules/inference).
+    type = "image";
   } else {
-    // 2. The first enabled user rule that matches, else 3. structural inference
+    // 3. The first enabled user rule that matches, else 4. structural inference
     //    (skipping disabled built-ins); inferType falls back to "reference".
     type = matchTypeRule(typeRules, frontmatter, tags) ?? inferType(blocks, disabledBuiltinTypes);
   }

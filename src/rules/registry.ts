@@ -13,6 +13,10 @@ export interface TypeInfo {
   label: string;
   color: string;
   glyph: string;
+  /** Defaults to "rpg" (glyph resolved via refIconId). Set "lucide" to use the
+   *  glyph as a literal `lucide-*` id (e.g. the image type, which has no
+   *  RPG-Awesome equivalent). */
+  iconSet?: "lucide" | "rpg";
 }
 
 /** The built-in, parser-backed content types. The TTRPG-flavored cosmetic types
@@ -26,6 +30,8 @@ export const CONTENT_TYPES: Record<ContentType, TypeInfo> = {
   lookup: { label: "Roll Table", color: "#b8a23a", glyph: "clover" },
   process: { label: "Process", color: "#5fa98c", glyph: "list" },
   quote: { label: "Quote", color: "#b07cc6", glyph: "scroll" },
+  // a note that IS (or prominently shows) an image — rendered as a thumbnail
+  image: { label: "Image", color: "#6fb1d8", glyph: "lucide-image", iconSet: "lucide" },
   // neutral fallback for undeclared notes that don't infer to a richer type
   reference: { label: "Reference", color: "#9aa0a6", glyph: "book" },
 };
@@ -40,6 +46,7 @@ export const FILTERABLE_TYPES: ContentType[] = [
   "lookup",
   "process",
   "quote",
+  "image",
 ];
 
 export function isContentType(s: string | undefined): s is ContentType {
@@ -90,5 +97,7 @@ export function resolveType(id: string, customTypes?: CustomType[]): ResolvedTyp
     };
   }
   const info = isContentType(id) ? CONTENT_TYPES[id] : CONTENT_TYPES.reference;
-  return { label: info.label, color: info.color, iconSet: "rpg", icon: refIconId(info.glyph) };
+  const iconSet = info.iconSet ?? "rpg";
+  const icon = iconSet === "lucide" ? info.glyph : refIconId(info.glyph);
+  return { label: info.label, color: info.color, iconSet, icon };
 }

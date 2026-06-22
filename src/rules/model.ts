@@ -19,6 +19,7 @@ export type ContentType =
   | "lookup"
   | "process"
   | "quote"
+  | "image"
   | "reference";
 
 /** A small uppercase chip (action cost / range / uses). */
@@ -47,7 +48,13 @@ export type RuleBlock =
   | { t: "steps"; items: { text: string }[] }
   | { t: "bullets"; items: { term?: string; text: string }[] }
   | { t: "callout"; text: string; cite?: string }
-  | { t: "obsidian-callout"; calloutType: string; content: string };
+  | { t: "obsidian-callout"; calloutType: string; content: string }
+  /** A standalone image embed (`![[pic.png]]` / `![alt](pic.png)`) or one
+   *  supplied via the configurable image front-matter property. `src` is the
+   *  raw linktext/path as written; resolution to a vault resource URL happens at
+   *  render time (needs the owning note's path). `isEmbed` distinguishes a
+   *  `[[wikilink]]` embed from a markdown/external path. */
+  | { t: "image"; src: string; alt?: string; isEmbed: boolean };
 
 /** The parser's output for one note body (the per-note fields beyond the
  *  index-level path/title/category/headings). */

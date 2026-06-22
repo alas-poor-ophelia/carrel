@@ -103,6 +103,11 @@ export interface CarrelData {
   /** Front-matter property a note's type is read from (default `type`).
    *  Array values use the first element; unrecognized values fall back to structural inference. */
   typeProp: string;
+  /** Front-matter property a note's cover image is read from (default `image`).
+   *  When present it forces the `image` type and renders as a thumbnail; also the
+   *  property a Bases "image"/cover maps to. Accepts `![[x]]`, `[[x]]`, a bare
+   *  path/filename, or an external URL. */
+  imageProp: string;
   /** Built-in types whose structural INFERENCE is suppressed. An explicit,
    *  recognized frontmatter `type:` still classifies a note; disabling only
    *  stops auto-detection (and hides the type's filter chip / group). */
@@ -140,6 +145,7 @@ export const CARREL_SCHEMA_VERSION = 5;
 /** Built-in defaults for the configurable front-matter property names. */
 export const DEFAULT_CATEGORY_PROP = "category";
 export const DEFAULT_TYPE_PROP = "type";
+export const DEFAULT_IMAGE_PROP = "image";
 
 export const DEFAULT_TWEAKS: NookTweaks = {
   columns: "auto",
@@ -159,6 +165,7 @@ export const DEFAULT_DATA: CarrelData = {
   activeNookId: null,
   categoryProp: DEFAULT_CATEGORY_PROP,
   typeProp: DEFAULT_TYPE_PROP,
+  imageProp: DEFAULT_IMAGE_PROP,
   disabledBuiltinTypes: [],
   typeRules: [],
 };

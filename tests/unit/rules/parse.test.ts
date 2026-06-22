@@ -309,6 +309,110 @@ describe("parseNote — explicit overrides", () => {
   });
 });
 
+describe("parseNote — image cards", () => {
+  it("promotes a standalone wikilink image embed to an image block and infers image", () => {
+    const p = parseNote("![[cover.png]]");
+    expect(p.type).toBe("image");
+    expect(p.blocks).toEqual([{ t: "image", src: "cover.png", isEmbed: true }]);
+  });
+
+  it("parses markdown image syntax with alt text (not an embed)", () => {
+    const p = parseNote("![A red fox](photos/fox.jpg)");
+    expect(p.type).toBe("image");
+    expect(p.blocks).toEqual([{ t: "image", src: "photos/fox.jpg", alt: "A red fox", isEmbed: false }]);
+  });
+
+  it("emits one image block per line for stacked images", () => {
+    const p = parseNote("![[a.png]]\n![[b.webp]]");
+    expect(p.blocks).toEqual([
+      { t: "image", src: "a.png", isEmbed: true },
+      { t: "image", src: "b.webp", isEmbed: true },
+    ]);
+    expect(p.type).toBe("image");
+  });
+
+  it("stays image with a short caption, whether blank-separated or adjacent", () => {
+    const spaced = parseNote("![[map.png]]\n\nThe old road north.");
+    expect(types(spaced.blocks)).toEqual(["image", "p"]);
+    expect(spaced.type).toBe("image");
+
+    const adjacent = parseNote("![[map.png]]\ncaption");
+    expect(types(adjacent.blocks)).toEqual(["image", "p"]);
+    expect(adjacent.type).toBe("image");
+  });
+
+  it("is NOT image-prominent when prose exceeds the caption budget (image block kept)", () => {
+    const p = parseNote(`![[diagram.png]]\n\n${"x".repeat(200)}`);
+    expect(p.type).toBe("reference");
+    expect(p.blocks[0]).toEqual({ t: "image", src: "diagram.png", isEmbed: true });
+  });
+
+  it("leaves an image mixed inline with prose as a prose block (Obsidian renders it inline)", () => {
+    const p = parseNote("See the map ![[map.png]] for details.");
+    expect(p.blocks).toEqual([{ t: "p", text: "See the map ![[map.png]] for details." }]);
+    expect(p.type).toBe("reference");
+  });
+
+  it("is not image-prominent when structured content sits alongside the image", () => {
+    const p = parseNote("![[chart.png]]\n\n| A | B |\n| - | - |\n| 1 | 2 |");
+    expect(p.type).toBe("table");
+    expect(p.blocks[0].t).toBe("image");
+  });
+
+  it("treats a bare `|alias` as alt but a `|size` hint as no alt", () => {
+    expect(parseNote("![[diagram.png|schematic view]]").blocks).toEqual([
+      { t: "image", src: "diagram.png", alt: "schematic view", isEmbed: true },
+    ]);
+    expect(parseNote("![[diagram.png|200]]").blocks).toEqual([
+      { t: "image", src: "diagram.png", isEmbed: true },
+    ]);
+    expect(parseNote("![[diagram.png|200x100]]").blocks).toEqual([
+      { t: "image", src: "diagram.png", isEmbed: true },
+    ]);
+  });
+
+  it("forces image via the image front-matter property, even with long prose", () => {
+    const p = parseNote("A long descriptive paragraph that easily exceeds the caption budget for prominence.", {
+      image: "portrait.png",
+    });
+    expect(p.type).toBe("image");
+    expect(p.blocks[0]).toEqual({ t: "image", src: "portrait.png", isEmbed: true });
+  });
+
+  it("dedupes an explicit image property against the same picture already in the body", () => {
+    const p = parseNote("![[hero.png]]", { image: "hero.png" });
+    expect(p.blocks).toEqual([{ t: "image", src: "hero.png", isEmbed: true }]);
+    expect(p.type).toBe("image");
+  });
+
+  it("honors a configurable image property name and a `[[wikilink]]` value", () => {
+    const p = parseNote("plain prose.", { cover: "[[banner.jpg]]" }, [], "type", "", [], [], [], "cover");
+    expect(p.type).toBe("image");
+    expect(p.blocks[0]).toEqual({ t: "image", src: "banner.jpg", isEmbed: true });
+  });
+
+  it("disabling the image built-in suppresses both inference and the explicit property", () => {
+    const inferred = parseNote("![[cover.png]]", {}, [], "type", "", [], [], ["image"]);
+    expect(inferred.type).toBe("reference"); // block still parsed, type suppressed
+    expect(inferred.blocks).toEqual([{ t: "image", src: "cover.png", isEmbed: true }]);
+
+    const explicit = parseNote("prose here.", { image: "x.png" }, [], "type", "", [], [], ["image"]);
+    expect(explicit.type).toBe("reference");
+    expect(explicit.blocks).toEqual([{ t: "p", text: "prose here." }]); // no synthetic block
+  });
+
+  it("an explicit known type still beats the image property", () => {
+    const p = parseNote("body", { image: "cover.png", type: "table" });
+    expect(p.type).toBe("table");
+  });
+
+  it("resolves the image type to the lucide image glyph", () => {
+    const p = parseNote("![[cover.png]]");
+    expect(p.icon).toBe("lucide-image");
+    expect(p.iconSet).toBe("lucide");
+  });
+});
+
 describe("parseNote — summary & icon", () => {
   it("derives a summary from the first prose block, stripping markdown", () => {
     const p = parseNote("**Detect Evil** — at will, a paladin can use [[detect evil]] as the spell.");

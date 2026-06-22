@@ -5,6 +5,7 @@ import {
   CARREL_SCHEMA_VERSION,
   DEFAULT_CATEGORY_PROP,
   DEFAULT_DATA,
+  DEFAULT_IMAGE_PROP,
   DEFAULT_STORAGE,
   DEFAULT_TWEAKS,
   DEFAULT_TYPE_PROP,
@@ -375,5 +376,15 @@ export class CarrelStore {
     const typeProp = prop.trim() || DEFAULT_TYPE_PROP;
     if (typeProp === this.data.value.typeProp) return;
     this.commit({ ...this.data.value, typeProp });
+  }
+
+  imageProp(): string {
+    return this.data.value.imageProp || DEFAULT_IMAGE_PROP;
+  }
+
+  setImageProp(prop: string): void {
+    const imageProp = prop.trim() || DEFAULT_IMAGE_PROP;
+    if (imageProp === this.data.value.imageProp) return;
+    this.commit({ ...this.data.value, imageProp });
   }
 }

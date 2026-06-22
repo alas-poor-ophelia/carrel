@@ -155,10 +155,11 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
         <h3 class="ob-h__t">Front-matter mapping</h3>
       </div>
       <p class="ob-h__desc">
-        Choose which front-matter property Carrel reads for each note's category and type. Defaults are{" "}
-        <code>category</code> and <code>type</code> — point them elsewhere (e.g. read your <code>tags</code> list
-        for the category) to fit your vault. If the property holds a list, Carrel uses the first value; anything
-        it can't read falls through to the usual default.
+        Choose which front-matter property Carrel reads for each note's category, type and cover image. Defaults
+        are <code>category</code>, <code>type</code> and <code>image</code> — point them elsewhere (e.g. read your{" "}
+        <code>tags</code> list for the category, or a Base's image column for the cover) to fit your vault. If the
+        property holds a list, Carrel uses the first value; anything it can't read falls through to the usual
+        default. A note whose <code>image</code> property is set renders as a thumbnail.
       </p>
       <div class="ob-propmap">
         <PropField
@@ -172,6 +173,12 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
           value={data.typeProp}
           fallback="type"
           onCommit={(v) => store.setTypeProp(v)}
+        />
+        <PropField
+          label="Image property"
+          value={data.imageProp}
+          fallback="image"
+          onCommit={(v) => store.setImageProp(v)}
         />
       </div>
 
