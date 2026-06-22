@@ -111,7 +111,13 @@ export function useCardKeyboard(opts: KeyboardOptions): void {
         return;
       }
       if (typing) {
-        if (e.key === "Escape") ae?.blur();
+        // Swallow Escape so it doesn't bubble to Obsidian's global keymap, which
+        // reads Escape as "focus next pane" and swaps away from the Carrel tab.
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          ae?.blur();
+        }
         return;
       }
       if (e.key === "ArrowLeft") { e.preventDefault(); moveFocus("left"); }
@@ -121,6 +127,11 @@ export function useCardKeyboard(opts: KeyboardOptions): void {
       else if (e.key === "Enter" || e.key === " ") {
         if (focusRef.current != null) { e.preventDefault(); toggle(focusRef.current); }
       } else if (e.key === "Escape") {
+        // Always consume Escape while the board has focus: collapse the focused
+        // card, else clear all open cards, else drop focus — but never let it
+        // bubble to Obsidian's global keymap (which would swap away the tab).
+        e.preventDefault();
+        e.stopPropagation();
         if (focusRef.current != null && openRef.current.has(focusRef.current)) toggle(focusRef.current);
         else if (openRef.current.size) setOpen(new Set());
         else setFocusId(null);
