@@ -62,6 +62,21 @@ settings:
         type: variable-text
         default: '"Crimson Text", Georgia, serif'
     -
+        id: carrel-kanban-heading
+        title: Kanban
+        type: heading
+        level: 2
+    -
+        id: cr-kbn-col
+        title: Kanban column width
+        description: Width of each category column (swimlane) in the kanban layout. Narrower fits more columns on screen.
+        type: variable-number-slider
+        default: 240
+        min: 150
+        max: 460
+        step: 10
+        format: px
+    -
         id: carrel-inline-heading
         title: Inline embed
         type: heading

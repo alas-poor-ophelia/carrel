@@ -1,0 +1,100 @@
+// Carrel kanban swimlanes — the parallel render path to the masonry board.
+// Columns are fixed width (--kbn-col, mirrored from KANBAN_COL_W in JS, and
+// user-settable via Style Settings → --cr-kbn-col) and the strip scrolls. Cards
+// reuse the .cr-cell / .cr-card rules from _pane.scss (already absolute +
+// transform-driven), so this file only styles the column chrome, headers, the
+// shared layer, and the scroll viewport.
+
+.carrel-pane-root,
+.carrel-embed-root,
+.carrel-inline-root {
+  // local alias reading the Style-Settings seam (--cr-kbn-col on body) with the
+  // JS default; NEVER define the seam token itself on a root (it'd beat the body write)
+  --kbn-col: var(--cr-kbn-col, 240px);
+
+  .cr-kanban { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+  // ---- add-column control bar (does NOT scroll with the strip) ----
+  .cr-kbn-bar {
+    display: flex; align-items: center; gap: 8px; min-height: 0;
+    margin: 2px 0 8px;
+  }
+  .cr-kbn-bar:empty { display: none; }
+  .cr-kbn-add { color: var(--gold-dim); }
+
+  // ---- scroll viewport ----
+  // Fallback (embed / inline): a horizontal strip; vertical scroll rides the
+  // outer .cr-scroll. The full pane upgrades this to a bounded both-axis viewport
+  // with sticky headers (see the .cr-scroll.is-kanban block below).
+  .cr-kbn-scroll {
+    overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+    padding-bottom: 8px; scrollbar-width: thin;
+  }
+
+  // the strip's WIDTH is set in JS to the full column run; heads + layer stack
+  .cr-kbn-strip { position: relative; min-width: 100%; }
+
+  // ---- column headers (sticky to the viewport top; drag/wheel pan horizontally) ----
+  .cr-kbn-heads {
+    display: flex; gap: var(--gap); padding-bottom: 10px;
+    position: sticky; top: 0; z-index: 4;
+    background: var(--bg); cursor: grab;
+  }
+  .cr-kbn-heads.is-dragging { cursor: grabbing; user-select: none; }
+  .cr-kbn-head {
+    flex: 0 0 auto; box-sizing: border-box;
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 9px; border-radius: 9px;
+    background: #ffffff08; border: 1px solid var(--border);
+    border-top: 2px solid var(--border);
+  }
+  .cr-kbn-head.has-color { border-top-color: var(--cc); }
+  .cr-kbn-head__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--cc); flex: 0 0 auto; }
+  .cr-kbn-head__ic {
+    flex: 0 0 auto; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+    color: var(--cc, var(--gold));
+  }
+  .cr-kbn-head__ic svg { width: 15px; height: 15px; }
+  .cr-kbn-head__name {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: var(--f-title); font-size: 13.5px; letter-spacing: 0.02em; color: #ece9e2;
+  }
+  .cr-kbn-head__count {
+    flex: 0 0 auto; font: 600 11px/1 var(--f-ui); color: var(--faint);
+    font-variant-numeric: tabular-nums;
+    background: #ffffff0c; border-radius: 999px; padding: 3px 7px;
+  }
+  // the remove "×" — revealed on header hover (made visible on touch in _tablet)
+  .cr-kbn-head__rm {
+    flex: 0 0 auto; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px;
+    background: none; color: var(--faint); cursor: pointer; font-size: 12px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.15s, color 0.15s, background 0.15s;
+  }
+  .cr-kbn-head:hover .cr-kbn-head__rm { opacity: 1; }
+  .cr-kbn-head__rm:hover { color: var(--text); background: #ffffff14; }
+
+  // ---- shared card layer (height set in JS; cards are .cr-cell, absolute) ----
+  .cr-kbn-layer { position: relative; width: 100%; }
+
+  .cr-kbn-empty {
+    padding: 32px 12px; color: var(--faint); font: 500 13px/1.5 var(--f-ui); text-align: center;
+  }
+}
+
+// ---- full pane only: a bounded both-axis viewport ----
+// The kanban fills the pane height and owns BOTH scroll axes, so the horizontal
+// scrollbar sits at the viewport's bottom edge (always reachable) and the sticky
+// headers stay pinned while the board scrolls vertically. Embed / inline keep the
+// simpler fallback above (their height model isn't a flex-filled pane).
+.carrel-pane-root .cr-scroll.is-kanban {
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  padding-bottom: 8px;
+
+  .cr-inner { max-width: none; width: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .cr-kanban { flex: 1; min-height: 0; }
+  .cr-kbn-scroll { flex: 1; min-height: 0; overflow: auto; }
+  // keyboard hints don't apply to the kanban layout
+  .cr-kbd { display: none; }
+}

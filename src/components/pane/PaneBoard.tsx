@@ -15,7 +15,7 @@ import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
 import type { CarrelIndex } from "../../rules/index";
 import type { RuleBlock, RuleDoc } from "../../rules/model";
-import type { CustomType, GroupBy, SortMode } from "../../types/data";
+import type { CustomType, GroupBy, LayoutMode, SortMode } from "../../types/data";
 import { searchRules } from "../../rules/search";
 import { FILTERABLE_TYPES, customTypeToken, resolveType } from "../../rules/registry";
 import { buildSections, categoryComparator } from "../../rules/grouping";
@@ -29,6 +29,7 @@ import { useMasonryPack, type Section } from "./hooks/useMasonryPack";
 import { useRailDrag } from "./hooks/useRailDrag";
 import { useCardDrag } from "./hooks/useCardDrag";
 import { useCardKeyboard } from "./hooks/useCardKeyboard";
+import { KanbanBoard } from "./KanbanBoard";
 
 /** How wide an opened card wants to be (content weight → 1–3 base columns). */
 function contentWeight(doc: RuleDoc): number {
@@ -103,7 +104,7 @@ function SearchBar({ value, onChange, count }: { value: string; onChange: (v: st
   );
 }
 
-interface CardProps {
+export interface CardProps {
   plugin: CarrelPlugin;
   doc: RuleDoc;
   customTypes: CustomType[];
@@ -118,7 +119,7 @@ interface CardProps {
   onGripDown?: (e: PointerEvent) => void;
 }
 
-function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck, onGripDown }: CardProps): JSX.Element {
+export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck, onGripDown }: CardProps): JSX.Element {
   const t = resolveType(doc.type, customTypes);
   // An image card shows a cover-cropped thumbnail in place of the summary when
   // collapsed; the expanded body renders the full image via the block dispatcher.
@@ -281,7 +282,11 @@ export function PaneBoard({
 
   const groupBy: GroupBy = nook?.tweaks.groupBy ?? "category";
   const sortMode: SortMode = nook?.tweaks.sort ?? "az";
+  const layout: LayoutMode = nook?.tweaks.layout ?? "board";
   const cardOrder = nook?.cardOrder ?? {};
+  // Kanban renders only outside of search (search always uses the flat masonry
+  // results list); search falls back to the board path.
+  const kanbanActive = layout === "kanban" && !isSearching;
 
   const sections: Section[] = [];
   if (isSearching) {
@@ -434,15 +439,26 @@ export function PaneBoard({
             <>
               <select
                 class="cr-sortsel"
-                value={groupBy}
-                title="Group cards by"
-                onChange={(e) => store.setNookGroupBy(nook.id, (e.target as HTMLSelectElement).value as GroupBy)}
+                value={layout}
+                title="Board layout"
+                onChange={(e) => store.setNookLayout(nook.id, (e.target as HTMLSelectElement).value as LayoutMode)}
               >
-                <option value="category">Group: Category</option>
-                <option value="type">Group: Type</option>
-                <option value="folder">Group: Folder</option>
-                <option value="none">Group: None</option>
+                <option value="board">Layout: Board</option>
+                <option value="kanban">Layout: Kanban</option>
               </select>
+              {layout === "board" && (
+                <select
+                  class="cr-sortsel"
+                  value={groupBy}
+                  title="Group cards by"
+                  onChange={(e) => store.setNookGroupBy(nook.id, (e.target as HTMLSelectElement).value as GroupBy)}
+                >
+                  <option value="category">Group: Category</option>
+                  <option value="type">Group: Type</option>
+                  <option value="folder">Group: Folder</option>
+                  <option value="none">Group: None</option>
+                </select>
+              )}
               <select
                 class="cr-sortsel"
                 value={sortMode}
@@ -500,7 +516,7 @@ export function PaneBoard({
       </div>
       )}
 
-      <div class="cr-scroll" ref={scrollRef}>
+      <div class={"cr-scroll" + (kanbanActive ? " is-kanban" : "")} ref={scrollRef}>
         <div class="cr-inner">
           {showRail && !isSearching && pinnedDocs.length > 0 && (
             <>
@@ -572,6 +588,37 @@ export function PaneBoard({
               <div>No references match</div>
               <div class="r-empty__sub">Try a different search or clear the filters.</div>
             </div>
+          ) : kanbanActive ? (
+            <KanbanBoard
+              plugin={plugin}
+              store={store}
+              nook={nook}
+              nookRef={nookRef}
+              embed={embed}
+              docs={rankedDocs}
+              docByPath={docByPath}
+              categories={data.categories}
+              customTypes={customTypes}
+              disabledBuiltins={disabledBuiltins}
+              cardOrder={cardOrder}
+              sortMode={sortMode}
+              spanOf={spanOf}
+              query={query}
+              open={open}
+              toggle={toggle}
+              pins={pins}
+              togglePin={togglePin}
+              checklist={checklist}
+              onToggleCheck={onToggleCheck}
+              titlePos={titlePos}
+              focusId={focusId}
+              cardDragId={cardDragId}
+              setCardDragId={setCardDragId}
+              appRef={appRef}
+              cells={cells}
+              lastToggled={lastToggled}
+              regCell={regCell}
+            />
           ) : (
             sections.map((sec) => (
               <section key={sec.label}>

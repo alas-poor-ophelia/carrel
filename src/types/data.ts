@@ -10,6 +10,10 @@ export type GroupBy = "category" | "type" | "folder" | "none";
  *  per-section `cardOrder` (drag-arranged); the rest are computed presets. */
 export type SortMode = "az" | "za" | "type" | "custom";
 
+/** The board's render path. `board` is the column-balancing masonry (default);
+ *  `kanban` lays categories out as horizontal swimlanes (see `kanbanColumns`). */
+export type LayoutMode = "board" | "kanban";
+
 /** Per-nook display tweaks (surfaced as Style Settings / UI in Phase 7). */
 export interface NookTweaks {
   columns: "auto" | 2 | 3 | 4;
@@ -19,6 +23,9 @@ export interface NookTweaks {
   animations: boolean;
   groupBy: GroupBy;
   sort: SortMode;
+  /** Masonry board vs. kanban swimlanes — a parallel render path, not a
+   *  replacement. Defaults to `board`; existing nooks backfill on load. */
+  layout: LayoutMode;
 }
 
 /** A named set of notes (one or more source folders) with its own theme and
@@ -38,6 +45,12 @@ export interface Nook {
   pinOrder: string[];
   checklist: Record<string, boolean>;
   tweaks: NookTweaks;
+  /** KANBAN mode only: the ordered category NAMES shown as columns, left→right
+   *  (matched against `doc.category`). Cards whose category is absent are hidden
+   *  — this list IS the per-nook column show/hide + order control. Unset until a
+   *  nook first enters kanban, then seeded from the categories present in its
+   *  docs (ordered by global `Category.order`). Ignored in board mode. */
+  kanbanColumns?: string[];
   /** Custom card order for `sort: "custom"`, keyed by section key (see
    *  rules/grouping.groupKeyOf). Each value is an ordered list of note paths;
    *  cards not listed fall to the end in A–Z order. */
@@ -155,6 +168,7 @@ export const DEFAULT_TWEAKS: NookTweaks = {
   animations: true,
   groupBy: "category",
   sort: "az",
+  layout: "board",
 };
 
 export const DEFAULT_DATA: CarrelData = {

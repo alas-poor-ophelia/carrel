@@ -13,14 +13,21 @@ import { useEffect, useRef } from "preact/hooks";
  * disambiguation) runs on iPad/touchscreens, while a vertical gesture still
  * falls through to page scroll. Hijacking touch in JS killed that momentum and
  * made drags halt the instant a finger lifted.
+ *
+ * `scrollTargetRef` (optional) decouples the LISTENER element from the element
+ * actually scrolled: the kanban attaches the gesture to its sticky header row
+ * but pans the both-axis scroll viewport. When omitted, the element scrolls
+ * itself (the rail / filter-chip behaviour).
  */
 export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
-  deps: unknown[] = []
+  deps: unknown[] = [],
+  scrollTargetRef?: RefObject<HTMLElement>
 ): RefObject<T> {
   const ref = useRef<T>(null);
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    const listenEl = ref.current;
+    if (!listenEl) return;
+    const el = scrollTargetRef?.current ?? listenEl;
     const overflows = (): boolean => el.scrollWidth > el.clientWidth + 1;
     const maxLeft = (): number => el.scrollWidth - el.clientWidth;
 
@@ -96,9 +103,9 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       if (!moved && Math.abs(dx) < 5) return;
       if (!moved) {
         moved = true;
-        el.classList.add("is-dragging");
+        listenEl.classList.add("is-dragging");
         try {
-          el.setPointerCapture(pid);
+          listenEl.setPointerCapture(pid);
         } catch {
           /* capture is best-effort */
         }
@@ -117,9 +124,9 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       if (!down) return;
       down = false;
       if (!moved) return;
-      el.classList.remove("is-dragging");
+      listenEl.classList.remove("is-dragging");
       try {
-        el.releasePointerCapture(pid);
+        listenEl.releasePointerCapture(pid);
       } catch {
         /* nothing captured */
       }
@@ -127,10 +134,10 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       const swallow = (ev: Event): void => {
         ev.stopPropagation();
         ev.preventDefault();
-        el.removeEventListener("click", swallow, true);
+        listenEl.removeEventListener("click", swallow, true);
       };
-      el.addEventListener("click", swallow, true);
-      window.setTimeout(() => el.removeEventListener("click", swallow, true), 60);
+      listenEl.addEventListener("click", swallow, true);
+      window.setTimeout(() => listenEl.removeEventListener("click", swallow, true), 60);
 
       // carry the release velocity and decelerate (scrollLeft moves opposite the pointer)
       let vel = -vx;
@@ -151,19 +158,19 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>(
       raf = window.requestAnimationFrame(step);
     };
 
-    el.addEventListener("wheel", onWheel, { passive: false });
-    el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
-    el.addEventListener("pointercancel", onUp);
+    listenEl.addEventListener("wheel", onWheel, { passive: false });
+    listenEl.addEventListener("pointerdown", onDown);
+    listenEl.addEventListener("pointermove", onMove);
+    listenEl.addEventListener("pointerup", onUp);
+    listenEl.addEventListener("pointercancel", onUp);
     return () => {
       stopFling();
       stopWheel();
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("pointerdown", onDown);
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
-      el.removeEventListener("pointercancel", onUp);
+      listenEl.removeEventListener("wheel", onWheel);
+      listenEl.removeEventListener("pointerdown", onDown);
+      listenEl.removeEventListener("pointermove", onMove);
+      listenEl.removeEventListener("pointerup", onUp);
+      listenEl.removeEventListener("pointercancel", onUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps is the caller-supplied stable dependency list; the listener set is rebuilt only when it changes
   }, deps);

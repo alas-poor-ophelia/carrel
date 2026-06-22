@@ -35,6 +35,13 @@
     }
     .cr-railcard__title { white-space: normal; }
     .cr-railcard__grip { min-width: 30px; min-height: 30px; }
+
+    // kanban column-remove "×" has no hover on touch — keep it visible and strip
+    // Obsidian's mobile button chrome (background/border/box-shadow/min-height).
+    .cr-kbn-head__rm {
+      min-height: 0; height: auto;
+      background: none; border: 0; box-shadow: none; opacity: 0.6;
+    }
   }
 
   // barebones-style settings buttons live in the modal/settings chrome already;

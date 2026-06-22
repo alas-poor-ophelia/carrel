@@ -1,4 +1,4 @@
-import { Notice, parseYaml, stringifyYaml } from "obsidian";
+import { Notice, TFile, parseYaml, stringifyYaml } from "obsidian";
 import { signal, type Signal } from "@preact/signals";
 import type CarrelPlugin from "../main";
 import {
@@ -14,6 +14,7 @@ import {
   type Category,
   type CustomType,
   type GroupBy,
+  type LayoutMode,
   type Nook,
   type SortMode,
   type StorageConfig,
@@ -309,11 +310,41 @@ export class CarrelStore {
     this.updateNook(id, { tweaks: { ...n.tweaks, sort } });
   }
 
+  /* ---------- kanban layout (per-nook) ---------- */
+
+  setNookLayout(id: string, layout: LayoutMode): void {
+    const n = this.data.value.nooks.find((x) => x.id === id);
+    if (!n) return;
+    this.updateNook(id, { tweaks: { ...n.tweaks, layout } });
+  }
+
+  /** Replace the ordered list of category names shown as kanban columns. */
+  setNookKanbanColumns(id: string, columns: string[]): void {
+    this.updateNook(id, { kanbanColumns: columns });
+  }
+
   /** Replace the custom card order for one section key (Phase 2 drag writes this). */
   setNookCardOrder(id: string, sectionKey: string, paths: string[]): void {
     const n = this.data.value.nooks.find((x) => x.id === id);
     if (!n) return;
     this.updateNook(id, { cardOrder: { ...n.cardOrder, [sectionKey]: paths } });
+  }
+
+  /* ---------- note frontmatter writes (kanban category override) ---------- */
+
+  /** Write a note's category into its YAML frontmatter via the supported,
+   *  format-preserving `processFrontMatter` API (never a raw rewrite). Resolves
+   *  the TFile defensively and no-ops if the property already matches. After the
+   *  write, `metadataCache.on("changed")` fires → CarrelIndex.rebuild() → the
+   *  doc's `category` updates and the card settles into its new column. */
+  async setNoteCategory(path: string, category: string): Promise<void> {
+    const file = this.plugin.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) return;
+    const prop = this.categoryProp();
+    await this.plugin.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      if (fm[prop] === category) return;
+      fm[prop] = category;
+    });
   }
 
   /* ---------- categories (Phase 6) ---------- */
