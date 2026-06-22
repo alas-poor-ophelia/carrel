@@ -4,6 +4,21 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.1.0
+
+Two new ways to see your notes — **kanban swimlanes** and **image cards** — plus a choice of where your nook data lives.
+
+### New
+
+- **Kanban layout.** Switch any nook from the masonry board to a **Kanban** layout (a toolbar dropdown, saved per nook): your categories become columns and each card sits under its category. Curate the columns with the **＋ Add column** button — pick any existing or defined category, or create a brand-new swimlane on the spot — and remove one with the **×** on its header. **Drag a card between columns** to recategorize it: the new category is written into the note's front matter, so the move sticks to the note. Open a card and it **expands sideways**, spanning columns and flowing the neighbouring swimlanes out of the way. A wide board scrolls horizontally (wheel over the headers, drag the header row, or just drag a card toward the edge to auto-scroll); column width is adjustable in Style Settings. In a Bases view, cards can be reordered but not moved between columns.
+- **Image cards.** A note that's mostly a picture renders as an **image card** — a cover-cropped thumbnail when collapsed, the full image when expanded. You can also give any note a **cover image** via a front-matter property (default `image`, configurable), which forces an image card and supplies the thumbnail even when the note has other content. It doubles as the cover mapping for Bases views.
+- **Pluggable storage backends.** Choose where Carrel keeps its nook data: the plugin's own `data.json` (default), or a single **JSON** or **YAML** file inside your vault. Switching migrates your current data to the new location and leaves the old file as a backup.
+
+### Fixed
+
+- **Escape no longer swaps away the Carrel tab.** Pressing Escape in the full pane closes the focused card and clears focus, instead of letting Obsidian's global keymap steal it to switch panes.
+- **The drag ghost follows the cursor in multi-pane layouts.** When Carrel wasn't the leftmost pane, the floating copy of a dragged card appeared offset from the pointer; it now tracks correctly (on both the board and the kanban layout).
+
 ## 1.0.1
 
 ### Fixed
