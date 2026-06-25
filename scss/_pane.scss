@@ -233,6 +233,7 @@
   .cr-card__sum {
     margin: 9px 0 1px; font-family: var(--f-body); font-size: 14.5px; line-height: 1.4; color: #a7a7ac;
     display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+    overflow-wrap: break-word; word-break: break-word;
   }
   .cr-card__body { animation: cr-body-in 0.4s var(--ease) both; }
   // the star + close ride in their own fixed lane (flex:0 0 auto) so they never
