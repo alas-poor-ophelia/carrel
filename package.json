@@ -1,6 +1,6 @@
 {
   "name": "carrel",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Carrel: a novel way to view your notes — an Obsidian plugin",
   "type": "module",
   "scripts": {

@@ -4,6 +4,14 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.1.2
+
+A card-preview fix for notes saved with Windows line endings.
+
+### Fixed
+
+- **Front matter no longer leaks into card previews.** On notes saved with Windows (CRLF) line endings, the block between the opening and closing `---` was shown as raw text in the card preview instead of being stripped. Front matter is now removed reliably regardless of line-ending style, so previews show the note's actual content.
+
 ## 1.1.1
 
 Two parsing fixes for the cards.

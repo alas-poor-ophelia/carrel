@@ -1,4 +1,5 @@
 import { signal, type Signal } from "@preact/signals";
+import { getFrontMatterInfo } from "obsidian";
 import type { App, CachedMetadata, Component, TFile } from "obsidian";
 import type CarrelPlugin from "../main";
 import { parseNote, readFmProp } from "./parse";
@@ -147,8 +148,12 @@ export class CarrelIndex {
     const headings = cache?.headings?.map((h) => h.heading) ?? [];
     const category = readFmProp(cache?.frontmatter, this.plugin.store.categoryProp()) ?? "General";
     const raw = await this.app.vault.cachedRead(file);
-    // strip frontmatter from the body we render/search
-    const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
+    // strip frontmatter from the body we render/search via the supported
+    // Obsidian API (CRLF-safe; the old hand-rolled `\n`-only regex left the
+    // whole block in the body on Windows-line-ending notes -> raw YAML leaking
+    // into the card preview).
+    const fmInfo = getFrontMatterInfo(raw);
+    const body = (fmInfo.exists ? raw.slice(fmInfo.contentStart) : raw).trim();
     // The note's own title (its filename) is the card title; a heading is only a
     // fallback for the rare title-less case — never let an early H2 win.
     const title = file.basename || headings[0] || "Untitled";
