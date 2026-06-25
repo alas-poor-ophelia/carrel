@@ -11,6 +11,7 @@ import type { RuleBlock, RuleDoc } from "../../rules/model";
 import { resolveType } from "../../rules/registry";
 import { getRollEngine, type RollResult } from "../../rules/rollEngine";
 import { getDiceRoller } from "../../util/plugins";
+import { tokenizeInline } from "../../util/text";
 import { Icon } from "../common/Icon";
 import { GlyphIcon } from "../common/GlyphIcon";
 import { STAR_PATH } from "../common/glyphs";
@@ -38,6 +39,35 @@ export function hl(text: string, q: string): ComponentChildren {
       {text.slice(0, i)}
       <mark class="r-hl">{text.slice(i, i + q.length)}</mark>
       {text.slice(i + q.length)}
+    </>
+  );
+}
+
+/** Render the common inline-markdown marks (`**bold**`, `*italic*`/`_italic_`,
+ *  `` `code` ``, `~~strike~~`) to elements while keeping the search highlight
+ *  (`q`) live inside each run. The bespoke blocks (bullets, steps, tables,
+ *  callouts) render their prose through this instead of bare `hl`, matching what
+ *  ProseBlock gets for free from Obsidian's MarkdownRenderer. */
+export function inlineMd(text: string, q: string): ComponentChildren {
+  const runs = tokenizeInline(text);
+  if (runs.length <= 1 && (runs.length === 0 || runs[0].tag === "text")) return hl(text, q);
+  return (
+    <>
+      {runs.map((r, i) => {
+        const inner = hl(r.text, q);
+        switch (r.tag) {
+          case "strong":
+            return <strong key={i}>{inner}</strong>;
+          case "em":
+            return <em key={i}>{inner}</em>;
+          case "code":
+            return <code key={i}>{inner}</code>;
+          case "s":
+            return <s key={i}>{inner}</s>;
+          default:
+            return <span key={i}>{inner}</span>;
+        }
+      })}
     </>
   );
 }
@@ -176,7 +206,7 @@ function TableBlock({ block, q }: { block: Extract<RuleBlock, { t: "table" }>; q
           {block.rows.map((row, ri) => (
             <tr key={ri}>
               {row.map((cell, ci) => (
-                <td key={ci}>{hl(String(cell), q)}</td>
+                <td key={ci}>{inlineMd(String(cell), q)}</td>
               ))}
             </tr>
           ))}
@@ -192,7 +222,7 @@ function StepsBlock({ block, q }: { block: Extract<RuleBlock, { t: "steps" }>; q
       {block.items.map((it, i) => (
         <li class="r-steps__item" key={i}>
           <span class="r-steps__num">{i + 1}</span>
-          <span class="r-steps__text">{hl(it.text, q)}</span>
+          <span class="r-steps__text">{inlineMd(it.text, q)}</span>
         </li>
       ))}
     </ol>
@@ -204,8 +234,8 @@ function BulletsBlock({ block, q }: { block: Extract<RuleBlock, { t: "bullets" }
     <ul class="r-bullets">
       {block.items.map((it, i) => (
         <li class="r-bullets__item" key={i}>
-          {it.term != null && it.term !== "" && <span class="r-term">{hl(it.term, q)} </span>}
-          {hl(it.text, q)}
+          {it.term != null && it.term !== "" && <span class="r-term">{inlineMd(it.term, q)} </span>}
+          {inlineMd(it.text, q)}
         </li>
       ))}
     </ul>
@@ -216,7 +246,7 @@ function CalloutBlock({ block, q }: { block: Extract<RuleBlock, { t: "callout" }
   return (
     <blockquote class="r-callout">
       <span class="r-callout__mark">“</span>
-      <span class="r-callout__text">{hl(block.text, q)}</span>
+      <span class="r-callout__text">{inlineMd(block.text, q)}</span>
       {block.cite != null && block.cite !== "" && <cite class="r-callout__cite">— {block.cite}</cite>}
     </blockquote>
   );
@@ -260,7 +290,7 @@ function FlowBlock({ block, q }: { block: Extract<RuleBlock, { t: "flow" }>; q: 
               {n.branches.map((br, bi) => (
                 <div class={"r-flow__leaf is-" + br.tone} key={bi}>
                   <span class="r-flow__leaf-label">{br.label}</span>
-                  <span class="r-flow__leaf-text">{hl(br.text, q)}</span>
+                  <span class="r-flow__leaf-text">{inlineMd(br.text, q)}</span>
                 </div>
               ))}
             </div>
@@ -280,7 +310,7 @@ function FlowBlock({ block, q }: { block: Extract<RuleBlock, { t: "flow" }>; q: 
         return (
           <div class={"r-flow__node is-" + n.kind} key={i}>
             <span class="r-flow__dot" />
-            <span class="r-flow__text">{hl(n.text, q)}</span>
+            <span class="r-flow__text">{inlineMd(n.text, q)}</span>
           </div>
         );
       })}
@@ -389,7 +419,7 @@ function lookupCell(cell: string, q: string): ComponentChildren {
       </span>
     );
   }
-  return hl(String(cell), q);
+  return inlineMd(String(cell), q);
 }
 
 /** Lookup / nested random tables referenced by link (`[[Encounters^wild]]`).
@@ -494,7 +524,7 @@ function LookupTableBlock({
         <thead>
           <tr>
             {block.cols.map((c, i) => (
-              <th key={i}>{hl(c, q)}</th>
+              <th key={i}>{inlineMd(c, q)}</th>
             ))}
           </tr>
         </thead>

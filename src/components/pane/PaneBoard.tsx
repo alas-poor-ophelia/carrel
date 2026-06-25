@@ -24,7 +24,7 @@ import { GlyphIcon } from "../common/GlyphIcon";
 import { DragGrip, STAR_PATH } from "../common/glyphs";
 import { useDragScroll } from "../common/useDragScroll";
 import { CreateNookModal, NookSettingsModal } from "../../modals";
-import { Blocks, CardImage, MetaChips, StarButton, TypeBadge, hl, hlFuzzy } from "./blocks";
+import { Blocks, CardImage, MetaChips, StarButton, TypeBadge, hlFuzzy, inlineMd } from "./blocks";
 import { useMasonryPack, type Section } from "./hooks/useMasonryPack";
 import { useRailDrag } from "./hooks/useRailDrag";
 import { useCardDrag } from "./hooks/useCardDrag";
@@ -180,7 +180,7 @@ export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, on
       ) : thumb ? (
         <CardImage plugin={plugin} path={doc.path} block={thumb} variant="thumb" />
       ) : (
-        <p class="cr-card__sum">{hl(doc.summary, q)}</p>
+        <p class="cr-card__sum">{inlineMd(doc.summary, q)}</p>
       )}
     </div>
   );
