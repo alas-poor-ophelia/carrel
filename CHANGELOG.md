@@ -4,6 +4,19 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.3.0
+
+Richer collapsed-card previews and a quicker way into the underlying note.
+
+### Added
+
+- **Open a card's note in a new tab.** Expanded cards now show a small open-in-new-tab button in the header, next to the collapse control, so you can jump straight from a card to the full note.
+
+### Changed
+
+- **Collapsed-card previews render inline formatting.** A card's one-line preview now shows `**bold**`, `*italic*`, `==highlights==`, and links the way they read in the note, instead of as raw markup — and a lead made of several short paragraphs is summarised across them rather than cut off at the first.
+- **Structural previews are labelled with a typed badge.** When a card's lead is a code or plugin fence, an embed, or a table rather than prose, the preview now shows a small typed badge ("Code", "Embed", "Table 3×5") instead of dumping the raw source. Dice-roller tables are labelled with a "Roll" badge and their outcomes, and a Steps preview keeps its step ordinals.
+
 ## 1.2.2
 
 The native rendering overhaul returns — card bodies are rendered through Obsidian itself, so your notes look the way they do everywhere else — now with the earlier regressions fixed and a theme-compatibility fix.
