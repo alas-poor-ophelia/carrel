@@ -102,6 +102,10 @@
   // ==highlights==, [[wikilinks]], embeds and footnotes all resolve natively.
   .cr-region {
     font-family: var(--f-body); font-size: 15px; line-height: 1.46; color: #e7e4dd; text-wrap: pretty;
+    // break long unbreakable tokens (URLs, IDs) so they wrap inside the card —
+    // and inside a ~300px newspaper column — instead of spilling into the next.
+    overflow-wrap: break-word;
+    word-break: break-word;
 
     // vertical rhythm between top-level blocks (lists carry their own gap)
     > * { margin: 0; }
@@ -272,7 +276,7 @@
   .r-lookup__ic { width: 13px; height: 13px; }
   .r-lookup__table { margin: 0; }
   // lookup/table cells rendered through Obsidian (links resolve + navigate)
-  .cr-cell-md { display: inline; }
+  .cr-cell-md { display: inline; overflow-wrap: break-word; word-break: break-word; }
   .cr-cell-md p { margin: 0; display: inline; }
   .cr-cell-md a { color: var(--gold); }
   .r-lookup__table tr.is-hit td {
