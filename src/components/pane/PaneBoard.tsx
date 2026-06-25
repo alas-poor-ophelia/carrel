@@ -173,6 +173,19 @@ export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, on
           <StarButton active={pinned} onToggle={onPin} />
           {isOpen && (
             <button
+              class="cr-card__open"
+              title="Open note in new tab"
+              aria-label="Open note in new tab"
+              onClick={(e) => {
+                e.stopPropagation();
+                void plugin.app.workspace.openLinkText(doc.path, doc.path, "tab");
+              }}
+            >
+              <GlyphIcon iconSet="lucide" icon="external-link" class="cr-card__open-ic" />
+            </button>
+          )}
+          {isOpen && (
+            <button
               class="cr-card__close"
               title="Collapse"
               onClick={(e) => {
