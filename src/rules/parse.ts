@@ -20,9 +20,10 @@ import type {
   ParsedNote,
   RuleBlock,
   RuleMeta,
+  SummaryKind,
 } from "./model";
 import { isKnownType, resolveType } from "./registry";
-import { truncateSummary } from "../util/text";
+import { truncateInline, stripInlineMarks } from "../util/text";
 
 const REF_RE = /^\s*<!--\s*ref:\s*([\s\S]*?)-->\s*/i;
 const BLOCK_RE = /^\s*<!--\s*block:\s*([\s\S]*?)-->\s*$/i;
@@ -537,9 +538,10 @@ function matchTypeRule(
   return undefined;
 }
 
-const MD_STRIP = /(\*\*|__|\*|_|`|==|~~)/g;
 const MD_LINK = /\[([^\]]+)\]\([^)]*\)/g;
 const WIKILINK = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+/** Shared summary budget (visible chars) — see truncateInline. */
+const SUMMARY_MAX = 180;
 /** A paragraph that is only a footnote/link reference DEFINITION (`[^1]: …`)
  *  carries no readable lead — skip it when picking a card summary. */
 const DEF_PROSE_RE = /^\s*\[\^?[^\]]+\]:\s/;
@@ -570,6 +572,9 @@ function blockPreviewText(b: RuleBlock): string {
       return (it.term != null && it.term !== "" ? it.term + " — " : "") + it.text;
     }
     case "steps":
+      // A numbered process: keep the ordinals so the preview reads as the list
+      // it is ("1. … 2. … 3. …"), not a lone unnumbered first line.
+      return b.items.map((it, i) => `${i + 1}. ${it.text}`).join(" ");
     case "checklist":
       return b.items[0]?.text ?? "";
     case "dice":
@@ -583,43 +588,128 @@ function blockPreviewText(b: RuleBlock): string {
   }
 }
 
-function firstProseText(blocks: RuleBlock[]): string {
-  // Prefer the first real prose paragraph; fall back to the first block that
-  // yields any readable lead, so a note that opens with a table / callout / list
-  // still shows a preview instead of a blank card.
-  const prose = blocks.find(
-    (b): b is { t: "p"; term?: string; text: string } =>
-      b.t === "p" && !isHeadingProse(b) && !DEF_PROSE_RE.test(b.text)
-  );
-  let raw = "";
-  if (prose) {
-    raw = (prose.term != null && prose.term !== "" ? prose.term + " — " : "") + prose.text;
-  } else {
-    for (const b of blocks) {
-      raw = blockPreviewText(b);
-      if (raw !== "") break;
-    }
-  }
-  if (raw === "") return "";
-  // Plain-text the lead so the collapsed card never shows raw markdown source
-  // (the card renders this as TEXT, not markdown — see PaneBoard cr-card__sum).
-  // Order matters: drop comments/images/callout-and-quote markers and headings
-  // BEFORE link/wikilink unwrapping so an `![alt](url)` image isn't mistaken for
-  // a `[text](url)` link.
-  const clean = raw
-    .replace(/<!--[\s\S]*?-->/g, " ") // HTML comments (ref/block directives)
-    .replace(/!\[\[[^\]]*\]\]/g, " ") // image embed  ![[pic.png]]
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // markdown image  ![alt](pic.png)
-    .replace(/^\s*>\s*\[![^\]]*\][^\n]*/gm, " ") // obsidian callout opener line
-    .replace(/^\s*#{1,6}\s+/gm, " ") // heading markers
-    .replace(/^\s*>\s?/gm, " ") // blockquote markers
+const FENCE_RE = /^\s*`{3,}\s*(\S*)/;
+const IMG_EXT_RE = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
+const EMBED_ONLY_RE = /^!\[\[([^\]]+)\]\]$/;
+
+/** A `p` block that is really a fenced code block returns its info-string
+ *  language (possibly ""); a non-fence block returns null. Code fences are
+ *  stored as `p` blocks (so the expanded card renders them through Obsidian's
+ *  MarkdownRenderer) — this re-detects them for the PREVIEW only. */
+function codeFenceLang(b: RuleBlock): string | null {
+  if (b.t !== "p") return null;
+  const m = FENCE_RE.exec(b.text);
+  return m ? m[1] : null;
+}
+
+/** A `p` block that is solely a non-image note embed (`![[Some Note]]`) returns
+ *  the target's display name (basename, alias- and extension-stripped); anything
+ *  else returns null. Image embeds are `image` blocks and never reach here. */
+function embedTarget(b: RuleBlock): string | null {
+  if (b.t !== "p") return null;
+  const m = EMBED_ONLY_RE.exec(b.text.trim());
+  if (!m) return null;
+  const inner = m[1];
+  if (IMG_EXT_RE.test(inner)) return null;
+  const noAlias = inner.split("|")[0];
+  const base = noAlias.split(/[\\/]/).pop() ?? noAlias;
+  return base.replace(/\.md$/i, "").trim();
+}
+
+/** Reduce a raw lead string to card-preview text: drop markdown the card can't
+ *  render (comments, code fences, images, callout/quote/heading markers, table
+ *  pipes) and unwrap links to their label text, but KEEP the inline marks
+ *  (`**`, `*`/`_`, `` ` ``, `~~`) that inlineMd() turns into elements. Highlight
+ *  `==` is dropped (inlineMd has no highlight run). Order matters: strip
+ *  comments/images/markers BEFORE link unwrapping so `![alt](url)` isn't mistaken
+ *  for `[text](url)`. */
+function plainLead(raw: string): string {
+  return raw
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/^\s*`{3,}[^\n]*$/gm, " ")
+    .replace(/!\[\[[^\]]*\]\]/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/^\s*>\s*\[![^\]]*\][^\n]*/gm, " ")
+    .replace(/^\s*#{1,6}\s+/gm, " ")
+    .replace(/^\s*>\s?/gm, " ")
     .replace(MD_LINK, "$1")
     .replace(WIKILINK, "$1")
-    .replace(MD_STRIP, "")
+    .replace(/==/g, "")
     .replace(/\|/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return truncateSummary(clean);
+}
+
+interface SummaryLead {
+  text: string;
+  kind?: SummaryKind;
+  note?: string;
+}
+
+/** Derive the collapsed-card preview from a note's blocks. Prefers the opening
+ *  RUN of prose paragraphs (so a short lead line like a "Source:" citation
+ *  doesn't crowd out the prose after it). When there is no prose, falls back to
+ *  a typed, labeled lead for the first opaque/structural block — a code/plugin
+ *  fence, a note embed, or a table — so the card shows a clear badge instead of
+ *  raw source or a blank. */
+function firstProseText(blocks: RuleBlock[]): SummaryLead {
+  // A code fence or a bare embed is a `p` block but carries no readable prose,
+  // so it must not win the prose gather — it's handled as a typed fallback.
+  const isProseLead = (b: RuleBlock): b is { t: "p"; term?: string; text: string } =>
+    b.t === "p" &&
+    !isHeadingProse(b) &&
+    !DEF_PROSE_RE.test(b.text) &&
+    codeFenceLang(b) === null &&
+    embedTarget(b) === null;
+  let raw = "";
+  for (const b of blocks) {
+    if (!isProseLead(b)) {
+      if (raw !== "") break;
+      continue;
+    }
+    const lead = (b.term != null && b.term !== "" ? b.term + " — " : "") + b.text;
+    raw = raw !== "" ? raw + " " + lead : lead;
+    if (raw.length >= SUMMARY_MAX * 2) break; // enough to fill the budget
+  }
+  if (raw !== "") return { text: truncateInline(plainLead(raw), SUMMARY_MAX) };
+
+  // No prose — derive a typed lead from the first structural/opaque block.
+  for (const b of blocks) {
+    if (b.t === "p") {
+      const lang = codeFenceLang(b);
+      if (lang !== null) {
+        // Code content is opaque to a preview: show the badge plus a short PLAIN
+        // excerpt (strip marks — formatting in code is meaningless here).
+        const excerpt = stripInlineMarks(plainLead(b.text));
+        return { kind: "code", note: lang, text: truncateInline(excerpt, SUMMARY_MAX) };
+      }
+      const tgt = embedTarget(b);
+      if (tgt !== null) return { kind: "embed", text: tgt };
+    }
+    if (b.t === "table") {
+      const dims = `${b.cols.length}×${b.rows.length}`;
+      return { kind: "table", note: dims, text: truncateInline(plainLead(blockPreviewText(b)), SUMMARY_MAX) };
+    }
+    if (b.t === "lookuptable") {
+      // A dice-roller table: badge the formula ("Roll d6") and excerpt the
+      // OUTCOMES (last column of each row), not the bare die that's rolled.
+      const results = b.rows
+        .map((r) => r[r.length - 1] ?? "")
+        .filter((s) => s !== "")
+        .join(" · ");
+      return { kind: "roll", note: b.formula, text: truncateInline(plainLead(results), SUMMARY_MAX) };
+    }
+    if (b.t === "dice") {
+      const expr = b.mod != null && b.mod !== 0 ? `${b.expr}${b.mod >= 0 ? "+" : ""}${b.mod}` : b.expr;
+      return { kind: "roll", note: expr, text: b.label != null ? truncateInline(plainLead(b.label), SUMMARY_MAX) : "" };
+    }
+    if (b.t === "rolltable") {
+      return { kind: "roll", note: b.label ?? b.ref, text: "" };
+    }
+    const lead = blockPreviewText(b);
+    if (lead !== "") return { text: truncateInline(plainLead(lead), SUMMARY_MAX) };
+  }
+  return { text: "" };
 }
 
 const HEADING_RE = /^\s*#{1,6}\s+.*(?:\r?\n|$)/;
@@ -748,8 +838,21 @@ export function parseNote(
         : "rpg"
       : resolved.iconSet;
 
+  // An author-provided summary (frontmatter or `<!-- ref: summary -->`) is always
+  // plain prose — no badge. Otherwise derive a (possibly typed) lead from blocks.
   const fmSummary = typeof frontmatter.summary === "string" ? frontmatter.summary : undefined;
-  const summary = fmSummary ?? attr(refAttrs, "summary") ?? firstProseText(blocks);
+  const explicit = fmSummary ?? attr(refAttrs, "summary");
+  const lead = explicit != null ? { text: explicit } : firstProseText(blocks);
 
-  return { type, icon, iconSet, summary, meta, blocks, blockSources };
+  return {
+    type,
+    icon,
+    iconSet,
+    summary: lead.text,
+    summaryKind: lead.kind,
+    summaryNote: lead.note,
+    meta,
+    blocks,
+    blockSources,
+  };
 }

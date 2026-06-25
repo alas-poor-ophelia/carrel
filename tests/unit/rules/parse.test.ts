@@ -424,9 +424,23 @@ describe("parseNote — summary & icon", () => {
     expect(p.summary).toBe("See the docs for the full rules.");
   });
 
-  it("strips highlight and strikethrough markers in the summary", () => {
+  it("strips highlight markers but keeps strikethrough for the card to render", () => {
+    // ~~strike~~ survives so the card's inlineMd renders it; ==highlight== has no
+    // inlineMd run, so its delimiters are dropped (the inner text stays).
     const p = parseNote("This is ==very== ~~maybe~~ important.");
-    expect(p.summary).toBe("This is very maybe important.");
+    expect(p.summary).toBe("This is very ~~maybe~~ important.");
+  });
+
+  it("keeps bold/italic/code inline marks in the summary for inlineMd to render", () => {
+    const p = parseNote("A **bold** and *italic* and `code` lead paragraph.");
+    expect(p.summary).toBe("A **bold** and *italic* and `code` lead paragraph.");
+  });
+
+  it("continues past a short lead paragraph to include the prose that follows", () => {
+    const p = parseNote(
+      "**Source**: *Core Rulebook pg. 244*\n\nIn addition to the base item, you gain a bonus."
+    );
+    expect(p.summary).toContain("In addition to the base item");
   });
 
   it("falls back to a callout's text when the note opens with a callout", () => {
@@ -437,6 +451,63 @@ describe("parseNote — summary & icon", () => {
   it("falls back to a table's first row when the note opens with a table", () => {
     const p = parseNote("| A | B |\n| --- | --- |\n| one | two |");
     expect(p.summary).toBe("one · two");
+  });
+
+  it("does not leak code-fence backticks into a code-only note's summary", () => {
+    const p = parseNote("```js\nconst a = 1;\n```");
+    expect(p.summary).not.toContain("`");
+    expect(p.summary).toContain("const a = 1;");
+  });
+
+  it("labels a code-/plugin-fence-only note with a code summaryKind + language", () => {
+    const p = parseNote("```meta-bind-js-view\nreturn 1;\n```");
+    expect(p.summaryKind).toBe("code");
+    expect(p.summaryNote).toBe("meta-bind-js-view");
+  });
+
+  it("labels a note-embed-only note with an embed summaryKind + target name", () => {
+    const p = parseNote("![[Architecture Diagram]]");
+    expect(p.summaryKind).toBe("embed");
+    expect(p.summary).toBe("Architecture Diagram");
+  });
+
+  it("labels a table-only note with a table summaryKind + dimensions", () => {
+    const p = parseNote("| A | B |\n| --- | --- |\n| one | two |");
+    expect(p.summaryKind).toBe("table");
+    expect(p.summaryNote).toBe("2×1");
+    expect(p.summary).toBe("one · two");
+  });
+
+  it("labels a dice-roller (lookup) table with a roll kind, formula, and outcomes", () => {
+    const p = parseNote(
+      "| dice: d6 | Result |\n| --- | --- |\n| 1 | [acid splash](x.md) |\n| 2 | [fire bolt](y.md) |"
+    );
+    expect(p.summaryKind).toBe("roll");
+    expect(p.summaryNote).toBe("d6");
+    // the OUTCOMES (last column, links unwrapped), not the bare die rolled.
+    expect(p.summary).toBe("acid splash · fire bolt");
+  });
+
+  it("keeps the ordinals in a steps (numbered process) preview", () => {
+    const p = parseNote("1. Gather the reagents.\n2. Grind with a pestle.\n3. Simmer for an hour.");
+    expect(p.summary).toBe("1. Gather the reagents. 2. Grind with a pestle. 3. Simmer for an hour.");
+  });
+
+  it("leaves an ordinary prose note's summaryKind undefined", () => {
+    const p = parseNote("Just a normal paragraph of prose.");
+    expect(p.summaryKind).toBeUndefined();
+  });
+
+  it("prefers real prose over a trailing code fence (no badge)", () => {
+    const p = parseNote("The real lead paragraph.\n\n```js\nconst x = 1;\n```");
+    expect(p.summaryKind).toBeUndefined();
+    expect(p.summary).toContain("The real lead paragraph.");
+  });
+
+  it("an explicit frontmatter summary never gets a badge, even over a code body", () => {
+    const p = parseNote("```js\nconst x = 1;\n```", { summary: "Hand-written summary" });
+    expect(p.summary).toBe("Hand-written summary");
+    expect(p.summaryKind).toBeUndefined();
   });
 
   it("prefers an explicit frontmatter summary and icon", () => {

@@ -14,7 +14,7 @@ import { useCallback, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
 import type { CarrelIndex } from "../../rules/index";
-import type { RuleBlock, RuleDoc } from "../../rules/model";
+import type { RuleBlock, RuleDoc, SummaryKind } from "../../rules/model";
 import type { CustomType, GroupBy, LayoutMode, SortMode } from "../../types/data";
 import { searchRules } from "../../rules/search";
 import { FILTERABLE_TYPES, customTypeToken, resolveType } from "../../rules/registry";
@@ -31,6 +31,7 @@ import { useCardDrag } from "./hooks/useCardDrag";
 import { useCardKeyboard } from "./hooks/useCardKeyboard";
 import { useSearchHighlight } from "./hooks/useSearchHighlight";
 import { KanbanBoard } from "./KanbanBoard";
+import { codeLangLabel } from "../../util/text";
 
 /** How wide an opened card wants to be (content weight → 1–3 base columns). */
 function contentWeight(doc: RuleDoc): number {
@@ -120,6 +121,25 @@ export interface CardProps {
   onGripDown?: (e: PointerEvent) => void;
 }
 
+const KIND_ICON: Record<SummaryKind, string> = { code: "code", table: "table", embed: "file-symlink", roll: "dices" };
+const KIND_LABEL: Record<SummaryKind, string> = { code: "Code", table: "Table", embed: "Embed", roll: "Roll" };
+
+/** A small labeled chip on a collapsed card whose preview is derived from an
+ *  opaque/structural lead block (a code/plugin fence, a note embed, a table)
+ *  rather than prose — so the card reads "this is a Meta Bind block / a table /
+ *  an embed" instead of dumping raw source. */
+function SummaryBadge({ kind, note }: { kind: SummaryKind; note?: string }): JSX.Element {
+  const label = kind === "code" ? codeLangLabel(note ?? "") : KIND_LABEL[kind];
+  const detail = kind === "table" || kind === "roll" ? note : undefined;
+  return (
+    <span class={"cr-card__kind cr-card__kind--" + kind}>
+      <GlyphIcon iconSet="lucide" icon={KIND_ICON[kind]} class="cr-card__kind-ic" />
+      {label}
+      {detail != null && detail !== "" ? " " + detail : ""}
+    </span>
+  );
+}
+
 export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck, onGripDown }: CardProps): JSX.Element {
   const t = resolveType(doc.type, customTypes);
   // An image card shows a cover-cropped thumbnail in place of the summary when
@@ -181,7 +201,10 @@ export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, on
       ) : thumb ? (
         <CardImage plugin={plugin} path={doc.path} block={thumb} variant="thumb" />
       ) : (
-        <p class="cr-card__sum">{inlineMd(doc.summary, q)}</p>
+        <p class="cr-card__sum">
+          {doc.summaryKind && <SummaryBadge kind={doc.summaryKind} note={doc.summaryNote} />}
+          {inlineMd(doc.summary, q)}
+        </p>
       )}
     </div>
   );

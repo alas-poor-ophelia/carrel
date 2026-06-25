@@ -235,6 +235,19 @@
     display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
     overflow-wrap: break-word; word-break: break-word;
   }
+  // A typed lead badge for previews derived from an opaque/structural block
+  // (code/plugin fence, note embed, table) — reads "Meta Bind" / "Table 3×5" /
+  // "Embed" before the excerpt. Tinted with the card accent (--bc).
+  .cr-card__kind {
+    display: inline-flex; align-items: center; gap: 4px; vertical-align: baseline;
+    margin-right: 6px; padding: 1px 6px; border-radius: 5px;
+    font: 700 9.5px/1.5 var(--f-ui); letter-spacing: 0.06em; text-transform: uppercase;
+    white-space: nowrap; color: var(--bc);
+    background: color-mix(in srgb, var(--bc) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--bc) 30%, transparent);
+  }
+  .cr-card__kind-ic { display: inline-flex; width: 11px; height: 11px; }
+  .cr-card__kind-ic svg { width: 100%; height: 100%; }
   .cr-card__body { animation: cr-body-in 0.4s var(--ease) both; }
   // the star + close ride in their own fixed lane (flex:0 0 auto) so they never
   // get squeezed by, or overlapped by, a long title.

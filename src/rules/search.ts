@@ -7,6 +7,7 @@
    ===================================================================== */
 
 import type { RuleDoc } from "./model";
+import { stripInlineMarks } from "../util/text";
 
 export interface RuleSearchResult {
   doc: RuleDoc;
@@ -63,7 +64,7 @@ const docTextCache = new WeakMap<RuleDoc, string>();
 function docText(d: RuleDoc): string {
   const cached = docTextCache.get(d);
   if (cached !== undefined) return cached;
-  let s = `${d.title} ${d.summary} ${d.category}`;
+  let s = `${d.title} ${stripInlineMarks(d.summary)} ${d.category}`;
   for (const b of d.blocks) {
     switch (b.t) {
       case "p":
@@ -111,7 +112,7 @@ function tokenScore(tok: string, doc: RuleDoc): TokenHit | null {
   if (title) return { score: title.score * 3 + 30, titlePos: title.positions };
   const cat = fuzzyScore(tok, doc.category);
   if (cat) return { score: cat.score * 1.4 + 7, titlePos: [] };
-  const sum = fuzzyScore(tok, doc.summary);
+  const sum = fuzzyScore(tok, stripInlineMarks(doc.summary));
   if (sum) return { score: sum.score * 1.1 + 4, titlePos: [] };
   if (docText(doc).includes(tok)) return { score: 3, titlePos: [] }; // body fallback
   return null;

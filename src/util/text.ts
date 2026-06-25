@@ -80,3 +80,89 @@ export function tokenizeInline(src: string): InlineRun[] {
   flush();
   return runs;
 }
+
+/** Re-emit one inline run as markdown source, re-balancing its delimiters.
+ *  Used by `truncateInline` so a cut inside a marked run still closes cleanly. */
+function serializeRun(r: InlineRun): string {
+  switch (r.tag) {
+    case "strong":
+      return `**${r.text}**`;
+    case "em":
+      return `*${r.text}*`;
+    case "code":
+      return `\`${r.text}\``;
+    case "s":
+      return `~~${r.text}~~`;
+    default:
+      return r.text;
+  }
+}
+
+/** Friendly badge labels for known plugin/embed code-fence languages. Anything
+ *  not listed (a real programming language, an unknown plugin) reads as "Code" —
+ *  the fence content is opaque to a card preview, so the plugin name is the
+ *  useful signal, not the syntax. */
+const CODE_LANG_LABELS: Record<string, string> = {
+  "meta-bind": "Meta Bind",
+  "meta-bind-js-view": "Meta Bind",
+  "meta-bind-button": "Meta Bind",
+  "js-engine": "JS Engine",
+  datacore: "Datacore",
+  datacorejs: "Datacore",
+  datacorejsx: "Datacore",
+  datacorets: "Datacore",
+  datacacoretsx: "Datacore",
+  dataview: "Dataview",
+  dataviewjs: "Dataview",
+  mermaid: "Mermaid",
+  chart: "Chart",
+  tracker: "Tracker",
+  tasks: "Tasks",
+  carrel: "Carrel",
+};
+
+/** A friendly badge label for a code-fence info-string language. A known plugin
+ *  id maps to its product name; everything else (incl. an empty info string)
+ *  reads "Code". */
+export function codeLangLabel(lang: string): string {
+  return CODE_LANG_LABELS[lang.trim().toLowerCase()] ?? "Code";
+}
+
+/** Plain-text form of inline-marked prose — the same marks `tokenizeInline`
+ *  renders, removed so search/indexing matches words without delimiters in the
+ *  way (e.g. a summary stored as `**Grapple** costs` still matches "grapple"). */
+export function stripInlineMarks(text: string): string {
+  return tokenizeInline(text)
+    .map((r) => r.text)
+    .join("");
+}
+
+/**
+ * Truncate a summary that may carry inline marks (`**bold**`, `*italic*`,
+ * `` `code` ``, `~~strike~~`) to at most `max` VISIBLE characters (delimiters
+ * don't count). Unlike `truncateSummary`, a cut never slices through a mark: the
+ * run is closed cleanly so the card's `inlineMd` never sees a dangling `**`.
+ * Prefers a word boundary past 60% of the remaining budget, then appends `…`.
+ */
+export function truncateInline(text: string, max = 180): string {
+  const runs = tokenizeInline(text);
+  const visibleTotal = runs.reduce((n, r) => n + r.text.length, 0);
+  if (visibleTotal <= max) return text; // fits — keep the original verbatim
+  let visible = 0;
+  let out = "";
+  for (const r of runs) {
+    if (visible + r.text.length <= max) {
+      out += serializeRun(r);
+      visible += r.text.length;
+      continue;
+    }
+    const remain = max - visible;
+    let slice = r.text.slice(0, remain);
+    const sp = slice.lastIndexOf(" ");
+    if (sp > remain * 0.6) slice = slice.slice(0, sp);
+    const cut = slice.trimEnd();
+    if (cut) out += serializeRun({ tag: r.tag, text: cut });
+    break;
+  }
+  return `${out}…`;
+}
