@@ -4,6 +4,20 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.2.2
+
+The native rendering overhaul returns — card bodies are rendered through Obsidian itself, so your notes look the way they do everywhere else — now with the earlier regressions fixed and a theme-compatibility fix.
+
+### Changed
+
+- **Card bodies render through Obsidian's own markdown renderer.** Prose, lists, tables, callouts, blockquotes, links, `==highlights==`, `[[wikilinks]]`, embeds, and footnotes all render natively inside cards instead of through a hand-rolled parser — so inline formatting that used to be dropped now appears correctly, and cards match the rest of your vault. (This is the overhaul introduced in 1.2.0 and temporarily rolled back in 1.2.1; it returns here with the issues below resolved.)
+
+### Fixed
+
+- **Theme heading fonts are no longer affected by Carrel.** Carrel's bundled display fonts were registered under bare names ("Norwester"/"Taroca") that some themes reference directly, so installing Carrel could change heading fonts across all of your notes — even notes with no Carrel card. The fonts are now namespaced privately, so Carrel only ever styles its own cards.
+- **Native card regions flow correctly in newspaper columns,** and long unbreakable tokens (URLs, IDs) wrap inside their column instead of spilling into the next.
+- **Lookup-table cells link correctly,** and a long token in a collapsed card's one-line summary now wraps instead of overflowing.
+
 ## 1.1.2
 
 A card-preview fix for notes saved with Windows line endings.
