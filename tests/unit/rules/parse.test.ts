@@ -488,6 +488,11 @@ describe("parseNote — summary & icon", () => {
     expect(p.summary).toBe("acid splash · fire bolt");
   });
 
+  it("keeps the ordinals in a steps (numbered process) preview", () => {
+    const p = parseNote("1. Gather the reagents.\n2. Grind with a pestle.\n3. Simmer for an hour.");
+    expect(p.summary).toBe("1. Gather the reagents. 2. Grind with a pestle. 3. Simmer for an hour.");
+  });
+
   it("leaves an ordinary prose note's summaryKind undefined", () => {
     const p = parseNote("Just a normal paragraph of prose.");
     expect(p.summaryKind).toBeUndefined();

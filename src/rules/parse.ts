@@ -572,6 +572,9 @@ function blockPreviewText(b: RuleBlock): string {
       return (it.term != null && it.term !== "" ? it.term + " — " : "") + it.text;
     }
     case "steps":
+      // A numbered process: keep the ordinals so the preview reads as the list
+      // it is ("1. … 2. … 3. …"), not a lone unnumbered first line.
+      return b.items.map((it, i) => `${i + 1}. ${it.text}`).join(" ");
     case "checklist":
       return b.items[0]?.text ?? "";
     case "dice":
