@@ -271,6 +271,10 @@
   .r-lookup__roll.is-spin svg { animation: cr-ref-diceSpin 0.36s var(--ease); }
   .r-lookup__ic { width: 13px; height: 13px; }
   .r-lookup__table { margin: 0; }
+  // lookup/table cells rendered through Obsidian (links resolve + navigate)
+  .cr-cell-md { display: inline; }
+  .cr-cell-md p { margin: 0; display: inline; }
+  .cr-cell-md a { color: var(--gold); }
   .r-lookup__table tr.is-hit td {
     background: color-mix(in srgb, var(--bc, var(--gold)) 22%, transparent); color: #fff;
   }

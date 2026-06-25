@@ -169,6 +169,13 @@
   .cr-cell[data-span="3"] .cr-card__body .r-blocks,
   .cr-cell[data-span="4"] .cr-card__body .r-blocks { display: block; }
   .cr-cell:not([data-span="1"]) .cr-card__body .r-blocks > * { break-inside: avoid; margin-bottom: 10px; }
+  // A native region is ONE big block holding the whole prose run. Left atomic by
+  // the rule above it would fill a single column and leave the rest of the card
+  // empty (the 1.2.0 regression). Let the region FLOW across the text columns and
+  // make its INNER blocks (paragraphs, lists, headings, tables) the break units
+  // instead — trailing margins so column tops stay flush.
+  .cr-cell:not([data-span="1"]) .cr-card__body .cr-region { break-inside: auto; margin-bottom: 0; }
+  .cr-cell:not([data-span="1"]) .cr-card__body .cr-region > * { break-inside: avoid; margin-top: 0; margin-bottom: 10px; }
 
   // ---- card ----
   .cr-card {

@@ -189,6 +189,33 @@ function NativeRegion({ plugin, path, md }: { plugin: CarrelPlugin; path: string
   return <div class="cr-region" ref={ref} />;
 }
 
+/** A table cell rendered through Obsidian's MarkdownRenderer so links,
+ *  [[wikilinks]] and inline markdown resolve (and internal links actually
+ *  navigate) — the hand-rolled inlineMd never handled links, which left lookup
+ *  cells showing raw `[text](url)` source. The wrapping `<p>` is unwrapped so the
+ *  content flows inline in the cell. Search highlight is covered by the Custom
+ *  Highlight API (it walks `.cr-cell-md` too). */
+function CellMarkdown({ plugin, path, md }: { plugin: CarrelPlugin; path: string; md: string }): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.empty();
+    const child = new MarkdownRenderChild(el);
+    child.load();
+    void MarkdownRenderer.render(plugin.app, md, el, path, child).then(() => {
+      const p = el.querySelector(":scope > p");
+      if (p && el.childElementCount === 1) {
+        while (p.firstChild) el.insertBefore(p.firstChild, p);
+        p.remove();
+      }
+      el.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
+    });
+    return () => child.unload();
+  }, [md, path, plugin.app]);
+  return <div class="cr-cell-md" ref={ref} />;
+}
+
 
 function FlowBlock({ block, q }: { block: Extract<RuleBlock, { t: "flow" }>; q: string }): JSX.Element {
   return (
@@ -317,9 +344,10 @@ function refLabel(inner: string): string {
 }
 
 /** A lookup-table cell. Cells holding a nested `dice:` reference (e.g.
- *  `` `dice: [[Rare Loot^rare]]` ``) render as a marked reference chip instead
- *  of raw markdown; everything else is plain highlighted text. */
-function lookupCell(cell: string, q: string): ComponentChildren {
+ *  `` `dice: [[Rare Loot^rare]]` ``) render as a marked reference chip; every
+ *  other cell renders its markdown through Obsidian (so links/wikilinks resolve
+ *  and navigate). */
+function lookupCell(cell: string, plugin: CarrelPlugin, path: string): ComponentChildren {
   const m = cell.match(/dice:\s*([^`]+)/i);
   if (m) {
     return (
@@ -329,7 +357,7 @@ function lookupCell(cell: string, q: string): ComponentChildren {
       </span>
     );
   }
-  return inlineMd(String(cell), q);
+  return <CellMarkdown plugin={plugin} path={path} md={String(cell)} />;
 }
 
 /** Lookup / nested random tables referenced by link (`[[Encounters^wild]]`).
@@ -442,7 +470,7 @@ function LookupTableBlock({
           {block.rows.map((row, ri) => (
             <tr key={ri} class={hit && rangeContains(row[0] ?? "", hit.num) ? "is-hit" : ""}>
               {row.map((cell, ci) => (
-                <td key={ci}>{lookupCell(String(cell), q)}</td>
+                <td key={ci}>{lookupCell(String(cell), plugin, path)}</td>
               ))}
             </tr>
           ))}

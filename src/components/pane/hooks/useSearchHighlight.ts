@@ -45,7 +45,7 @@ export function useSearchHighlight(rootRef: ElRef, query: string, enabled: boole
         return;
       }
       const ranges: Range[] = [];
-      root.querySelectorAll(".cr-region").forEach((region) => {
+      root.querySelectorAll(".cr-region, .cr-cell-md").forEach((region) => {
         const walker = doc.createTreeWalker(region, NodeFilter.SHOW_TEXT);
         let node = walker.nextNode();
         while (node) {
