@@ -121,8 +121,8 @@ export interface CardProps {
   onGripDown?: (e: PointerEvent) => void;
 }
 
-const KIND_ICON: Record<SummaryKind, string> = { code: "code", table: "table", embed: "file-symlink" };
-const KIND_LABEL: Record<SummaryKind, string> = { code: "Code", table: "Table", embed: "Embed" };
+const KIND_ICON: Record<SummaryKind, string> = { code: "code", table: "table", embed: "file-symlink", roll: "dices" };
+const KIND_LABEL: Record<SummaryKind, string> = { code: "Code", table: "Table", embed: "Embed", roll: "Roll" };
 
 /** A small labeled chip on a collapsed card whose preview is derived from an
  *  opaque/structural lead block (a code/plugin fence, a note embed, a table)
@@ -130,7 +130,7 @@ const KIND_LABEL: Record<SummaryKind, string> = { code: "Code", table: "Table", 
  *  an embed" instead of dumping raw source. */
 function SummaryBadge({ kind, note }: { kind: SummaryKind; note?: string }): JSX.Element {
   const label = kind === "code" ? codeLangLabel(note ?? "") : KIND_LABEL[kind];
-  const detail = kind === "table" ? note : undefined;
+  const detail = kind === "table" || kind === "roll" ? note : undefined;
   return (
     <span class={"cr-card__kind cr-card__kind--" + kind}>
       <GlyphIcon iconSet="lucide" icon={KIND_ICON[kind]} class="cr-card__kind-ic" />

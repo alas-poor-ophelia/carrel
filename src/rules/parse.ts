@@ -687,6 +687,22 @@ function firstProseText(blocks: RuleBlock[]): SummaryLead {
       const dims = `${b.cols.length}×${b.rows.length}`;
       return { kind: "table", note: dims, text: truncateInline(plainLead(blockPreviewText(b)), SUMMARY_MAX) };
     }
+    if (b.t === "lookuptable") {
+      // A dice-roller table: badge the formula ("Roll d6") and excerpt the
+      // OUTCOMES (last column of each row), not the bare die that's rolled.
+      const results = b.rows
+        .map((r) => r[r.length - 1] ?? "")
+        .filter((s) => s !== "")
+        .join(" · ");
+      return { kind: "roll", note: b.formula, text: truncateInline(plainLead(results), SUMMARY_MAX) };
+    }
+    if (b.t === "dice") {
+      const expr = b.mod != null && b.mod !== 0 ? `${b.expr}${b.mod >= 0 ? "+" : ""}${b.mod}` : b.expr;
+      return { kind: "roll", note: expr, text: b.label != null ? truncateInline(plainLead(b.label), SUMMARY_MAX) : "" };
+    }
+    if (b.t === "rolltable") {
+      return { kind: "roll", note: b.label ?? b.ref, text: "" };
+    }
     const lead = blockPreviewText(b);
     if (lead !== "") return { text: truncateInline(plainLead(lead), SUMMARY_MAX) };
   }

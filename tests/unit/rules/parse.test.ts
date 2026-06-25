@@ -478,6 +478,16 @@ describe("parseNote — summary & icon", () => {
     expect(p.summary).toBe("one · two");
   });
 
+  it("labels a dice-roller (lookup) table with a roll kind, formula, and outcomes", () => {
+    const p = parseNote(
+      "| dice: d6 | Result |\n| --- | --- |\n| 1 | [acid splash](x.md) |\n| 2 | [fire bolt](y.md) |"
+    );
+    expect(p.summaryKind).toBe("roll");
+    expect(p.summaryNote).toBe("d6");
+    // the OUTCOMES (last column, links unwrapped), not the bare die rolled.
+    expect(p.summary).toBe("acid splash · fire bolt");
+  });
+
   it("leaves an ordinary prose note's summaryKind undefined", () => {
     const p = parseNote("Just a normal paragraph of prose.");
     expect(p.summaryKind).toBeUndefined();
