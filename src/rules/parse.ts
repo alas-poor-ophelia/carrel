@@ -22,7 +22,7 @@ import type {
   RuleMeta,
 } from "./model";
 import { isKnownType, resolveType } from "./registry";
-import { truncateSummary } from "../util/text";
+import { truncateInline } from "../util/text";
 
 const REF_RE = /^\s*<!--\s*ref:\s*([\s\S]*?)-->\s*/i;
 const BLOCK_RE = /^\s*<!--\s*block:\s*([\s\S]*?)-->\s*$/i;
@@ -537,9 +537,10 @@ function matchTypeRule(
   return undefined;
 }
 
-const MD_STRIP = /(\*\*|__|\*|_|`|==|~~)/g;
 const MD_LINK = /\[([^\]]+)\]\([^)]*\)/g;
 const WIKILINK = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+/** Shared summary budget (visible chars) — see truncateInline. */
+const SUMMARY_MAX = 180;
 /** A paragraph that is only a footnote/link reference DEFINITION (`[^1]: …`)
  *  carries no readable lead — skip it when picking a card summary. */
 const DEF_PROSE_RE = /^\s*\[\^?[^\]]+\]:\s/;
@@ -584,30 +585,42 @@ function blockPreviewText(b: RuleBlock): string {
 }
 
 function firstProseText(blocks: RuleBlock[]): string {
-  // Prefer the first real prose paragraph; fall back to the first block that
-  // yields any readable lead, so a note that opens with a table / callout / list
-  // still shows a preview instead of a blank card.
-  const prose = blocks.find(
-    (b): b is { t: "p"; term?: string; text: string } =>
-      b.t === "p" && !isHeadingProse(b) && !DEF_PROSE_RE.test(b.text)
-  );
+  const isLead = (b: RuleBlock): b is { t: "p"; term?: string; text: string } =>
+    b.t === "p" && !isHeadingProse(b) && !DEF_PROSE_RE.test(b.text);
+  // Build the lead from the opening RUN of prose paragraphs, joined, so a short
+  // first line (e.g. a "Source:" citation on its own paragraph) doesn't crowd
+  // out the real prose that follows it. Skip leading non-prose (a heading)
+  // without stopping; stop at the first non-prose block once gathering began.
   let raw = "";
-  if (prose) {
-    raw = (prose.term != null && prose.term !== "" ? prose.term + " — " : "") + prose.text;
-  } else {
+  for (const b of blocks) {
+    if (!isLead(b)) {
+      if (raw !== "") break;
+      continue;
+    }
+    const lead = (b.term != null && b.term !== "" ? b.term + " — " : "") + b.text;
+    raw = raw !== "" ? raw + " " + lead : lead;
+    if (raw.length >= SUMMARY_MAX * 2) break; // enough to fill the budget
+  }
+  if (raw === "") {
+    // No prose: fall back to the first block that yields any readable lead, so a
+    // note that opens with a table / callout / list still shows a preview.
     for (const b of blocks) {
       raw = blockPreviewText(b);
       if (raw !== "") break;
     }
   }
   if (raw === "") return "";
-  // Plain-text the lead so the collapsed card never shows raw markdown source
-  // (the card renders this as TEXT, not markdown — see PaneBoard cr-card__sum).
+  // Plain-text the lead so the collapsed card never shows raw markdown it can't
+  // render — but KEEP the inline marks (`**`, `*`/`_`, `` ` ``, `~~`) that the
+  // card's inlineMd() turns into elements, so bold/italic/code/strike survive
+  // into the preview. Links unwrap to their label text (inlineMd has no link
+  // run); highlight `==` delimiters are dropped for the same reason.
   // Order matters: drop comments/images/callout-and-quote markers and headings
   // BEFORE link/wikilink unwrapping so an `![alt](url)` image isn't mistaken for
   // a `[text](url)` link.
   const clean = raw
     .replace(/<!--[\s\S]*?-->/g, " ") // HTML comments (ref/block directives)
+    .replace(/^\s*`{3,}[^\n]*$/gm, " ") // code-fence lines (```lang / ```) — keep inline `code`
     .replace(/!\[\[[^\]]*\]\]/g, " ") // image embed  ![[pic.png]]
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // markdown image  ![alt](pic.png)
     .replace(/^\s*>\s*\[![^\]]*\][^\n]*/gm, " ") // obsidian callout opener line
@@ -615,11 +628,11 @@ function firstProseText(blocks: RuleBlock[]): string {
     .replace(/^\s*>\s?/gm, " ") // blockquote markers
     .replace(MD_LINK, "$1")
     .replace(WIKILINK, "$1")
-    .replace(MD_STRIP, "")
+    .replace(/==/g, "") // highlight delimiters (inlineMd has no highlight run)
     .replace(/\|/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return truncateSummary(clean);
+  return truncateInline(clean, SUMMARY_MAX);
 }
 
 const HEADING_RE = /^\s*#{1,6}\s+.*(?:\r?\n|$)/;

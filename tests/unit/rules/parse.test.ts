@@ -424,9 +424,23 @@ describe("parseNote — summary & icon", () => {
     expect(p.summary).toBe("See the docs for the full rules.");
   });
 
-  it("strips highlight and strikethrough markers in the summary", () => {
+  it("strips highlight markers but keeps strikethrough for the card to render", () => {
+    // ~~strike~~ survives so the card's inlineMd renders it; ==highlight== has no
+    // inlineMd run, so its delimiters are dropped (the inner text stays).
     const p = parseNote("This is ==very== ~~maybe~~ important.");
-    expect(p.summary).toBe("This is very maybe important.");
+    expect(p.summary).toBe("This is very ~~maybe~~ important.");
+  });
+
+  it("keeps bold/italic/code inline marks in the summary for inlineMd to render", () => {
+    const p = parseNote("A **bold** and *italic* and `code` lead paragraph.");
+    expect(p.summary).toBe("A **bold** and *italic* and `code` lead paragraph.");
+  });
+
+  it("continues past a short lead paragraph to include the prose that follows", () => {
+    const p = parseNote(
+      "**Source**: *Core Rulebook pg. 244*\n\nIn addition to the base item, you gain a bonus."
+    );
+    expect(p.summary).toContain("In addition to the base item");
   });
 
   it("falls back to a callout's text when the note opens with a callout", () => {
@@ -437,6 +451,12 @@ describe("parseNote — summary & icon", () => {
   it("falls back to a table's first row when the note opens with a table", () => {
     const p = parseNote("| A | B |\n| --- | --- |\n| one | two |");
     expect(p.summary).toBe("one · two");
+  });
+
+  it("does not leak code-fence backticks into a code-only note's summary", () => {
+    const p = parseNote("```js\nconst a = 1;\n```");
+    expect(p.summary).not.toContain("`");
+    expect(p.summary).toContain("const a = 1;");
   });
 
   it("prefers an explicit frontmatter summary and icon", () => {

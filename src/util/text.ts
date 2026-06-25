@@ -80,3 +80,59 @@ export function tokenizeInline(src: string): InlineRun[] {
   flush();
   return runs;
 }
+
+/** Re-emit one inline run as markdown source, re-balancing its delimiters.
+ *  Used by `truncateInline` so a cut inside a marked run still closes cleanly. */
+function serializeRun(r: InlineRun): string {
+  switch (r.tag) {
+    case "strong":
+      return `**${r.text}**`;
+    case "em":
+      return `*${r.text}*`;
+    case "code":
+      return `\`${r.text}\``;
+    case "s":
+      return `~~${r.text}~~`;
+    default:
+      return r.text;
+  }
+}
+
+/** Plain-text form of inline-marked prose — the same marks `tokenizeInline`
+ *  renders, removed so search/indexing matches words without delimiters in the
+ *  way (e.g. a summary stored as `**Grapple** costs` still matches "grapple"). */
+export function stripInlineMarks(text: string): string {
+  return tokenizeInline(text)
+    .map((r) => r.text)
+    .join("");
+}
+
+/**
+ * Truncate a summary that may carry inline marks (`**bold**`, `*italic*`,
+ * `` `code` ``, `~~strike~~`) to at most `max` VISIBLE characters (delimiters
+ * don't count). Unlike `truncateSummary`, a cut never slices through a mark: the
+ * run is closed cleanly so the card's `inlineMd` never sees a dangling `**`.
+ * Prefers a word boundary past 60% of the remaining budget, then appends `…`.
+ */
+export function truncateInline(text: string, max = 180): string {
+  const runs = tokenizeInline(text);
+  const visibleTotal = runs.reduce((n, r) => n + r.text.length, 0);
+  if (visibleTotal <= max) return text; // fits — keep the original verbatim
+  let visible = 0;
+  let out = "";
+  for (const r of runs) {
+    if (visible + r.text.length <= max) {
+      out += serializeRun(r);
+      visible += r.text.length;
+      continue;
+    }
+    const remain = max - visible;
+    let slice = r.text.slice(0, remain);
+    const sp = slice.lastIndexOf(" ");
+    if (sp > remain * 0.6) slice = slice.slice(0, sp);
+    const cut = slice.trimEnd();
+    if (cut) out += serializeRun({ tag: r.tag, text: cut });
+    break;
+  }
+  return `${out}…`;
+}
