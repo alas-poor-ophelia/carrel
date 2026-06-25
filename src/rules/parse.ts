@@ -289,7 +289,11 @@ function classify(group: string[], override: Attrs | null): RuleBlock {
     }
     return tbl;
   }
-  if (forced === "checklist" || (forced === undefined && CHECK_RE.test(group[0]))) {
+  // A checklist (Carrel's per-nook tickable widget) only when EVERY line is a
+  // `- [ ]` item; a list that mixes checkboxes and plain bullets falls through
+  // to native bullets (rendered verbatim) rather than silently dropping the
+  // plain lines. An explicit `<!-- block: checklist -->` still forces it.
+  if (forced === "checklist" || (forced === undefined && group.every((l) => CHECK_RE.test(l)))) {
     return {
       t: "checklist",
       items: group
@@ -321,9 +325,18 @@ function classify(group: string[], override: Attrs | null): RuleBlock {
   return { t: "p", text };
 }
 
-function parseBlocks(text: string): RuleBlock[] {
+/** Parse the body into typed blocks AND the verbatim source markdown each block
+ *  came from (aligned 1:1). The render layer hands runs of non-widget blocks'
+ *  source straight to Obsidian's MarkdownRenderer; widget blocks carry a source
+ *  too (kept only for alignment — widgets render bespoke). */
+function parseBlocks(text: string): { blocks: RuleBlock[]; sources: string[] } {
   const lines = text.split(/\r?\n/);
   const blocks: RuleBlock[] = [];
+  const sources: string[] = [];
+  const push = (b: RuleBlock, src: string): void => {
+    blocks.push(b);
+    sources.push(src);
+  };
   let pending: Attrs | null = null;
   let i = 0;
   while (i < lines.length) {
@@ -337,10 +350,10 @@ function parseBlocks(text: string): RuleBlock[] {
       pending = parseAttrs(bm[1]);
       // dice/rolltable carry their whole payload in the directive — emit now
       if (pending.type === "dice") {
-        blocks.push(diceFromAttrs(pending));
+        push(diceFromAttrs(pending), line);
         pending = null;
       } else if (pending.type === "rolltable") {
-        blocks.push(rollTableFromAttrs(pending));
+        push(rollTableFromAttrs(pending), line);
         pending = null;
       }
       i++;
@@ -353,17 +366,20 @@ function parseBlocks(text: string): RuleBlock[] {
     const fence = line.match(/^\s*```(\S*).*$/);
     if (fence) {
       const lang = fence[1];
+      const open = line;
       const buf: string[] = [];
       i++;
       while (i < lines.length && !/^\s*```\s*$/.test(lines[i])) {
         buf.push(lines[i]);
         i++;
       }
+      const close = i < lines.length ? lines[i] : "```";
       i++; // consume closing fence
+      const fenceSrc = [open, ...buf, close].join("\n");
       if (lang === "ref-flow" || pending?.type === "flow") {
-        blocks.push({ t: "flow", nodes: parseFlow(buf) });
+        push({ t: "flow", nodes: parseFlow(buf) }, fenceSrc);
       } else {
-        blocks.push({ t: "p", text: "```" + lang + "\n" + buf.join("\n") + "\n```" });
+        push({ t: "p", text: "```" + lang + "\n" + buf.join("\n") + "\n```" }, fenceSrc);
       }
       pending = null;
       continue;
@@ -375,7 +391,7 @@ function parseBlocks(text: string): RuleBlock[] {
         group.push(lines[i]);
         i++;
       }
-      blocks.push({ t: "flow", nodes: parseFlow(group) });
+      push({ t: "flow", nodes: parseFlow(group) }, group.join("\n"));
       pending = null;
       continue;
     }
@@ -391,11 +407,15 @@ function parseBlocks(text: string): RuleBlock[] {
         i++;
       }
       const m = buf[0].match(OBSIDIAN_CALLOUT_RE);
-      blocks.push({
-        t: "obsidian-callout",
-        calloutType: (m?.[1] ?? "").trim().toLowerCase(),
-        content: buf.join("\n"),
-      });
+      const content = buf.join("\n");
+      push(
+        {
+          t: "obsidian-callout",
+          calloutType: (m?.[1] ?? "").trim().toLowerCase(),
+          content,
+        },
+        content
+      );
       pending = null;
       continue;
     }
@@ -408,7 +428,7 @@ function parseBlocks(text: string): RuleBlock[] {
       while (i < lines.length) {
         const im = matchImageLine(lines[i]);
         if (!im) break;
-        blocks.push({ t: "image", src: im.src, alt: im.alt, isEmbed: im.isEmbed });
+        push({ t: "image", src: im.src, alt: im.alt, isEmbed: im.isEmbed }, lines[i]);
         i++;
       }
       pending = null;
@@ -435,10 +455,10 @@ function parseBlocks(text: string): RuleBlock[] {
     const blk = classify(group, pending);
     // Drop standalone block-id anchors (`^my-id`) — they're reference targets,
     // not display content (e.g. the `^id` line under a Dice Roller lookup table).
-    if (!(blk.t === "p" && /^\^[\w-]+$/.test(blk.text.trim()))) blocks.push(blk);
+    if (!(blk.t === "p" && /^\^[\w-]+$/.test(blk.text.trim()))) push(blk, group.join("\n"));
     pending = null;
   }
-  return blocks;
+  return { blocks, sources };
 }
 
 /** Maximum non-image, non-heading prose a note may carry and still count as
@@ -520,6 +540,9 @@ function matchTypeRule(
 const MD_STRIP = /(\*\*|__|\*|_|`|==|~~)/g;
 const MD_LINK = /\[([^\]]+)\]\([^)]*\)/g;
 const WIKILINK = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+/** A paragraph that is only a footnote/link reference DEFINITION (`[^1]: …`)
+ *  carries no readable lead — skip it when picking a card summary. */
+const DEF_PROSE_RE = /^\s*\[\^?[^\]]+\]:\s/;
 
 /** A plain-text lead line for one block, used to derive a card summary. Returns
  *  "" for a block that carries no readable lead (an image shows as a thumbnail;
@@ -527,7 +550,9 @@ const WIKILINK = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 function blockPreviewText(b: RuleBlock): string {
   switch (b.t) {
     case "p":
-      return isHeadingProse(b) ? "" : (b.term != null && b.term !== "" ? b.term + " — " : "") + b.text;
+      return isHeadingProse(b) || DEF_PROSE_RE.test(b.text)
+        ? ""
+        : (b.term != null && b.term !== "" ? b.term + " — " : "") + b.text;
     case "callout":
       return b.text;
     case "obsidian-callout":
@@ -563,7 +588,8 @@ function firstProseText(blocks: RuleBlock[]): string {
   // yields any readable lead, so a note that opens with a table / callout / list
   // still shows a preview instead of a blank card.
   const prose = blocks.find(
-    (b): b is { t: "p"; term?: string; text: string } => b.t === "p" && !isHeadingProse(b)
+    (b): b is { t: "p"; term?: string; text: string } =>
+      b.t === "p" && !isHeadingProse(b) && !DEF_PROSE_RE.test(b.text)
   );
   let raw = "";
   if (prose) {
@@ -575,10 +601,18 @@ function firstProseText(blocks: RuleBlock[]): string {
     }
   }
   if (raw === "") return "";
-  // Plain-text the lead: links/wikilinks to their label, drop inline markers and
-  // stray table pipes, collapse whitespace. (The card renders this as text, not
-  // markdown — see PaneBoard cr-card__sum.)
+  // Plain-text the lead so the collapsed card never shows raw markdown source
+  // (the card renders this as TEXT, not markdown — see PaneBoard cr-card__sum).
+  // Order matters: drop comments/images/callout-and-quote markers and headings
+  // BEFORE link/wikilink unwrapping so an `![alt](url)` image isn't mistaken for
+  // a `[text](url)` link.
   const clean = raw
+    .replace(/<!--[\s\S]*?-->/g, " ") // HTML comments (ref/block directives)
+    .replace(/!\[\[[^\]]*\]\]/g, " ") // image embed  ![[pic.png]]
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // markdown image  ![alt](pic.png)
+    .replace(/^\s*>\s*\[![^\]]*\][^\n]*/gm, " ") // obsidian callout opener line
+    .replace(/^\s*#{1,6}\s+/gm, " ") // heading markers
+    .replace(/^\s*>\s?/gm, " ") // blockquote markers
     .replace(MD_LINK, "$1")
     .replace(WIKILINK, "$1")
     .replace(MD_STRIP, "")
@@ -668,18 +702,19 @@ export function parseNote(
     }
   }
 
-  const blocks = parseBlocks(text);
+  const { blocks, sources: blockSources } = parseBlocks(text);
 
   // A configurable image front-matter property (the "cover" / Bases-image path):
   // attach a leading image block (unless the body already shows that picture) and
   // force the `image` type, even when the note also has prose. Suppressed when the
-  // image built-in is disabled.
+  // image built-in is disabled. Keep blockSources aligned 1:1 with blocks.
   const imageEnabled = !disabledBuiltinTypes.includes("image");
   const explicitImage = imageEnabled ? readFmProp(frontmatter, imageProp) : undefined;
   if (explicitImage != null) {
     const ref = normalizeImageRef(explicitImage);
     if (!blocks.some((b) => b.t === "image" && sameImageSrc(b.src, ref.src))) {
       blocks.unshift({ t: "image", src: ref.src, alt: ref.alt, isEmbed: ref.isEmbed });
+      blockSources.unshift("");
     }
   }
 
@@ -716,5 +751,5 @@ export function parseNote(
   const fmSummary = typeof frontmatter.summary === "string" ? frontmatter.summary : undefined;
   const summary = fmSummary ?? attr(refAttrs, "summary") ?? firstProseText(blocks);
 
-  return { type, icon, iconSet, summary, meta, blocks };
+  return { type, icon, iconSet, summary, meta, blocks, blockSources };
 }

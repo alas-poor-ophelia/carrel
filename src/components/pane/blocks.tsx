@@ -3,11 +3,12 @@
    everything else is bespoke), plus the small UI atoms (type badge, star, meta
    chips) and search-highlight helpers. */
 import { MarkdownRenderer, MarkdownRenderChild } from "obsidian";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ComponentChildren, JSX, VNode } from "preact";
 import type CarrelPlugin from "../../main";
 import type { CustomType } from "../../types/data";
 import type { RuleBlock, RuleDoc } from "../../rules/model";
+import { buildRenderItems } from "../../rules/regions";
 import { resolveType } from "../../rules/registry";
 import { getRollEngine, type RollResult } from "../../rules/rollEngine";
 import { getDiceRoller } from "../../util/plugins";
@@ -158,20 +159,23 @@ export function MetaChips({ meta }: { meta: RuleDoc["meta"] }): JSX.Element | nu
   );
 }
 
-/* ---------- typed blocks ---------- */
+/* ---------- native markdown region ---------- */
 
-/** Prose paragraph — rendered through Obsidian's MarkdownRenderer so
- *  wikilinks, embeds and inline markdown resolve. The optional lead term is
- *  reconstructed into the markdown (`**term** — text`) and styled via CSS. */
-function ProseBlock({ plugin, path, block }: { plugin: CarrelPlugin; path: string; block: Extract<RuleBlock, { t: "p" }> }): JSX.Element {
+/** A contiguous run of ordinary (non-widget) blocks, rendered VERBATIM through
+ *  Obsidian's MarkdownRenderer — so paragraphs, bullets, numbered lists, tables,
+ *  blockquotes, callouts, links, ==highlights==, [[wikilinks]], embeds and
+ *  footnotes all resolve exactly the way Obsidian renders them. No hand-rolled
+ *  inline parsing, and no per-block re-render on search (the markdown DOM is
+ *  stable across `q`; search matches are painted by the Custom Highlight API —
+ *  see useSearchHighlight). */
+function NativeRegion({ plugin, path, md }: { plugin: CarrelPlugin; path: string; md: string }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
-  const md = (block.term != null && block.term !== "" ? `**${block.term}** — ` : "") + block.text;
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.empty();
     // A render child scopes the rendered markdown's lifecycle (embeds, etc.) to
-    // this block: unloading it on cleanup avoids the leak of handing the
+    // this region: unloading it on cleanup avoids the leak of handing the
     // long-lived plugin to MarkdownRenderer.
     const child = new MarkdownRenderChild(el);
     child.load();
@@ -182,90 +186,17 @@ function ProseBlock({ plugin, path, block }: { plugin: CarrelPlugin; path: strin
     });
     return () => child.unload();
   }, [md, path, plugin.app]);
-  return <div class="r-prose" ref={ref} />;
+  return <div class="cr-region" ref={ref} />;
 }
 
-function TableBlock({ block, q }: { block: Extract<RuleBlock, { t: "table" }>; q: string }): JSX.Element {
-  return (
-    <div class="r-table-wrap">
-      {block.caption != null && block.caption !== "" && (
-        <div class="r-table-cap">
-          <Icon id="ra-scroll-unfurled" class="r-table-cap__ic" />
-          {block.caption}
-        </div>
-      )}
-      <table class="r-table">
-        <thead>
-          <tr>
-            {block.cols.map((c, i) => (
-              <th key={i}>{c}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {block.rows.map((row, ri) => (
-            <tr key={ri}>
-              {row.map((cell, ci) => (
-                <td key={ci}>{inlineMd(String(cell), q)}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function StepsBlock({ block, q }: { block: Extract<RuleBlock, { t: "steps" }>; q: string }): JSX.Element {
-  return (
-    <ol class="r-steps">
-      {block.items.map((it, i) => (
-        <li class="r-steps__item" key={i}>
-          <span class="r-steps__num">{i + 1}</span>
-          <span class="r-steps__text">{inlineMd(it.text, q)}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function BulletsBlock({ block, q }: { block: Extract<RuleBlock, { t: "bullets" }>; q: string }): JSX.Element {
-  return (
-    <ul class="r-bullets">
-      {block.items.map((it, i) => (
-        <li class="r-bullets__item" key={i}>
-          {it.term != null && it.term !== "" && <span class="r-term">{inlineMd(it.term, q)} </span>}
-          {inlineMd(it.text, q)}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function CalloutBlock({ block, q }: { block: Extract<RuleBlock, { t: "callout" }>; q: string }): JSX.Element {
-  return (
-    <blockquote class="r-callout">
-      <span class="r-callout__mark">“</span>
-      <span class="r-callout__text">{inlineMd(block.text, q)}</span>
-      {block.cite != null && block.cite !== "" && <cite class="r-callout__cite">— {block.cite}</cite>}
-    </blockquote>
-  );
-}
-
-/** An Obsidian callout / infobox (`> [!type] …`) — rendered through Obsidian's
- *  own MarkdownRenderer so the native callout chrome plus any embedded images,
- *  headings and tables inside it all resolve (mirrors ProseBlock's lifecycle). */
-function ObsidianCalloutBlock({
-  plugin,
-  path,
-  block,
-}: {
-  plugin: CarrelPlugin;
-  path: string;
-  block: Extract<RuleBlock, { t: "obsidian-callout" }>;
-}): JSX.Element {
+/** A table cell rendered through Obsidian's MarkdownRenderer so links,
+ *  [[wikilinks]] and inline markdown resolve (and internal links actually
+ *  navigate) — the hand-rolled inlineMd never handled links, which left lookup
+ *  cells showing raw `[text](url)` source. The wrapping `<p>` is unwrapped so the
+ *  content flows inline in the cell. Search highlight is covered by the Custom
+ *  Highlight API (it walks `.cr-cell-md` too). */
+function CellMarkdown({ plugin, path, md }: { plugin: CarrelPlugin; path: string; md: string }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
-  const md = block.content;
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -273,12 +204,18 @@ function ObsidianCalloutBlock({
     const child = new MarkdownRenderChild(el);
     child.load();
     void MarkdownRenderer.render(plugin.app, md, el, path, child).then(() => {
+      const p = el.querySelector(":scope > p");
+      if (p && el.childElementCount === 1) {
+        while (p.firstChild) el.insertBefore(p.firstChild, p);
+        p.remove();
+      }
       el.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
     });
     return () => child.unload();
   }, [md, path, plugin.app]);
-  return <div class="r-obsidian-callout" ref={ref} />;
+  return <div class="cr-cell-md" ref={ref} />;
 }
+
 
 function FlowBlock({ block, q }: { block: Extract<RuleBlock, { t: "flow" }>; q: string }): JSX.Element {
   return (
@@ -407,9 +344,10 @@ function refLabel(inner: string): string {
 }
 
 /** A lookup-table cell. Cells holding a nested `dice:` reference (e.g.
- *  `` `dice: [[Rare Loot^rare]]` ``) render as a marked reference chip instead
- *  of raw markdown; everything else is plain highlighted text. */
-function lookupCell(cell: string, q: string): ComponentChildren {
+ *  `` `dice: [[Rare Loot^rare]]` ``) render as a marked reference chip; every
+ *  other cell renders its markdown through Obsidian (so links/wikilinks resolve
+ *  and navigate). */
+function lookupCell(cell: string, plugin: CarrelPlugin, path: string): ComponentChildren {
   const m = cell.match(/dice:\s*([^`]+)/i);
   if (m) {
     return (
@@ -419,7 +357,7 @@ function lookupCell(cell: string, q: string): ComponentChildren {
       </span>
     );
   }
-  return inlineMd(String(cell), q);
+  return <CellMarkdown plugin={plugin} path={path} md={String(cell)} />;
 }
 
 /** Lookup / nested random tables referenced by link (`[[Encounters^wild]]`).
@@ -532,7 +470,7 @@ function LookupTableBlock({
           {block.rows.map((row, ri) => (
             <tr key={ri} class={hit && rangeContains(row[0] ?? "", hit.num) ? "is-hit" : ""}>
               {row.map((cell, ci) => (
-                <td key={ci}>{lookupCell(String(cell), q)}</td>
+                <td key={ci}>{lookupCell(String(cell), plugin, path)}</td>
               ))}
             </tr>
           ))}
@@ -670,40 +608,39 @@ export function Blocks({
   checklistState: Record<string, boolean>;
   onToggleCheck: (key: string, value: boolean) => void;
 }): JSX.Element {
+  const items = useMemo(
+    () => buildRenderItems(doc.blocks, doc.blockSources),
+    [doc.blocks, doc.blockSources]
+  );
   return (
     <div class="r-blocks">
-      {doc.blocks.map((b, i) => {
+      {items.map((item, i) => {
+        if (item.kind === "native") {
+          return <NativeRegion plugin={plugin} path={doc.path} md={item.md} key={"n" + i} />;
+        }
+        const b = item.block;
+        // `index` is the block's position in doc.blocks — the checklist key must
+        // stay `${path}#${blockIndex}` so persisted ticks survive across renders.
+        const bi = item.index;
         switch (b.t) {
-          case "p":
-            return <ProseBlock plugin={plugin} path={doc.path} block={b} key={i} />;
-          case "table":
-            return <TableBlock block={b} q={q} key={i} />;
-          case "steps":
-            return <StepsBlock block={b} q={q} key={i} />;
-          case "bullets":
-            return <BulletsBlock block={b} q={q} key={i} />;
-          case "callout":
-            return <CalloutBlock block={b} q={q} key={i} />;
-          case "obsidian-callout":
-            return <ObsidianCalloutBlock plugin={plugin} path={doc.path} block={b} key={i} />;
           case "image":
-            return <CardImage plugin={plugin} path={doc.path} block={b} variant="full" key={i} />;
+            return <CardImage plugin={plugin} path={doc.path} block={b} variant="full" key={bi} />;
           case "flow":
-            return <FlowBlock block={b} q={q} key={i} />;
+            return <FlowBlock block={b} q={q} key={bi} />;
           case "dice":
-            return <DiceBlock block={b} q={q} plugin={plugin} key={i} />;
+            return <DiceBlock block={b} q={q} plugin={plugin} key={bi} />;
           case "rolltable":
-            return <RollTableBlock block={b} plugin={plugin} path={doc.path} key={i} />;
+            return <RollTableBlock block={b} plugin={plugin} path={doc.path} key={bi} />;
           case "lookuptable":
-            return <LookupTableBlock block={b} plugin={plugin} path={doc.path} q={q} key={i} />;
+            return <LookupTableBlock block={b} plugin={plugin} path={doc.path} q={q} key={bi} />;
           case "checklist":
             return (
               <ChecklistBlock
                 block={b}
-                blockKey={`${doc.path}#${i}`}
+                blockKey={`${doc.path}#${bi}`}
                 state={checklistState}
                 onToggle={onToggleCheck}
-                key={i}
+                key={bi}
               />
             );
           default:
