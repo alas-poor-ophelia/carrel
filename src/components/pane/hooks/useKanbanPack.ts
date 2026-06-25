@@ -172,18 +172,28 @@ export function useKanbanPack(
     firstLayout.current = false;
   });
 
-  // re-pack when async prose finishes rendering, on font load, and on resize.
+  // re-pack when async markdown finishes rendering, on font load, and on resize.
+  // Coalesce bursts into ONE repack per frame (a card body can hold many native
+  // regions, each firing RENDERED_EVENT as its async render lands).
   useEffect(() => {
-    const f = (): void => force((x) => x + 1);
     let alive = true;
-    const onRendered = (): void => f();
+    let raf = 0;
+    const schedule = (): void => {
+      if (raf !== 0) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        if (alive) force((x) => x + 1);
+      });
+    };
+    const onRendered = (): void => schedule();
     activeDocument.addEventListener(RENDERED_EVENT, onRendered);
-    void activeDocument.fonts?.ready.then(() => alive && f());
-    window.addEventListener("resize", f);
+    void activeDocument.fonts?.ready.then(() => alive && schedule());
+    window.addEventListener("resize", schedule);
     return () => {
       alive = false;
+      if (raf !== 0) window.cancelAnimationFrame(raf);
       activeDocument.removeEventListener(RENDERED_EVENT, onRendered);
-      window.removeEventListener("resize", f);
+      window.removeEventListener("resize", schedule);
     };
   }, []);
 

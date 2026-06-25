@@ -465,6 +465,54 @@ describe("parseNote — summary & icon", () => {
     expect(p.icon).toBe("lucide-clover");
     expect(p.iconSet).toBe("lucide");
   });
+
+  it("strips a leading image embed out of the summary (no raw source leak)", () => {
+    // The old strip leaked `![[...]]` source into the card preview.
+    const p = parseNote("![[cover.webp]] some caption that follows the embed");
+    expect(p.summary).not.toMatch(/!\[|]\(|\[\[/);
+    expect(p.summary).toBe("some caption that follows the embed");
+  });
+
+  it("strips obsidian-callout markers when the note opens with a callout", () => {
+    const p = parseNote("> [!quote] Heliana\n> Cooking can be delicious");
+    expect(p.summary).not.toMatch(/\[!|^>/);
+    expect(p.summary).toContain("Cooking can be delicious");
+  });
+});
+
+describe("parseNote — block sources & checklist", () => {
+  it("returns a blockSources entry aligned 1:1 with blocks, verbatim", () => {
+    const p = parseNote("a paragraph.\n\n- one\n- two");
+    expect(p.blockSources).toHaveLength(p.blocks.length);
+    // the bullets block keeps its `-` markers so Obsidian renders a real list
+    const bulletsIdx = p.blocks.findIndex((b) => b.t === "bullets");
+    expect(p.blockSources[bulletsIdx]).toBe("- one\n- two");
+  });
+
+  it("keeps the leading synthetic image block's source aligned", () => {
+    const p = parseNote("prose body.", { image: "cover.png" });
+    expect(p.blockSources).toHaveLength(p.blocks.length);
+    expect(p.blocks[0].t).toBe("image");
+  });
+
+  it("classifies an all-checkbox list as a checklist widget", () => {
+    const p = parseNote("- [ ] a\n- [x] b");
+    expect(p.blocks).toEqual([{ t: "checklist", items: [{ text: "a" }, { text: "b" }] }]);
+  });
+
+  it("a mixed checkbox/plain list falls through to native bullets (no silent drop)", () => {
+    const p = parseNote("- [ ] a\n- plain");
+    const block = p.blocks[0];
+    expect(block.t).toBe("bullets");
+    // both items survive — the old checklist path dropped the plain line
+    if (block.t === "bullets") expect(block.items).toHaveLength(2);
+  });
+
+  it("does not use a footnote-definition paragraph as the card summary", () => {
+    const p = parseNote("- first bullet item\n\n[^1]: a footnote definition");
+    expect(p.summary).not.toMatch(/\[\^?1\]:/);
+    expect(p.summary).toBe("first bullet item");
+  });
 });
 
 describe("parseNote — code fences (lockup regression)", () => {
