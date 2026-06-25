@@ -20,9 +20,10 @@ import type {
   ParsedNote,
   RuleBlock,
   RuleMeta,
+  SummaryKind,
 } from "./model";
 import { isKnownType, resolveType } from "./registry";
-import { truncateInline } from "../util/text";
+import { truncateInline, stripInlineMarks } from "../util/text";
 
 const REF_RE = /^\s*<!--\s*ref:\s*([\s\S]*?)-->\s*/i;
 const BLOCK_RE = /^\s*<!--\s*block:\s*([\s\S]*?)-->\s*$/i;
@@ -584,16 +585,82 @@ function blockPreviewText(b: RuleBlock): string {
   }
 }
 
-function firstProseText(blocks: RuleBlock[]): string {
-  const isLead = (b: RuleBlock): b is { t: "p"; term?: string; text: string } =>
-    b.t === "p" && !isHeadingProse(b) && !DEF_PROSE_RE.test(b.text);
-  // Build the lead from the opening RUN of prose paragraphs, joined, so a short
-  // first line (e.g. a "Source:" citation on its own paragraph) doesn't crowd
-  // out the real prose that follows it. Skip leading non-prose (a heading)
-  // without stopping; stop at the first non-prose block once gathering began.
+const FENCE_RE = /^\s*`{3,}\s*(\S*)/;
+const IMG_EXT_RE = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
+const EMBED_ONLY_RE = /^!\[\[([^\]]+)\]\]$/;
+
+/** A `p` block that is really a fenced code block returns its info-string
+ *  language (possibly ""); a non-fence block returns null. Code fences are
+ *  stored as `p` blocks (so the expanded card renders them through Obsidian's
+ *  MarkdownRenderer) — this re-detects them for the PREVIEW only. */
+function codeFenceLang(b: RuleBlock): string | null {
+  if (b.t !== "p") return null;
+  const m = FENCE_RE.exec(b.text);
+  return m ? m[1] : null;
+}
+
+/** A `p` block that is solely a non-image note embed (`![[Some Note]]`) returns
+ *  the target's display name (basename, alias- and extension-stripped); anything
+ *  else returns null. Image embeds are `image` blocks and never reach here. */
+function embedTarget(b: RuleBlock): string | null {
+  if (b.t !== "p") return null;
+  const m = EMBED_ONLY_RE.exec(b.text.trim());
+  if (!m) return null;
+  const inner = m[1];
+  if (IMG_EXT_RE.test(inner)) return null;
+  const noAlias = inner.split("|")[0];
+  const base = noAlias.split(/[\\/]/).pop() ?? noAlias;
+  return base.replace(/\.md$/i, "").trim();
+}
+
+/** Reduce a raw lead string to card-preview text: drop markdown the card can't
+ *  render (comments, code fences, images, callout/quote/heading markers, table
+ *  pipes) and unwrap links to their label text, but KEEP the inline marks
+ *  (`**`, `*`/`_`, `` ` ``, `~~`) that inlineMd() turns into elements. Highlight
+ *  `==` is dropped (inlineMd has no highlight run). Order matters: strip
+ *  comments/images/markers BEFORE link unwrapping so `![alt](url)` isn't mistaken
+ *  for `[text](url)`. */
+function plainLead(raw: string): string {
+  return raw
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/^\s*`{3,}[^\n]*$/gm, " ")
+    .replace(/!\[\[[^\]]*\]\]/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/^\s*>\s*\[![^\]]*\][^\n]*/gm, " ")
+    .replace(/^\s*#{1,6}\s+/gm, " ")
+    .replace(/^\s*>\s?/gm, " ")
+    .replace(MD_LINK, "$1")
+    .replace(WIKILINK, "$1")
+    .replace(/==/g, "")
+    .replace(/\|/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+interface SummaryLead {
+  text: string;
+  kind?: SummaryKind;
+  note?: string;
+}
+
+/** Derive the collapsed-card preview from a note's blocks. Prefers the opening
+ *  RUN of prose paragraphs (so a short lead line like a "Source:" citation
+ *  doesn't crowd out the prose after it). When there is no prose, falls back to
+ *  a typed, labeled lead for the first opaque/structural block — a code/plugin
+ *  fence, a note embed, or a table — so the card shows a clear badge instead of
+ *  raw source or a blank. */
+function firstProseText(blocks: RuleBlock[]): SummaryLead {
+  // A code fence or a bare embed is a `p` block but carries no readable prose,
+  // so it must not win the prose gather — it's handled as a typed fallback.
+  const isProseLead = (b: RuleBlock): b is { t: "p"; term?: string; text: string } =>
+    b.t === "p" &&
+    !isHeadingProse(b) &&
+    !DEF_PROSE_RE.test(b.text) &&
+    codeFenceLang(b) === null &&
+    embedTarget(b) === null;
   let raw = "";
   for (const b of blocks) {
-    if (!isLead(b)) {
+    if (!isProseLead(b)) {
       if (raw !== "") break;
       continue;
     }
@@ -601,38 +668,29 @@ function firstProseText(blocks: RuleBlock[]): string {
     raw = raw !== "" ? raw + " " + lead : lead;
     if (raw.length >= SUMMARY_MAX * 2) break; // enough to fill the budget
   }
-  if (raw === "") {
-    // No prose: fall back to the first block that yields any readable lead, so a
-    // note that opens with a table / callout / list still shows a preview.
-    for (const b of blocks) {
-      raw = blockPreviewText(b);
-      if (raw !== "") break;
+  if (raw !== "") return { text: truncateInline(plainLead(raw), SUMMARY_MAX) };
+
+  // No prose — derive a typed lead from the first structural/opaque block.
+  for (const b of blocks) {
+    if (b.t === "p") {
+      const lang = codeFenceLang(b);
+      if (lang !== null) {
+        // Code content is opaque to a preview: show the badge plus a short PLAIN
+        // excerpt (strip marks — formatting in code is meaningless here).
+        const excerpt = stripInlineMarks(plainLead(b.text));
+        return { kind: "code", note: lang, text: truncateInline(excerpt, SUMMARY_MAX) };
+      }
+      const tgt = embedTarget(b);
+      if (tgt !== null) return { kind: "embed", text: tgt };
     }
+    if (b.t === "table") {
+      const dims = `${b.cols.length}×${b.rows.length}`;
+      return { kind: "table", note: dims, text: truncateInline(plainLead(blockPreviewText(b)), SUMMARY_MAX) };
+    }
+    const lead = blockPreviewText(b);
+    if (lead !== "") return { text: truncateInline(plainLead(lead), SUMMARY_MAX) };
   }
-  if (raw === "") return "";
-  // Plain-text the lead so the collapsed card never shows raw markdown it can't
-  // render — but KEEP the inline marks (`**`, `*`/`_`, `` ` ``, `~~`) that the
-  // card's inlineMd() turns into elements, so bold/italic/code/strike survive
-  // into the preview. Links unwrap to their label text (inlineMd has no link
-  // run); highlight `==` delimiters are dropped for the same reason.
-  // Order matters: drop comments/images/callout-and-quote markers and headings
-  // BEFORE link/wikilink unwrapping so an `![alt](url)` image isn't mistaken for
-  // a `[text](url)` link.
-  const clean = raw
-    .replace(/<!--[\s\S]*?-->/g, " ") // HTML comments (ref/block directives)
-    .replace(/^\s*`{3,}[^\n]*$/gm, " ") // code-fence lines (```lang / ```) — keep inline `code`
-    .replace(/!\[\[[^\]]*\]\]/g, " ") // image embed  ![[pic.png]]
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // markdown image  ![alt](pic.png)
-    .replace(/^\s*>\s*\[![^\]]*\][^\n]*/gm, " ") // obsidian callout opener line
-    .replace(/^\s*#{1,6}\s+/gm, " ") // heading markers
-    .replace(/^\s*>\s?/gm, " ") // blockquote markers
-    .replace(MD_LINK, "$1")
-    .replace(WIKILINK, "$1")
-    .replace(/==/g, "") // highlight delimiters (inlineMd has no highlight run)
-    .replace(/\|/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return truncateInline(clean, SUMMARY_MAX);
+  return { text: "" };
 }
 
 const HEADING_RE = /^\s*#{1,6}\s+.*(?:\r?\n|$)/;
@@ -761,8 +819,21 @@ export function parseNote(
         : "rpg"
       : resolved.iconSet;
 
+  // An author-provided summary (frontmatter or `<!-- ref: summary -->`) is always
+  // plain prose — no badge. Otherwise derive a (possibly typed) lead from blocks.
   const fmSummary = typeof frontmatter.summary === "string" ? frontmatter.summary : undefined;
-  const summary = fmSummary ?? attr(refAttrs, "summary") ?? firstProseText(blocks);
+  const explicit = fmSummary ?? attr(refAttrs, "summary");
+  const lead = explicit != null ? { text: explicit } : firstProseText(blocks);
 
-  return { type, icon, iconSet, summary, meta, blocks, blockSources };
+  return {
+    type,
+    icon,
+    iconSet,
+    summary: lead.text,
+    summaryKind: lead.kind,
+    summaryNote: lead.note,
+    meta,
+    blocks,
+    blockSources,
+  };
 }

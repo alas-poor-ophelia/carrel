@@ -459,6 +459,42 @@ describe("parseNote — summary & icon", () => {
     expect(p.summary).toContain("const a = 1;");
   });
 
+  it("labels a code-/plugin-fence-only note with a code summaryKind + language", () => {
+    const p = parseNote("```meta-bind-js-view\nreturn 1;\n```");
+    expect(p.summaryKind).toBe("code");
+    expect(p.summaryNote).toBe("meta-bind-js-view");
+  });
+
+  it("labels a note-embed-only note with an embed summaryKind + target name", () => {
+    const p = parseNote("![[Architecture Diagram]]");
+    expect(p.summaryKind).toBe("embed");
+    expect(p.summary).toBe("Architecture Diagram");
+  });
+
+  it("labels a table-only note with a table summaryKind + dimensions", () => {
+    const p = parseNote("| A | B |\n| --- | --- |\n| one | two |");
+    expect(p.summaryKind).toBe("table");
+    expect(p.summaryNote).toBe("2×1");
+    expect(p.summary).toBe("one · two");
+  });
+
+  it("leaves an ordinary prose note's summaryKind undefined", () => {
+    const p = parseNote("Just a normal paragraph of prose.");
+    expect(p.summaryKind).toBeUndefined();
+  });
+
+  it("prefers real prose over a trailing code fence (no badge)", () => {
+    const p = parseNote("The real lead paragraph.\n\n```js\nconst x = 1;\n```");
+    expect(p.summaryKind).toBeUndefined();
+    expect(p.summary).toContain("The real lead paragraph.");
+  });
+
+  it("an explicit frontmatter summary never gets a badge, even over a code body", () => {
+    const p = parseNote("```js\nconst x = 1;\n```", { summary: "Hand-written summary" });
+    expect(p.summary).toBe("Hand-written summary");
+    expect(p.summaryKind).toBeUndefined();
+  });
+
   it("prefers an explicit frontmatter summary and icon", () => {
     const p = parseNote("body text", { summary: "Custom", icon: "shield" });
     expect(p.summary).toBe("Custom");

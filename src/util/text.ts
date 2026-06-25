@@ -98,6 +98,36 @@ function serializeRun(r: InlineRun): string {
   }
 }
 
+/** Friendly badge labels for known plugin/embed code-fence languages. Anything
+ *  not listed (a real programming language, an unknown plugin) reads as "Code" —
+ *  the fence content is opaque to a card preview, so the plugin name is the
+ *  useful signal, not the syntax. */
+const CODE_LANG_LABELS: Record<string, string> = {
+  "meta-bind": "Meta Bind",
+  "meta-bind-js-view": "Meta Bind",
+  "meta-bind-button": "Meta Bind",
+  "js-engine": "JS Engine",
+  datacore: "Datacore",
+  datacorejs: "Datacore",
+  datacorejsx: "Datacore",
+  datacorets: "Datacore",
+  datacacoretsx: "Datacore",
+  dataview: "Dataview",
+  dataviewjs: "Dataview",
+  mermaid: "Mermaid",
+  chart: "Chart",
+  tracker: "Tracker",
+  tasks: "Tasks",
+  carrel: "Carrel",
+};
+
+/** A friendly badge label for a code-fence info-string language. A known plugin
+ *  id maps to its product name; everything else (incl. an empty info string)
+ *  reads "Code". */
+export function codeLangLabel(lang: string): string {
+  return CODE_LANG_LABELS[lang.trim().toLowerCase()] ?? "Code";
+}
+
 /** Plain-text form of inline-marked prose — the same marks `tokenizeInline`
  *  renders, removed so search/indexing matches words without delimiters in the
  *  way (e.g. a summary stored as `**Grapple** costs` still matches "grapple"). */

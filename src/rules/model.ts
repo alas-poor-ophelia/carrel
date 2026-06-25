@@ -68,6 +68,12 @@ export function isWidgetBlock(b: RuleBlock): boolean {
   return (WIDGET_BLOCK_TYPES as readonly string[]).includes(b.t);
 }
 
+/** When a card's collapsed preview is derived from an opaque or structural lead
+ *  block rather than prose, this kind drives a small labeled badge on the card
+ *  ("Code"/plugin name, "Table", "Embed"). Undefined for an ordinary prose
+ *  summary or an author-provided frontmatter/ref summary. */
+export type SummaryKind = "code" | "table" | "embed";
+
 /** The parser's output for one note body (the per-note fields beyond the
  *  index-level path/title/category/headings). */
 export interface ParsedNote {
@@ -76,6 +82,10 @@ export interface ParsedNote {
   icon: string;
   iconSet: "lucide" | "rpg";
   summary: string;
+  /** Badge kind for a non-prose preview lead (see SummaryKind). */
+  summaryKind?: SummaryKind;
+  /** Kind-specific badge detail: the code language/plugin id, or table dims. */
+  summaryNote?: string;
   meta: RuleMeta[];
   blocks: RuleBlock[];
   /** The verbatim source markdown each block was parsed from, aligned 1:1 with
@@ -95,6 +105,10 @@ export interface RuleDoc {
   icon: string;
   iconSet: "lucide" | "rpg";
   summary: string;
+  /** Badge kind for a non-prose preview lead (see SummaryKind). */
+  summaryKind?: SummaryKind;
+  /** Kind-specific badge detail: the code language/plugin id, or table dims. */
+  summaryNote?: string;
   meta: RuleMeta[];
   blocks: RuleBlock[];
   blockSources: string[];
