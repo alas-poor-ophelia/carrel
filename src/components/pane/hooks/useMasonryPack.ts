@@ -156,29 +156,18 @@ export function useMasonryPack(
     firstLayout.current = false;
   });
 
-  // re-pack when async markdown finishes rendering, on font load, and on resize.
-  // Coalesce bursts into ONE repack per frame: a card body can now contain many
-  // native regions, each firing RENDERED_EVENT as its async render lands, and an
-  // unbatched listener would repack the whole board once per region.
+  // re-pack when async prose finishes rendering, on font load, and on resize
   useEffect(() => {
+    const f = (): void => force((x) => x + 1);
     let alive = true;
-    let raf = 0;
-    const schedule = (): void => {
-      if (raf !== 0) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        if (alive) force((x) => x + 1);
-      });
-    };
-    const onRendered = (): void => schedule();
+    const onRendered = (): void => f();
     activeDocument.addEventListener(RENDERED_EVENT, onRendered);
-    void activeDocument.fonts?.ready.then(() => alive && schedule());
-    window.addEventListener("resize", schedule);
+    void activeDocument.fonts?.ready.then(() => alive && f());
+    window.addEventListener("resize", f);
     return () => {
       alive = false;
-      if (raf !== 0) window.cancelAnimationFrame(raf);
       activeDocument.removeEventListener(RENDERED_EVENT, onRendered);
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", f);
     };
   }, []);
 

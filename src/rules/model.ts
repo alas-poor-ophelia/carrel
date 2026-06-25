@@ -56,18 +56,6 @@ export type RuleBlock =
    *  `[[wikilink]]` embed from a markdown/external path. */
   | { t: "image"; src: string; alt?: string; isEmbed: boolean };
 
-/** Block types Carrel renders as bespoke interactive widgets (own UI, roll
- *  engine, per-nook persisted state, or custom layout) — everything ELSE is
- *  ordinary prose handed verbatim to Obsidian's MarkdownRenderer. The render
- *  layer groups runs of non-widget blocks into one native-markdown region so
- *  links, highlights, embeds and footnotes resolve exactly as Obsidian renders
- *  them (no hand-rolled inline parsing). */
-export const WIDGET_BLOCK_TYPES = ["dice", "rolltable", "lookuptable", "flow", "checklist", "image"] as const;
-
-export function isWidgetBlock(b: RuleBlock): boolean {
-  return (WIDGET_BLOCK_TYPES as readonly string[]).includes(b.t);
-}
-
 /** The parser's output for one note body (the per-note fields beyond the
  *  index-level path/title/category/headings). */
 export interface ParsedNote {
@@ -78,10 +66,6 @@ export interface ParsedNote {
   summary: string;
   meta: RuleMeta[];
   blocks: RuleBlock[];
-  /** The verbatim source markdown each block was parsed from, aligned 1:1 with
-   *  `blocks`. The render layer feeds runs of non-widget blocks' source straight
-   *  to Obsidian's MarkdownRenderer. */
-  blockSources: string[];
 }
 
 export interface RuleDoc {
@@ -97,5 +81,4 @@ export interface RuleDoc {
   summary: string;
   meta: RuleMeta[];
   blocks: RuleBlock[];
-  blockSources: string[];
 }

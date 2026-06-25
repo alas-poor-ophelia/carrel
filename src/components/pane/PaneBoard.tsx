@@ -29,7 +29,6 @@ import { useMasonryPack, type Section } from "./hooks/useMasonryPack";
 import { useRailDrag } from "./hooks/useRailDrag";
 import { useCardDrag } from "./hooks/useCardDrag";
 import { useCardKeyboard } from "./hooks/useCardKeyboard";
-import { useSearchHighlight } from "./hooks/useSearchHighlight";
 import { KanbanBoard } from "./KanbanBoard";
 
 /** How wide an opened card wants to be (content weight → 1–3 base columns). */
@@ -334,10 +333,6 @@ export function PaneBoard({
   const { regRail, onPinDown } = useRailDrag({ store, nookRef, pinOrder, dragId, setDragId });
   const { onCardDown } = useCardDrag({ store, nookRef, sectionsRef, cells, appRef, setDragId: setCardDragId });
   useCardKeyboard({ appRef, scrollRef, cells, lastToggled, focusId, setFocusId, open, setOpen, visibleIds, toggle });
-  // Paint search matches over the native-markdown card bodies (Custom Highlight
-  // API). Only the searchable full pane drives it — the chromeless embed has no
-  // query and must not clobber the shared highlight registry.
-  useSearchHighlight(appRef, query, !embed && !chromeless);
 
   // pins + pinOrder are persisted together on the nook; toggling a pin keeps the
   // existing order (filtered) and appends a new pin to the end.
