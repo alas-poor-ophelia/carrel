@@ -419,6 +419,26 @@ describe("parseNote — summary & icon", () => {
     expect(p.summary).toBe("Detect Evil — at will, a paladin can use detect evil as the spell.");
   });
 
+  it("strips a markdown link to its label in the summary", () => {
+    const p = parseNote("See [the docs](http://example.com/x) for the full rules.");
+    expect(p.summary).toBe("See the docs for the full rules.");
+  });
+
+  it("strips highlight and strikethrough markers in the summary", () => {
+    const p = parseNote("This is ==very== ~~maybe~~ important.");
+    expect(p.summary).toBe("This is very maybe important.");
+  });
+
+  it("falls back to a callout's text when the note opens with a callout", () => {
+    const p = parseNote("> a wise saying worth remembering");
+    expect(p.summary).toBe("a wise saying worth remembering");
+  });
+
+  it("falls back to a table's first row when the note opens with a table", () => {
+    const p = parseNote("| A | B |\n| --- | --- |\n| one | two |");
+    expect(p.summary).toBe("one · two");
+  });
+
   it("prefers an explicit frontmatter summary and icon", () => {
     const p = parseNote("body text", { summary: "Custom", icon: "shield" });
     expect(p.summary).toBe("Custom");
@@ -444,5 +464,23 @@ describe("parseNote — summary & icon", () => {
     expect(p.type).toBe("trait");
     expect(p.icon).toBe("lucide-clover");
     expect(p.iconSet).toBe("lucide");
+  });
+});
+
+describe("parseNote — code fences (lockup regression)", () => {
+  // A fence whose opening line carried an info string with a space used to slip
+  // past the fence matcher AND be refused by the generic grouper, hanging the
+  // parser forever. These must terminate (vitest fails the test on timeout).
+  it("parses a fence with a spaced info string without hanging", () => {
+    const p = parseNote('```js title="example"\nconst a = 1;\n```');
+    expect(p.blocks).toHaveLength(1);
+    expect(p.blocks[0].t).toBe("p");
+    expect(p.blocks[0]).toMatchObject({ text: expect.stringContaining("const a = 1;") });
+  });
+
+  it("parses a fence with a multi-word info string without hanging", () => {
+    const p = parseNote("```python {1,3-4}\nx = 2\n```\n\nAfter the fence.");
+    expect(types(p.blocks)).toEqual(["p", "p"]);
+    expect(p.blocks[0]).toMatchObject({ text: expect.stringContaining("x = 2") });
   });
 });

@@ -4,6 +4,15 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.1.1
+
+Two parsing fixes for the cards.
+
+### Fixed
+
+- **A folder with certain code-fenced notes no longer freezes Obsidian.** A note containing a code block whose opening line carried an info string with a space (for example ` ```js title="example" ` or ` ```python {1,3} `) could send the note parser into an endless loop while indexing, hanging the app. Such fences now parse correctly, and the parser is hardened so no note can stall indexing.
+- **Collapsed cards show a proper preview again.** A note that opened with a table, callout, or list showed a blank summary on its collapsed card, and previews could leak raw markdown (link syntax, `==highlight==`, `~~strikethrough~~`). Collapsed cards now derive a clean preview from the note's first content of any kind. Expanding the card was always fine; this only affected the one-line summary.
+
 ## 1.1.0
 
 Two new ways to see your notes — **kanban swimlanes** and **image cards** — plus a choice of where your nook data lives.

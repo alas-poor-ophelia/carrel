@@ -346,7 +346,11 @@ function parseBlocks(text: string): RuleBlock[] {
       i++;
       continue;
     }
-    const fence = line.match(/^\s*```(\S*)\s*$/);
+    // Accept any opening fence: the language is the first token, but an info
+    // string may carry extra words (```js title="x", ```python {1,3}). Matching
+    // only `lang` + end-of-line here previously let such a fence slip past — and
+    // the generic grouper below refuses any ```-led line — hanging the parser.
+    const fence = line.match(/^\s*```(\S*).*$/);
     if (fence) {
       const lang = fence[1];
       const buf: string[] = [];
@@ -419,6 +423,14 @@ function parseBlocks(text: string): RuleBlock[] {
     ) {
       group.push(lines[i]);
       i++;
+    }
+    // Safety net: if the grouper consumed nothing (a ```-led line the fence
+    // matcher above declined to take), skip it so `i` always advances. A
+    // non-advancing iteration here would spin forever and freeze the app.
+    if (group.length === 0) {
+      pending = null;
+      i++;
+      continue;
     }
     const blk = classify(group, pending);
     // Drop standalone block-id anchors (`^my-id`) — they're reference targets,
@@ -505,16 +517,74 @@ function matchTypeRule(
   return undefined;
 }
 
-const MD_STRIP = /(\*\*|__|\*|_|`)/g;
+const MD_STRIP = /(\*\*|__|\*|_|`|==|~~)/g;
+const MD_LINK = /\[([^\]]+)\]\([^)]*\)/g;
 const WIKILINK = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 
+/** A plain-text lead line for one block, used to derive a card summary. Returns
+ *  "" for a block that carries no readable lead (an image shows as a thumbnail;
+ *  a heading is structure, not content; a flow is too structural to abbreviate). */
+function blockPreviewText(b: RuleBlock): string {
+  switch (b.t) {
+    case "p":
+      return isHeadingProse(b) ? "" : (b.term != null && b.term !== "" ? b.term + " — " : "") + b.text;
+    case "callout":
+      return b.text;
+    case "obsidian-callout":
+      return b.content
+        .replace(/^\s*>\s*\[![^\]]*\][^\n]*\n?/, "")
+        .replace(/^\s*>\s?/gm, "")
+        .trim();
+    case "table":
+      return b.rows[0]?.join(" · ") ?? b.cols.join(" · ");
+    case "lookuptable":
+      return b.caption ?? b.formula;
+    case "bullets": {
+      const it = b.items[0];
+      if (it === undefined) return "";
+      return (it.term != null && it.term !== "" ? it.term + " — " : "") + it.text;
+    }
+    case "steps":
+    case "checklist":
+      return b.items[0]?.text ?? "";
+    case "dice":
+    case "rolltable":
+      return b.label ?? "";
+    case "flow":
+    case "image":
+      return "";
+    default:
+      return "";
+  }
+}
+
 function firstProseText(blocks: RuleBlock[]): string {
-  const p = blocks.find(
+  // Prefer the first real prose paragraph; fall back to the first block that
+  // yields any readable lead, so a note that opens with a table / callout / list
+  // still shows a preview instead of a blank card.
+  const prose = blocks.find(
     (b): b is { t: "p"; term?: string; text: string } => b.t === "p" && !isHeadingProse(b)
   );
-  if (!p) return "";
-  const raw = (p.term != null && p.term !== "" ? p.term + " — " : "") + p.text;
-  const clean = raw.replace(WIKILINK, "$1").replace(MD_STRIP, "").replace(/\s+/g, " ").trim();
+  let raw = "";
+  if (prose) {
+    raw = (prose.term != null && prose.term !== "" ? prose.term + " — " : "") + prose.text;
+  } else {
+    for (const b of blocks) {
+      raw = blockPreviewText(b);
+      if (raw !== "") break;
+    }
+  }
+  if (raw === "") return "";
+  // Plain-text the lead: links/wikilinks to their label, drop inline markers and
+  // stray table pipes, collapse whitespace. (The card renders this as text, not
+  // markdown — see PaneBoard cr-card__sum.)
+  const clean = raw
+    .replace(MD_LINK, "$1")
+    .replace(WIKILINK, "$1")
+    .replace(MD_STRIP, "")
+    .replace(/\|/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return truncateSummary(clean);
 }
 
