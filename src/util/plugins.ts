@@ -51,3 +51,36 @@ export function getDiceRoller(app: App): DiceRollerLike | null {
   const g = (window as unknown as { DiceRoller?: DiceRollerLike }).DiceRoller;
   return g && typeof g.getRoller === "function" ? g : null;
 }
+
+/* ---------- Excalidraw integration ----------
+   The community Excalidraw plugin stores drawings in `.excalidraw.md` files
+   whose markdown body is a "Switch to EXCALIDRAW VIEW" banner plus the drawing
+   JSON sealed in a hidden `%%` block. To show the actual drawing (not the
+   banner) we ask its automate API to export an <svg>. The usable surface lives
+   on the WINDOW GLOBAL `window.ExcalidrawAutomate`. Structural types only; no
+   build-time dependency. */
+
+export interface ExcalidrawAutomateLike {
+  reset(): void;
+  /** Export a drawing to an `<svg>`. The first arg accepts a `TFile` (despite
+   *  the `templatePath` name in the plugin's `.d.ts`); `theme` is "light"/"dark".
+   *  A `loader` (see getEmbeddedFilesLoader) lets drawings with embedded images
+   *  export their attachments instead of blank rectangles. */
+  createSVG(
+    templatePath?: unknown,
+    embedFont?: boolean,
+    exportSettings?: unknown,
+    loader?: unknown,
+    theme?: string,
+    padding?: number
+  ): Promise<SVGSVGElement>;
+  getEmbeddedFilesLoader?(isDark?: boolean): unknown;
+}
+
+/** The live Excalidraw automate API, or null when the plugin is absent/unusable.
+ *  Gated on the plugin being present, then resolved via the window global. */
+export function getExcalidraw(app: App): ExcalidrawAutomateLike | null {
+  if (!getPlugin(app, "obsidian-excalidraw-plugin")) return null;
+  const g = (window as unknown as { ExcalidrawAutomate?: ExcalidrawAutomateLike }).ExcalidrawAutomate;
+  return g && typeof g.createSVG === "function" ? g : null;
+}

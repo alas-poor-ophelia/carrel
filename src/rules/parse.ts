@@ -756,6 +756,33 @@ export function parseNote(
   disabledBuiltinTypes: ContentType[] = [],
   imageProp = "image"
 ): ParsedNote {
+  // An Excalidraw drawing note (`.excalidraw.md`, detected by its
+  // `excalidraw-plugin` frontmatter): its markdown body is just the plugin's
+  // "Switch to EXCALIDRAW VIEW" banner plus the drawing JSON sealed in a hidden
+  // `%%` block — rendering it as markdown shows the banner, not the drawing.
+  // Short-circuit to a single excalidraw widget (rendered as the exported SVG),
+  // treated as image-type content (visual, single-column body). Suppressed only
+  // when the image built-in is disabled (then the raw note renders as normal).
+  if (!disabledBuiltinTypes.includes("image") && frontmatter["excalidraw-plugin"] != null) {
+    const resolved = resolveType("image", customTypes);
+    const fmIcon = typeof frontmatter.icon === "string" ? frontmatter.icon : "";
+    const icon = fmIcon !== "" ? fmIcon : resolved.icon;
+    const iconSet: "lucide" | "rpg" =
+      fmIcon !== "" ? (fmIcon.startsWith("lucide-") ? "lucide" : "rpg") : resolved.iconSet;
+    // The basename of `Foo.excalidraw.md` is `Foo.excalidraw`; drop the trailing
+    // `.excalidraw` so the collapsed preview reads cleanly.
+    const name = title.trim().replace(/\.excalidraw$/i, "").trim();
+    return {
+      type: "image",
+      icon,
+      iconSet,
+      summary: name !== "" ? name : "Excalidraw drawing",
+      meta: [],
+      blocks: [{ t: "excalidraw" }],
+      blockSources: [""],
+    };
+  }
+
   let text = body;
 
   // The card shows the note's title (its filename) separately, so drop a leading

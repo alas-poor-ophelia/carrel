@@ -54,7 +54,13 @@ export type RuleBlock =
    *  raw linktext/path as written; resolution to a vault resource URL happens at
    *  render time (needs the owning note's path). `isEmbed` distinguishes a
    *  `[[wikilink]]` embed from a markdown/external path. */
-  | { t: "image"; src: string; alt?: string; isEmbed: boolean };
+  | { t: "image"; src: string; alt?: string; isEmbed: boolean }
+  /** An Excalidraw drawing — a `.excalidraw.md` note (detected by its
+   *  `excalidraw-plugin` frontmatter) whose markdown body is only the plugin's
+   *  banner + hidden JSON. Rendered as the exported SVG via the Excalidraw
+   *  plugin's automate API. `src` is the linkpath when a drawing is embedded
+   *  from another note; undefined when the card note itself IS the drawing. */
+  | { t: "excalidraw"; src?: string };
 
 /** Block types Carrel renders as bespoke interactive widgets (own UI, roll
  *  engine, per-nook persisted state, or custom layout) — everything ELSE is
@@ -62,7 +68,7 @@ export type RuleBlock =
  *  layer groups runs of non-widget blocks into one native-markdown region so
  *  links, highlights, embeds and footnotes resolve exactly as Obsidian renders
  *  them (no hand-rolled inline parsing). */
-export const WIDGET_BLOCK_TYPES = ["dice", "rolltable", "lookuptable", "flow", "checklist", "image"] as const;
+export const WIDGET_BLOCK_TYPES = ["dice", "rolltable", "lookuptable", "flow", "checklist", "image", "excalidraw"] as const;
 
 export function isWidgetBlock(b: RuleBlock): boolean {
   return (WIDGET_BLOCK_TYPES as readonly string[]).includes(b.t);

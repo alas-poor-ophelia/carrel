@@ -2,7 +2,7 @@
    block renderers (hybrid: prose goes through Obsidian's MarkdownRenderer;
    everything else is bespoke), plus the small UI atoms (type badge, star, meta
    chips) and search-highlight helpers. */
-import { MarkdownRenderer, MarkdownRenderChild } from "obsidian";
+import { MarkdownRenderer, MarkdownRenderChild, TFile } from "obsidian";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ComponentChildren, JSX, VNode } from "preact";
 import type CarrelPlugin from "../../main";
@@ -11,7 +11,7 @@ import type { RuleBlock, RuleDoc } from "../../rules/model";
 import { buildRenderItems } from "../../rules/regions";
 import { resolveType } from "../../rules/registry";
 import { getRollEngine, type RollResult } from "../../rules/rollEngine";
-import { getDiceRoller } from "../../util/plugins";
+import { getDiceRoller, getExcalidraw } from "../../util/plugins";
 import { tokenizeInline } from "../../util/text";
 import { Icon } from "../common/Icon";
 import { GlyphIcon } from "../common/GlyphIcon";
@@ -593,6 +593,85 @@ export function CardImage({
   );
 }
 
+/* ---------- excalidraw ---------- */
+
+/** An Excalidraw drawing, exported to an `<svg>` via the Excalidraw plugin's
+ *  automate API and injected into the card. `src` selects a drawing embedded
+ *  from another note; without it the card note itself (`path`) IS the drawing.
+ *  Falls back to a quiet hint when the plugin is absent or the export fails —
+ *  never the raw "Switch to Excalidraw view" banner. Dispatches RENDERED_EVENT
+ *  once the SVG is in so the masonry re-measures the grown card. */
+export function ExcalidrawBlock({
+  plugin,
+  path,
+  src,
+}: {
+  plugin: CarrelPlugin;
+  path: string;
+  src?: string;
+}): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState<"loading" | "ready" | "absent" | "error">("loading");
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let cancelled = false;
+    el.empty();
+    const ea = getExcalidraw(plugin.app);
+    if (!ea) {
+      setState("absent");
+      return;
+    }
+    const linktext = src != null && src !== "" ? src : path;
+    const file =
+      plugin.app.metadataCache.getFirstLinkpathDest(linktext, path) ??
+      plugin.app.vault.getAbstractFileByPath(linktext);
+    if (!(file instanceof TFile)) {
+      setState("error");
+      return;
+    }
+    const isDark = el.ownerDocument.body.classList.contains("theme-dark");
+    setState("loading");
+    void (async () => {
+      try {
+        ea.reset();
+        const loader = ea.getEmbeddedFilesLoader?.(isDark);
+        const svg = await ea.createSVG(file, false, undefined, loader, isDark ? "dark" : "light");
+        if (cancelled) return;
+        svg.classList.add("cr-excalidraw__svg");
+        el.empty();
+        el.appendChild(svg);
+        setState("ready");
+        el.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
+      } catch {
+        if (!cancelled) setState("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [path, src, plugin.app]);
+
+  const hint =
+    state === "absent"
+      ? { icon: "lucide-pencil-ruler", label: "Install Excalidraw to view this drawing" }
+      : state === "error"
+        ? { icon: "lucide-image-off", label: "Drawing unavailable" }
+        : null;
+
+  return (
+    <div class={"cr-excalidraw" + (state === "loading" ? " is-loading" : "")}>
+      <div class="cr-excalidraw__svg-host" ref={ref} />
+      {hint && (
+        <div class="cr-excalidraw__hint" title={src ?? path}>
+          <GlyphIcon iconSet="lucide" icon={hint.icon} class="cr-excalidraw__hint-ic" />
+          <span>{hint.label}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- block dispatcher ---------- */
 
 export function Blocks({
@@ -625,6 +704,8 @@ export function Blocks({
         switch (b.t) {
           case "image":
             return <CardImage plugin={plugin} path={doc.path} block={b} variant="full" key={bi} />;
+          case "excalidraw":
+            return <ExcalidrawBlock plugin={plugin} path={doc.path} src={b.src} key={bi} />;
           case "flow":
             return <FlowBlock block={b} q={q} key={bi} />;
           case "dice":

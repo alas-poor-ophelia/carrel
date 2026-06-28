@@ -603,3 +603,34 @@ describe("parseNote — code fences (lockup regression)", () => {
     expect(p.blocks[0]).toMatchObject({ text: expect.stringContaining("x = 2") });
   });
 });
+
+describe("parseNote — excalidraw drawings", () => {
+  // An .excalidraw.md note's body is the plugin's "Switch to EXCALIDRAW VIEW"
+  // banner + drawing JSON in a hidden %% block. Detected by frontmatter and
+  // short-circuited to a single excalidraw widget — never the banner prose.
+  const EXCALIDRAW_BODY =
+    "==⚠  Switch to EXCALIDRAW VIEW in the MORE OPTIONS menu of this document. ⚠==\n\n" +
+    "# Excalidraw Data\n\n## Text Elements\nHello world\n\n## Drawing\n" +
+    "%%\n```json\n{\"type\":\"excalidraw\",\"elements\":[]}\n```\n%%";
+
+  it("short-circuits to one excalidraw block with no banner prose", () => {
+    const p = parseNote(EXCALIDRAW_BODY, { "excalidraw-plugin": "parsed" }, [], "type", "My Sketch");
+    expect(types(p.blocks)).toEqual(["excalidraw"]);
+    expect(p.type).toBe("image");
+    expect(p.summary).toBe("My Sketch");
+    // none of the banner / data-section text leaks into a block
+    expect(JSON.stringify(p.blocks)).not.toContain("Switch to EXCALIDRAW");
+    expect(JSON.stringify(p.blocks)).not.toContain("Excalidraw Data");
+  });
+
+  it("honors a frontmatter icon override on a drawing note", () => {
+    const p = parseNote(EXCALIDRAW_BODY, { "excalidraw-plugin": "parsed", icon: "lucide-pencil" });
+    expect(p.icon).toBe("lucide-pencil");
+    expect(p.iconSet).toBe("lucide");
+  });
+
+  it("renders the raw note (no short-circuit) when the image built-in is disabled", () => {
+    const p = parseNote(EXCALIDRAW_BODY, { "excalidraw-plugin": "parsed" }, [], "type", "x", [], [], ["image"]);
+    expect(types(p.blocks)).not.toEqual(["excalidraw"]);
+  });
+});

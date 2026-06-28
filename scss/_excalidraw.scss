@@ -1,0 +1,52 @@
+// Excalidraw drawing cards — the exported SVG injected into the expanded card
+// body. Detection + the short-circuit live in rules/parse.ts; the renderer is
+// ExcalidrawBlock in components/pane/blocks.tsx. A drawing note is typed
+// "image", so `.cr-card.is-image .cr-card__body` already forces a single column
+// (see _image.scss) — a wide drawing wants the full card width.
+
+.carrel-pane-root,
+.carrel-embed-root,
+.carrel-inline-root {
+  .cr-excalidraw {
+    margin: 2px 0 6px;
+  }
+
+  .cr-excalidraw__svg-host {
+    display: block;
+  }
+
+  // The injected drawing: scaled to fit WITHIN the card's granted width and a
+  // vertical clamp, so it respects the board's growth bounds (mirrors the
+  // expanded-image rule). The Excalidraw export carries its own viewBox.
+  .cr-excalidraw__svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    max-height: 60vh;
+    margin-inline: auto;
+  }
+
+  // Plugin absent or export failed — a quiet placeholder, never the raw banner.
+  .cr-excalidraw__hint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 120px;
+    padding: 16px;
+    color: var(--faint);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .cr-excalidraw__hint-ic {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    opacity: 0.7;
+  }
+}
