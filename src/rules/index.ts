@@ -167,7 +167,8 @@ export class CarrelIndex {
       tags,
       this.plugin.store.typeRules(),
       this.plugin.store.disabledBuiltinTypes(),
-      this.plugin.store.imageProp()
+      this.plugin.store.imageProp(),
+      this.plugin.store.excalidrawRendering()
     );
     return {
       path: file.path,

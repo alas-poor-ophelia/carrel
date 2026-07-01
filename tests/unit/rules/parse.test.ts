@@ -647,8 +647,13 @@ describe("parseNote — excalidraw drawings", () => {
     "# Excalidraw Data\n\n## Text Elements\nHello world\n\n## Drawing\n" +
     "%%\n```json\n{\"type\":\"excalidraw\",\"elements\":[]}\n```\n%%";
 
+  // The excalidraw short-circuit is a BETA feature, gated on the last arg; the
+  // helper flips it on so these characterize the feature-enabled behavior.
+  const drawing = (fm: Record<string, unknown>, title = ""): ReturnType<typeof parseNote> =>
+    parseNote(EXCALIDRAW_BODY, fm, [], "type", title, [], [], [], "image", true);
+
   it("short-circuits to one excalidraw block with no banner prose", () => {
-    const p = parseNote(EXCALIDRAW_BODY, { "excalidraw-plugin": "parsed" }, [], "type", "My Sketch");
+    const p = drawing({ "excalidraw-plugin": "parsed" }, "My Sketch");
     expect(types(p.blocks)).toEqual(["excalidraw"]);
     expect(p.type).toBe("image");
     expect(p.summary).toBe("My Sketch");
@@ -658,13 +663,18 @@ describe("parseNote — excalidraw drawings", () => {
   });
 
   it("honors a frontmatter icon override on a drawing note", () => {
-    const p = parseNote(EXCALIDRAW_BODY, { "excalidraw-plugin": "parsed", icon: "lucide-pencil" });
+    const p = drawing({ "excalidraw-plugin": "parsed", icon: "lucide-pencil" });
     expect(p.icon).toBe("lucide-pencil");
     expect(p.iconSet).toBe("lucide");
   });
 
   it("renders the raw note (no short-circuit) when the image built-in is disabled", () => {
-    const p = parseNote(EXCALIDRAW_BODY, { "excalidraw-plugin": "parsed" }, [], "type", "x", [], [], ["image"]);
+    const p = parseNote(EXCALIDRAW_BODY, { "excalidraw-plugin": "parsed" }, [], "type", "x", [], [], ["image"], "image", true);
+    expect(types(p.blocks)).not.toEqual(["excalidraw"]);
+  });
+
+  it("does NOT short-circuit when excalidraw rendering is off (the default)", () => {
+    const p = parseNote(EXCALIDRAW_BODY, { "excalidraw-plugin": "parsed" }, [], "type", "My Sketch");
     expect(types(p.blocks)).not.toEqual(["excalidraw"]);
   });
 });

@@ -418,4 +418,13 @@ export class CarrelStore {
     if (imageProp === this.data.value.imageProp) return;
     this.commit({ ...this.data.value, imageProp });
   }
+
+  excalidrawRendering(): boolean {
+    return this.data.value.excalidrawRendering ?? false;
+  }
+
+  setExcalidrawRendering(excalidrawRendering: boolean): void {
+    if (excalidrawRendering === this.data.value.excalidrawRendering) return;
+    this.commit({ ...this.data.value, excalidrawRendering });
+  }
 }

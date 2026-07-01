@@ -128,6 +128,10 @@ export interface CarrelData {
   /** Global user type-detection rules, evaluated in array order (first enabled
    *  match wins) between an explicit known `type:` and structural inference. */
   typeRules: TypeRule[];
+  /** BETA — render Excalidraw drawing notes as their exported SVG in the card
+   *  (instead of the plugin's raw "Switch to Excalidraw view" banner). Off by
+   *  default until the export path is proven across setups. */
+  excalidrawRendering: boolean;
 }
 
 /** Where and how Carrel persists its nook data. `plugin` keeps it inside the
@@ -182,4 +186,5 @@ export const DEFAULT_DATA: CarrelData = {
   imageProp: DEFAULT_IMAGE_PROP,
   disabledBuiltinTypes: [],
   typeRules: [],
+  excalidrawRendering: false,
 };

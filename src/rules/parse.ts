@@ -671,7 +671,7 @@ function firstProseText(blocks: RuleBlock[]): SummaryLead {
       // A note that OPENS with a code/plugin fence should read as that block (a
       // typed chip), so stop here and let the fallback badge it — don't skip past
       // to steal prose from below the fence as an un-badged lead.
-      if (b.t === "p" && codeFenceLang(b) !== null) break;
+      if (codeFenceLang(b) !== null) break;
       continue;
     }
     raw = raw !== "" ? raw + " " + proseText(b) : proseText(b);
@@ -789,16 +789,22 @@ export function parseNote(
   tags: string[] = [],
   typeRules: TypeRule[] = [],
   disabledBuiltinTypes: ContentType[] = [],
-  imageProp = "image"
+  imageProp = "image",
+  excalidrawRendering = false
 ): ParsedNote {
   // An Excalidraw drawing note (`.excalidraw.md`, detected by its
   // `excalidraw-plugin` frontmatter): its markdown body is just the plugin's
   // "Switch to EXCALIDRAW VIEW" banner plus the drawing JSON sealed in a hidden
   // `%%` block — rendering it as markdown shows the banner, not the drawing.
   // Short-circuit to a single excalidraw widget (rendered as the exported SVG),
-  // treated as image-type content (visual, single-column body). Suppressed only
-  // when the image built-in is disabled (then the raw note renders as normal).
-  if (!disabledBuiltinTypes.includes("image") && frontmatter["excalidraw-plugin"] != null) {
+  // treated as image-type content (visual, single-column body). BETA, off by
+  // default (`excalidrawRendering`); also suppressed when the image built-in is
+  // disabled. When off, the note falls through to ordinary markdown rendering.
+  if (
+    excalidrawRendering &&
+    !disabledBuiltinTypes.includes("image") &&
+    frontmatter["excalidraw-plugin"] != null
+  ) {
     const resolved = resolveType("image", customTypes);
     const fmIcon = typeof frontmatter.icon === "string" ? frontmatter.icon : "";
     const icon = fmIcon !== "" ? fmIcon : resolved.icon;

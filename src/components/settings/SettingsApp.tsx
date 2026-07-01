@@ -185,6 +185,39 @@ export function SettingsApp({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
       <NooksSection plugin={plugin} />
 
       <div class="ob-h">
+        <h3 class="ob-h__t">Beta features</h3>
+      </div>
+      <p class="ob-h__desc">
+        Experimental options still under test. They may change or misbehave — enable at your own risk.
+      </p>
+      <div class="ob-field">
+        <div class="ob-field__label">
+          Render Excalidraw drawings <span class="ob-beta">beta</span>
+        </div>
+        <div
+          class={"checkbox-container" + (data.excalidrawRendering ? " is-enabled" : "")}
+          role="checkbox"
+          aria-checked={data.excalidrawRendering}
+          aria-label="Render Excalidraw drawings"
+          tabIndex={0}
+          onClick={() => store.setExcalidrawRendering(!data.excalidrawRendering)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              store.setExcalidrawRendering(!data.excalidrawRendering);
+            }
+          }}
+        >
+          <input type="checkbox" tabIndex={-1} checked={data.excalidrawRendering} />
+        </div>
+      </div>
+      <p class="ob-h__desc">
+        Show an Excalidraw note as its drawing (the exported SVG) inside the card, instead of the raw
+        “Switch to Excalidraw view” banner. Requires the Excalidraw plugin. Off by default while the export
+        path is proven across setups.
+      </p>
+
+      <div class="ob-h">
         <h3 class="ob-h__t">Data storage</h3>
       </div>
       <p class="ob-h__desc">

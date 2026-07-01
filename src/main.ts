@@ -46,6 +46,7 @@ export default class CarrelPlugin extends Plugin {
       let prevTypeProp = this.store.typeProp();
       let prevTypeRules = this.store.typeRules();
       let prevDisabled = this.store.disabledBuiltinTypes();
+      let prevExcalidraw = this.store.excalidrawRendering();
       this.register(
         effect(() => {
           const ct = this.store.customTypes();
@@ -53,18 +54,21 @@ export default class CarrelPlugin extends Plugin {
           const typeProp = this.store.typeProp();
           const typeRules = this.store.typeRules();
           const disabled = this.store.disabledBuiltinTypes();
+          const excalidraw = this.store.excalidrawRendering();
           if (
             ct !== prevTypes ||
             categoryProp !== prevCategoryProp ||
             typeProp !== prevTypeProp ||
             typeRules !== prevTypeRules ||
-            disabled !== prevDisabled
+            disabled !== prevDisabled ||
+            excalidraw !== prevExcalidraw
           ) {
             prevTypes = ct;
             prevCategoryProp = categoryProp;
             prevTypeProp = typeProp;
             prevTypeRules = typeRules;
             prevDisabled = disabled;
+            prevExcalidraw = excalidraw;
             void this.index.rebuild();
           }
         })
