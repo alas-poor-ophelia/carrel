@@ -4,6 +4,23 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.3.1
+
+Per-note image scaling, a column-layout fix, cleaner code-block previews, and an opt-in Excalidraw beta.
+
+### Added
+
+- **Per-note image scaling.** A new `imageScaleType` front-matter property — `auto`, `fit`, `fill`, or `stretch` — controls how a note's images fit their card. `auto` (the default) detects orientation, so tall/portrait images are shown in full instead of being cropped top and bottom.
+- **Excalidraw drawings in cards (beta).** A new "Beta features" setting renders an Excalidraw note as its drawing instead of the raw "Switch to Excalidraw view" banner. It's off by default while the export path is tested — turn it on in settings to try it.
+
+### Changed
+
+- **Code and plugin blocks show only a type badge.** When a card's lead is a code or plugin fence (Meta Bind, Dataview, Bases, …), the preview now shows just the block type as a badge and never the raw code. Any prose below the block is surfaced as the preview instead.
+
+### Fixed
+
+- **Cards no longer leave empty columns.** A note whose content fits a single column is no longer widened into two or three empty ones, and a long single-paragraph note now flows across the columns it's given instead of piling into the first.
+
 ## 1.3.0
 
 Richer collapsed-card previews and a quicker way into the underlying note.
