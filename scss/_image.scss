@@ -31,12 +31,23 @@
     .cr-image__img {
       width: 100%;
       height: 100%;
+      // Default (auto, before the natural size is known): cover-crop to fill.
       object-fit: cover;
     }
+
+    // Explicit scale modes and resolved `auto` orientation. The thumbnail box is
+    // fixed 4:3, so object-fit governs directly.
+    &.cr-image--scale-fit .cr-image__img { object-fit: contain; }
+    &.cr-image--scale-fill .cr-image__img { object-fit: cover; }
+    &.cr-image--scale-stretch .cr-image__img { object-fit: fill; }
+    &.cr-image--scale-auto[data-orient="portrait"] .cr-image__img { object-fit: contain; }
+    &.cr-image--scale-auto[data-orient="landscape"] .cr-image__img { object-fit: cover; }
   }
 
   // Expanded image: scaled to fit WITHIN the card's granted width (span * colW)
-  // and a vertical clamp, so it respects the board's growth bounds.
+  // and a vertical clamp, so it respects the board's growth bounds. `auto`/`fit`
+  // display at natural aspect (never cropped); `fill`/`stretch` are bounded to a
+  // 16:9 box so the fit actually crops/distorts.
   .cr-image--full {
     margin: 2px 0 6px;
 
@@ -48,6 +59,15 @@
       border-radius: 6px;
       margin-inline: auto;
     }
+
+    &.cr-image--scale-fill .cr-image__img,
+    &.cr-image--scale-stretch .cr-image__img {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+    }
+    &.cr-image--scale-fill .cr-image__img { object-fit: cover; }
+    &.cr-image--scale-stretch .cr-image__img { object-fit: fill; }
   }
 
   // A span-2+ open card normally splits its body into CSS columns; an image

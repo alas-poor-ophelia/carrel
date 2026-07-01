@@ -35,6 +35,12 @@ export type FlowNode =
     }
   | { kind: "options"; items: string[] };
 
+/** How a card image is fitted into its box. `auto` (the default) picks per
+ *  orientation — portrait → `contain` (no top/bottom crop), landscape → `cover`.
+ *  `fit` = contain, `fill` = cover, `stretch` = fill (distorts). Set note-wide
+ *  via the `imageScaleType` front-matter property. */
+export type ImageScaleType = "auto" | "fit" | "fill" | "stretch";
+
 /** A typed content block. Prose (`p`) keeps raw markdown for hybrid render
  *  through Obsidian's MarkdownRenderer; everything else is bespoke. */
 export type RuleBlock =
@@ -53,8 +59,9 @@ export type RuleBlock =
    *  supplied via the configurable image front-matter property. `src` is the
    *  raw linktext/path as written; resolution to a vault resource URL happens at
    *  render time (needs the owning note's path). `isEmbed` distinguishes a
-   *  `[[wikilink]]` embed from a markdown/external path. */
-  | { t: "image"; src: string; alt?: string; isEmbed: boolean }
+   *  `[[wikilink]]` embed from a markdown/external path. `scale` is the note's
+   *  resolved `imageScaleType` (absent → treated as `auto` at render). */
+  | { t: "image"; src: string; alt?: string; isEmbed: boolean; scale?: ImageScaleType }
   /** An Excalidraw drawing — a `.excalidraw.md` note (detected by its
    *  `excalidraw-plugin` frontmatter) whose markdown body is only the plugin's
    *  banner + hidden JSON. Rendered as the exported SVG via the Excalidraw

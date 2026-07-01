@@ -411,6 +411,24 @@ describe("parseNote — image cards", () => {
     expect(p.icon).toBe("lucide-image");
     expect(p.iconSet).toBe("lucide");
   });
+
+  it("stamps a valid imageScaleType onto every image block", () => {
+    const p = parseNote("![[a.png]]\n\n![[b.png]]", { imageScaleType: "fill" });
+    const imgs = p.blocks.filter((b): b is Extract<RuleBlock, { t: "image" }> => b.t === "image");
+    expect(imgs).toHaveLength(2);
+    expect(imgs.every((b) => b.scale === "fill")).toBe(true);
+  });
+
+  it("leaves the scale unset when imageScaleType is absent", () => {
+    const p = parseNote("![[a.png]]");
+    expect(p.blocks[0]).toEqual({ t: "image", src: "a.png", isEmbed: true });
+  });
+
+  it("ignores an unrecognized imageScaleType (render treats it as auto)", () => {
+    const p = parseNote("![[a.png]]", { imageScaleType: "bogus" });
+    const img = p.blocks.find((b): b is Extract<RuleBlock, { t: "image" }> => b.t === "image");
+    expect(img?.scale).toBeUndefined();
+  });
 });
 
 describe("parseNote — summary & icon", () => {
@@ -453,16 +471,32 @@ describe("parseNote — summary & icon", () => {
     expect(p.summary).toBe("one · two");
   });
 
-  it("does not leak code-fence backticks into a code-only note's summary", () => {
+  it("shows no code-fence contents at all for a code-only note (chip, empty text)", () => {
     const p = parseNote("```js\nconst a = 1;\n```");
-    expect(p.summary).not.toContain("`");
-    expect(p.summary).toContain("const a = 1;");
+    expect(p.summaryKind).toBe("code");
+    expect(p.summary).toBe("");
   });
 
   it("labels a code-/plugin-fence-only note with a code summaryKind + language", () => {
     const p = parseNote("```meta-bind-js-view\nreturn 1;\n```");
     expect(p.summaryKind).toBe("code");
     expect(p.summaryNote).toBe("meta-bind-js-view");
+  });
+
+  it("never echoes code-fence contents in the preview (chip only)", () => {
+    const p = parseNote("```meta-bind\nINPUT[toggle:done]\n```");
+    expect(p.summaryKind).toBe("code");
+    expect(p.summaryNote).toBe("meta-bind");
+    expect(p.summary).toBe("");
+  });
+
+  it("surfaces prose BELOW a leading code fence as the preview (no code)", () => {
+    const p = parseNote("```base\nfilters:\n  - status: open\n```\n\nTracks the active quests.");
+    expect(p.summaryKind).toBe("code");
+    expect(p.summaryNote).toBe("base");
+    expect(p.summary).toBe("Tracks the active quests.");
+    expect(p.summary).not.toContain("filters");
+    expect(p.summary).not.toContain("status");
   });
 
   it("labels a note-embed-only note with an embed summaryKind + target name", () => {

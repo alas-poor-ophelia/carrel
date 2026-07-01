@@ -176,6 +176,10 @@
   // instead — trailing margins so column tops stay flush.
   .cr-cell:not([data-span="1"]) .cr-card__body .cr-region { break-inside: auto; margin-bottom: 0; }
   .cr-cell:not([data-span="1"]) .cr-card__body .cr-region > * { break-inside: avoid; margin-top: 0; margin-bottom: 10px; }
+  // A single long paragraph would otherwise stay atomic and pile into one column,
+  // leaving the rest of a widened card empty. Let plain paragraphs FLOW across the
+  // text columns (tables/lists/headings/quotes/code above stay whole).
+  .cr-cell:not([data-span="1"]) .cr-card__body .cr-region > p { break-inside: auto; }
 
   // ---- card ----
   .cr-card {

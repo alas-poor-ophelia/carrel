@@ -568,7 +568,13 @@ export function CardImage({
   variant: "thumb" | "full";
 }): JSX.Element {
   const url = resolveImageUrl(plugin, block.src, path);
-  const cls = "cr-image cr-image--" + variant;
+  const scale = block.scale ?? "auto";
+  // For `auto`, the fit depends on orientation (portrait → contain so nothing is
+  // cropped, landscape → cover); we only know that once the image reports its
+  // natural size, so we set it on load. Explicit modes are governed purely by CSS.
+  const [orient, setOrient] = useState<"portrait" | "landscape" | null>(null);
+  const cls =
+    "cr-image cr-image--" + variant + " cr-image--scale-" + scale;
   if (url == null) {
     return (
       <div class={cls + " cr-image--missing"} title={block.src}>
@@ -578,16 +584,20 @@ export function CardImage({
     );
   }
   return (
-    <div class={cls}>
+    <div class={cls} data-orient={orient ?? undefined}>
       <img
         class="cr-image__img"
         src={url}
         alt={imageAlt(block)}
         loading="lazy"
         decoding="async"
-        onLoad={(e) =>
-          e.currentTarget.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }))
-        }
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          if (scale === "auto" && img.naturalWidth > 0) {
+            setOrient(img.naturalHeight > img.naturalWidth ? "portrait" : "landscape");
+          }
+          img.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
+        }}
       />
     </div>
   );

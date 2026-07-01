@@ -107,6 +107,7 @@ const CODE_LANG_LABELS: Record<string, string> = {
   "meta-bind-js-view": "Meta Bind",
   "meta-bind-button": "Meta Bind",
   "js-engine": "JS Engine",
+  base: "Base",
   datacore: "Datacore",
   datacorejs: "Datacore",
   datacorejsx: "Datacore",

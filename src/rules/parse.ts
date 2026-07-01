@@ -17,13 +17,14 @@ import type { CustomType, TypeRule } from "../types/data";
 import type {
   ContentType,
   FlowNode,
+  ImageScaleType,
   ParsedNote,
   RuleBlock,
   RuleMeta,
   SummaryKind,
 } from "./model";
 import { isKnownType, resolveType } from "./registry";
-import { truncateInline, stripInlineMarks } from "../util/text";
+import { truncateInline } from "../util/text";
 
 const REF_RE = /^\s*<!--\s*ref:\s*([\s\S]*?)-->\s*/i;
 const BLOCK_RE = /^\s*<!--\s*block:\s*([\s\S]*?)-->\s*$/i;
@@ -661,27 +662,49 @@ function firstProseText(blocks: RuleBlock[]): SummaryLead {
     !DEF_PROSE_RE.test(b.text) &&
     codeFenceLang(b) === null &&
     embedTarget(b) === null;
+  const proseText = (b: { t: "p"; term?: string; text: string }): string =>
+    (b.term != null && b.term !== "" ? b.term + " — " : "") + b.text;
   let raw = "";
   for (const b of blocks) {
     if (!isProseLead(b)) {
       if (raw !== "") break;
+      // A note that OPENS with a code/plugin fence should read as that block (a
+      // typed chip), so stop here and let the fallback badge it — don't skip past
+      // to steal prose from below the fence as an un-badged lead.
+      if (b.t === "p" && codeFenceLang(b) !== null) break;
       continue;
     }
-    const lead = (b.term != null && b.term !== "" ? b.term + " — " : "") + b.text;
-    raw = raw !== "" ? raw + " " + lead : lead;
+    raw = raw !== "" ? raw + " " + proseText(b) : proseText(b);
     if (raw.length >= SUMMARY_MAX * 2) break; // enough to fill the budget
   }
   if (raw !== "") return { text: truncateInline(plainLead(raw), SUMMARY_MAX) };
 
-  // No prose — derive a typed lead from the first structural/opaque block.
+  // Prose gathered from ANYWHERE in the note (not just the lead run) — used to
+  // give a typed fallback (e.g. a code fence) a real prose preview when the note
+  // opens with an opaque block but has prose below it.
+  const proseAnywhere = (): string => {
+    let out = "";
+    for (const b of blocks) {
+      if (!isProseLead(b)) continue;
+      out = out !== "" ? out + " " + proseText(b) : proseText(b);
+      if (out.length >= SUMMARY_MAX * 2) break;
+    }
+    return out;
+  };
+
+  // No prose lead — derive a typed lead from the first structural/opaque block.
   for (const b of blocks) {
     if (b.t === "p") {
       const lang = codeFenceLang(b);
       if (lang !== null) {
-        // Code content is opaque to a preview: show the badge plus a short PLAIN
-        // excerpt (strip marks — formatting in code is meaningless here).
-        const excerpt = stripInlineMarks(plainLead(b.text));
-        return { kind: "code", note: lang, text: truncateInline(excerpt, SUMMARY_MAX) };
+        // Code content is opaque to a preview — NEVER echo it. Show only the type
+        // badge, plus any prose the note carries below the fence.
+        const prose = proseAnywhere();
+        return {
+          kind: "code",
+          note: lang,
+          text: prose !== "" ? truncateInline(plainLead(prose), SUMMARY_MAX) : "",
+        };
       }
       const tgt = embedTarget(b);
       if (tgt !== null) return { kind: "embed", text: tgt };
@@ -743,6 +766,18 @@ export function readFmProp(
   if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") return undefined;
   const s = String(v).trim();
   return s !== "" ? s : undefined;
+}
+
+const IMAGE_SCALES: readonly ImageScaleType[] = ["auto", "fit", "fill", "stretch"];
+
+/** Read the note-wide `imageScaleType` front-matter value, validated against the
+ *  known modes. An unset or unrecognized value returns `undefined` (render then
+ *  treats it as `auto`), so a typo never silently distorts an image. */
+function readImageScale(frontmatter: Record<string, unknown>): ImageScaleType | undefined {
+  const raw = readFmProp(frontmatter, "imageScaleType")?.toLowerCase();
+  return raw != null && (IMAGE_SCALES as readonly string[]).includes(raw)
+    ? (raw as ImageScaleType)
+    : undefined;
 }
 
 export function parseNote(
@@ -833,6 +868,13 @@ export function parseNote(
       blocks.unshift({ t: "image", src: ref.src, alt: ref.alt, isEmbed: ref.isEmbed });
       blockSources.unshift("");
     }
+  }
+
+  // `imageScaleType` is note-wide: stamp the resolved mode onto every image block
+  // (front-matter cover + body embeds) so CardImage can fit each one accordingly.
+  const imageScale = readImageScale(frontmatter);
+  if (imageScale != null) {
+    for (const b of blocks) if (b.t === "image") b.scale = imageScale;
   }
 
   const declared = readFmProp(frontmatter, typeProp)?.toLowerCase() ?? refAttrs.type;

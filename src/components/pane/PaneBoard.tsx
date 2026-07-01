@@ -40,13 +40,13 @@ function contentWeight(doc: RuleDoc): number {
     switch (b.t) {
       case "p": w += 0.6 + (b.text ? b.text.length : 0) / 230; break;
       case "table": w += 1.5 + b.rows.length * 0.32 + b.cols.length * 0.14; break;
-      case "flow": w += 2.7; break;
+      case "flow": w += 1.8; break;
       case "steps": w += 0.8 + b.items.length * 0.42; break;
       case "bullets": w += 0.6 + b.items.length * 0.34; break;
       case "checklist": w += 0.6 + b.items.length * 0.32; break;
       case "dice": w += 0.7; break;
       case "callout": w += 1.4; break;
-      case "image": w += 2.2; break;
+      case "image": w += 0.9; break;
       default: w += 0.8;
     }
   }
@@ -58,6 +58,9 @@ function firstImageBlock(doc: RuleDoc): Extract<RuleBlock, { t: "image" }> | und
   return doc.blocks.find((b): b is Extract<RuleBlock, { t: "image" }> => b.t === "image");
 }
 function baseSpan(doc: RuleDoc): number {
+  // Image cards render a single-column body (`.is-image` forces `columns:1`), so
+  // widening them only leaves empty columns — keep them span 1.
+  if (doc.type === "image") return 1;
   const w = contentWeight(doc);
   return w < 1.9 ? 1 : w < 3.7 ? 2 : 3;
 }
