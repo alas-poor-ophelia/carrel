@@ -6,21 +6,20 @@ headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
 ## 1.4.0
 
-Per-note icon images, and the settings tab rebuilt on Obsidian's new declarative Settings API.
-
-**Requires Obsidian 1.13.0 or newer** (the minimum app version was raised from 1.10.0).
+**Requires Obsidian 1.13.0+** (minAppVersion raised from 1.10.0).
 
 ### Added
 
-- **Per-note icon images.** A new front-matter property (default `icon-image`, configurable in settings) replaces the glyph in a card's top-left corner with the image it points at — for that note only. `![[image embeds]]`, `[[wikilinks]]`, bare vault paths and external URLs all work; a blank or unresolvable value is ignored and the card keeps its normal category/type glyph.
+- **Per-note icon images.** A configurable front-matter property (default `icon-image`) replaces a card's corner glyph with the referenced image. Accepts `![[embed]]`, `[[wikilink]]`, bare vault paths, and external URLs. Unresolvable refs and load failures fall back to the type/category glyph; the property does not affect type inference and never injects a body image block.
 
 ### Changed
 
-- **Settings rebuilt on Obsidian's declarative Settings API (1.13).** Every Carrel setting is now indexed by Obsidian's built-in settings search, and the simple options render with native controls. The category/type managers, type rules and nooks keep their richer editors. Property-name and storage-path edits now commit after a short typing pause instead of per keystroke.
+- **Settings tab migrated to Obsidian 1.13's declarative Settings API** (`getSettingDefinitions()`). All settings are now indexed by the built-in settings search; scalar options render as native controls, while the category/type managers, type rules, and nooks keep their custom editors. Property-name and storage-path edits commit after a short typing pause instead of per keystroke.
+- Nook deletion uses `setDestructive()`, replacing the deprecated `setWarning()`.
 
 ### Fixed
 
-- **Renaming the cover-image property now reindexes immediately.** Changing the "Image property" setting previously didn't take effect until some other setting changed.
+- Changing the **Image property** setting now reindexes immediately; previously the rename had no effect until another watched setting changed.
 
 ## 1.3.1
 
