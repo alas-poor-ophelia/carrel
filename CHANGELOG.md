@@ -4,6 +4,24 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.4.0
+
+Per-note icon images, and the settings tab rebuilt on Obsidian's new declarative Settings API.
+
+**Requires Obsidian 1.13.0 or newer** (the minimum app version was raised from 1.10.0).
+
+### Added
+
+- **Per-note icon images.** A new front-matter property (default `icon-image`, configurable in settings) replaces the glyph in a card's top-left corner with the image it points at — for that note only. `![[image embeds]]`, `[[wikilinks]]`, bare vault paths and external URLs all work; a blank or unresolvable value is ignored and the card keeps its normal category/type glyph.
+
+### Changed
+
+- **Settings rebuilt on Obsidian's declarative Settings API (1.13).** Every Carrel setting is now indexed by Obsidian's built-in settings search, and the simple options render with native controls. The category/type managers, type rules and nooks keep their richer editors. Property-name and storage-path edits now commit after a short typing pause instead of per keystroke.
+
+### Fixed
+
+- **Renaming the cover-image property now reindexes immediately.** Changing the "Image property" setting previously didn't take effect until some other setting changed.
+
 ## 1.3.1
 
 Per-note image scaling, a column-layout fix, cleaner code-block previews, and an opt-in Excalidraw beta.
