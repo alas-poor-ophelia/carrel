@@ -31,7 +31,7 @@ export class CreateNookModal extends Modal {
     const list = contentEl.createDiv({ cls: "cr-folderlist" });
     const folders = listVaultFolders(this.plugin.app);
     if (!folders.length) {
-      list.createEl("div", { text: "No folders in this vault.", cls: "cr-modal__empty" });
+      list.createDiv({ text: "No folders in this vault.", cls: "cr-modal__empty" });
     }
     for (const f of folders) {
       const row = list.createEl("label", { cls: "cr-folderrow" });
@@ -117,7 +117,7 @@ export class NookSettingsModal extends Modal {
     const selected = new Set(nook.folders);
     const folders = listVaultFolders(this.plugin.app);
     if (!folders.length) {
-      list.createEl("div", { text: "No folders in this vault.", cls: "cr-modal__empty" });
+      list.createDiv({ text: "No folders in this vault.", cls: "cr-modal__empty" });
     }
     for (const f of folders) {
       const row = list.createEl("label", { cls: "cr-folderrow" });
@@ -156,10 +156,7 @@ export class NookSettingsModal extends Modal {
       .addButton((b) =>
         b
           .setButtonText("Delete")
-          // setDestructive() needs Obsidian 1.13.0; setWarning still renders the
-          // destructive button at our minAppVersion (1.7.2). Store treats the
-          // deprecation as a non-blocking recommendation.
-          .setWarning()
+          .setDestructive()
           .onClick(() => {
             this.plugin.store.deleteNook(nook.id);
             this.close();

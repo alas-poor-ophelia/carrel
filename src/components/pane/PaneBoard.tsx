@@ -24,7 +24,7 @@ import { GlyphIcon } from "../common/GlyphIcon";
 import { DragGrip, STAR_PATH } from "../common/glyphs";
 import { useDragScroll } from "../common/useDragScroll";
 import { CreateNookModal, NookSettingsModal } from "../../modals";
-import { Blocks, CardImage, MetaChips, StarButton, TypeBadge, hlFuzzy, inlineMd } from "./blocks";
+import { Blocks, CardImage, MetaChips, StarButton, TypeBadge, hlFuzzy, inlineMd, resolveImageUrl } from "./blocks";
 import { useMasonryPack, type Section } from "./hooks/useMasonryPack";
 import { useRailDrag } from "./hooks/useRailDrag";
 import { useCardDrag } from "./hooks/useCardDrag";
@@ -143,6 +143,18 @@ function SummaryBadge({ kind, note }: { kind: SummaryKind; note?: string }): JSX
   );
 }
 
+/** The card's top-left icon box content: the per-note `icon-image` override
+ *  when it resolves to a loadable image, else the type/category glyph. A ref
+ *  that doesn't resolve (or 404s on load) falls back to the glyph, so a typo
+ *  never blanks the icon. */
+function CardIcon({ plugin, doc }: { plugin: CarrelPlugin; doc: RuleDoc }): JSX.Element {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const src = doc.iconImage;
+  const url = src != null && src !== failedSrc ? resolveImageUrl(plugin, src, doc.path) : null;
+  if (url == null) return <GlyphIcon iconSet={doc.iconSet} icon={doc.icon} />;
+  return <img src={url} alt="" onError={() => setFailedSrc(src ?? null)} />;
+}
+
 export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck, onGripDown }: CardProps): JSX.Element {
   const t = resolveType(doc.type, customTypes);
   // An image card shows a cover-cropped thumbnail in place of the summary when
@@ -169,7 +181,7 @@ export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, on
             </button>
           )}
           <span class="cr-card__ic">
-            <GlyphIcon iconSet={doc.iconSet} icon={doc.icon} />
+            <CardIcon plugin={plugin} doc={doc} />
           </span>
           {!isOpen && <span class="cr-card__type">{t.label}</span>}
           <span class="cr-card__spacer" />

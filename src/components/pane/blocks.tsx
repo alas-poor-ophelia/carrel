@@ -539,7 +539,7 @@ function ChecklistBlock({
 /** Resolve an image block's raw src to a usable URL. External/explicit-scheme
  *  sources pass through; a vault embed/path resolves via the metadata cache
  *  (relative to the owning note) to a vault resource URL. Null = unresolved. */
-function resolveImageUrl(plugin: CarrelPlugin, src: string, notePath: string): string | null {
+export function resolveImageUrl(plugin: CarrelPlugin, src: string, notePath: string): string | null {
   if (/^(?:https?:|data:|app:|file:)/i.test(src)) return src;
   const dest = plugin.app.metadataCache.getFirstLinkpathDest(src, notePath);
   return dest ? plugin.app.vault.getResourcePath(dest) : null;

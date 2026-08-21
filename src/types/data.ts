@@ -121,6 +121,12 @@ export interface CarrelData {
    *  property a Bases "image"/cover maps to. Accepts `![[x]]`, `[[x]]`, a bare
    *  path/filename, or an external URL. */
   imageProp: string;
+  /** Front-matter property a note's card ICON image is read from (default
+   *  `icon-image`). When it points at a resolvable image (`![[x]]`, `[[x]]`, a
+   *  bare path, or an external URL), that image replaces the type/category
+   *  glyph in the card's top-left icon box — for that note only. A blank or
+   *  unresolvable value is ignored and the glyph is used. */
+  iconImageProp: string;
   /** Built-in types whose structural INFERENCE is suppressed. An explicit,
    *  recognized frontmatter `type:` still classifies a note; disabling only
    *  stops auto-detection (and hides the type's filter chip / group). */
@@ -163,6 +169,7 @@ export const CARREL_SCHEMA_VERSION = 5;
 export const DEFAULT_CATEGORY_PROP = "category";
 export const DEFAULT_TYPE_PROP = "type";
 export const DEFAULT_IMAGE_PROP = "image";
+export const DEFAULT_ICON_IMAGE_PROP = "icon-image";
 
 export const DEFAULT_TWEAKS: NookTweaks = {
   columns: "auto",
@@ -184,6 +191,7 @@ export const DEFAULT_DATA: CarrelData = {
   categoryProp: DEFAULT_CATEGORY_PROP,
   typeProp: DEFAULT_TYPE_PROP,
   imageProp: DEFAULT_IMAGE_PROP,
+  iconImageProp: DEFAULT_ICON_IMAGE_PROP,
   disabledBuiltinTypes: [],
   typeRules: [],
   excalidrawRendering: false,

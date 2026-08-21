@@ -31,18 +31,10 @@ export function NooksSection({ plugin }: { plugin: CarrelPlugin }): JSX.Element 
     new Notice(`Removed nook “${nook?.name ?? id}”. Its notes are untouched.`);
   };
 
+  // Heading + description are provided by the declarative setting definition
+  // that mounts this section (src/settings.tsx).
   return (
     <>
-      <div class="ob-h">
-        <h3 class="ob-h__t">Nooks</h3>
-        <span class="ob-h__c">{nooks.length}</span>
-      </div>
-      <p class="ob-h__desc">
-        A nook is a named board that reads notes from one or more vault folders. Create, rename or
-        delete nooks here, switch which one is active, and open a nook to edit its source folders,
-        theme and density.
-      </p>
-
       {nooks.length === 0 && <div class="ob-nookempty">No nooks yet — create one to start a board.</div>}
 
       <div class="ob-nooks">

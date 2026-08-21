@@ -221,6 +221,9 @@
     border: 1px solid color-mix(in srgb, var(--bc) 36%, transparent); transition: width 0.2s, height 0.2s;
   }
   .cr-card__ic svg { width: 16px; height: 16px; }
+  // A per-note icon-image override fills the box edge-to-edge; inherit the
+  // box's radius so the cover crop clips to the same rounded corners.
+  .cr-card__ic img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
   .cr-card.is-open .cr-card__ic { width: 36px; height: 36px; border-radius: 9px; }
   .cr-card.is-open .cr-card__ic svg { width: 20px; height: 20px; }
   .cr-card__headmain { min-width: 0; }

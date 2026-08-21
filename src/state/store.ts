@@ -5,6 +5,7 @@ import {
   CARREL_SCHEMA_VERSION,
   DEFAULT_CATEGORY_PROP,
   DEFAULT_DATA,
+  DEFAULT_ICON_IMAGE_PROP,
   DEFAULT_IMAGE_PROP,
   DEFAULT_STORAGE,
   DEFAULT_TWEAKS,
@@ -417,6 +418,16 @@ export class CarrelStore {
     const imageProp = prop.trim() || DEFAULT_IMAGE_PROP;
     if (imageProp === this.data.value.imageProp) return;
     this.commit({ ...this.data.value, imageProp });
+  }
+
+  iconImageProp(): string {
+    return this.data.value.iconImageProp || DEFAULT_ICON_IMAGE_PROP;
+  }
+
+  setIconImageProp(prop: string): void {
+    const iconImageProp = prop.trim() || DEFAULT_ICON_IMAGE_PROP;
+    if (iconImageProp === this.data.value.iconImageProp) return;
+    this.commit({ ...this.data.value, iconImageProp });
   }
 
   excalidrawRendering(): boolean {

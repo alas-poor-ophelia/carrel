@@ -678,3 +678,41 @@ describe("parseNote — excalidraw drawings", () => {
     expect(types(p.blocks)).not.toEqual(["excalidraw"]);
   });
 });
+
+describe("parseNote — icon image override", () => {
+  it("normalizes an embed, a wikilink, a bare path, and a URL into iconImage", () => {
+    expect(parseNote("prose.", { "icon-image": "![[badge.png]]" }).iconImage).toBe("badge.png");
+    expect(parseNote("prose.", { "icon-image": "[[art/badge.png|crest]]" }).iconImage).toBe("art/badge.png");
+    expect(parseNote("prose.", { "icon-image": "art/badge.png" }).iconImage).toBe("art/badge.png");
+    expect(parseNote("prose.", { "icon-image": "https://x.test/b.png" }).iconImage).toBe("https://x.test/b.png");
+  });
+
+  it("returns undefined for a missing or blank value", () => {
+    expect(parseNote("prose.").iconImage).toBeUndefined();
+    expect(parseNote("prose.", { "icon-image": "   " }).iconImage).toBeUndefined();
+  });
+
+  it("keeps the glyph icon fields intact for render-time fallback", () => {
+    const p = parseNote("prose.", { "icon-image": "![[badge.png]]", icon: "sun" });
+    expect(p.iconImage).toBe("badge.png");
+    expect(p.icon).toBe("sun");
+    expect(p.iconSet).toBe("rpg");
+  });
+
+  it("honors a custom property name", () => {
+    const p = parseNote("prose.", { crest: "![[b.png]]" }, [], "type", "", [], [], [], "image", false, "crest");
+    expect(p.iconImage).toBe("b.png");
+  });
+
+  it("does NOT force the image type or inject an image block (unlike the cover image prop)", () => {
+    const p = parseNote("prose.", { "icon-image": "![[badge.png]]" });
+    expect(p.type).toBe("reference");
+    expect(p.blocks.some((b) => b.t === "image")).toBe(false);
+  });
+
+  it("rides through the excalidraw short-circuit path", () => {
+    const p = parseNote("body", { "excalidraw-plugin": "parsed", "icon-image": "![[badge.png]]" }, [], "type", "Sketch.excalidraw", [], [], [], "image", true);
+    expect(p.blocks[0]?.t).toBe("excalidraw");
+    expect(p.iconImage).toBe("badge.png");
+  });
+});

@@ -58,17 +58,10 @@ export function TypeRulesSection({ plugin }: { plugin: CarrelPlugin }): JSX.Elem
     ]);
   };
 
+  // Heading + description are provided by the declarative setting definition
+  // that mounts this section (src/settings.tsx).
   return (
     <>
-      <div class="ob-h">
-        <h3 class="ob-h__t">Type detection rules</h3>
-        <span class="ob-h__c">{rules.length}</span>
-      </div>
-      <p class="ob-h__desc">
-        Auto-assign a type to notes that match a metadata rule. Rules are checked in order —
-        the first enabled match wins — and an explicit <code>type:</code> front-matter always
-        takes precedence. Rules read metadata only (frontmatter + tags), never the note body.
-      </p>
       <div class="ob-rules">
         {rules.length === 0 && <div class="ob-rules__empty">No rules yet.</div>}
         {rules.map((r) => (

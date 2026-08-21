@@ -4,6 +4,18 @@
 // native theme vars). Accent/hover surfaces fall through to the user's active
 // Obsidian theme (--interactive-accent et al.) so we respect their look.
 
+// A declarative setting row hosting an embedded Preact section (categories /
+// types / rules / nooks — see src/settings.tsx mountSection): stack the native
+// name+desc info block above the widget instead of the name-left/control-right
+// row, and let the widget take the full tab width.
+.setting-item.cr-set-embed {
+  flex-direction: column;
+  align-items: stretch;
+
+  .setting-item-info { margin-right: 0; }
+  > .carrel-settings { width: 100%; margin-top: 10px; }
+}
+
 .carrel-settings {
   .ob {
     --bg1: var(--background-primary);

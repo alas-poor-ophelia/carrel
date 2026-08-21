@@ -94,6 +94,10 @@ export interface ParsedNote {
   type: string;
   icon: string;
   iconSet: "lucide" | "rpg";
+  /** Per-note icon-image override (normalized src: vault path or external URL).
+   *  When it resolves to a real image at render time it replaces the glyph in
+   *  the card's icon box; unresolvable refs fall back to icon/iconSet. */
+  iconImage?: string;
   summary: string;
   /** Badge kind for a non-prose preview lead (see SummaryKind). */
   summaryKind?: SummaryKind;
@@ -117,6 +121,8 @@ export interface RuleDoc {
   type: string;
   icon: string;
   iconSet: "lucide" | "rpg";
+  /** Per-note icon-image override (see ParsedNote.iconImage). */
+  iconImage?: string;
   summary: string;
   /** Badge kind for a non-prose preview lead (see SummaryKind). */
   summaryKind?: SummaryKind;

@@ -790,8 +790,15 @@ export function parseNote(
   typeRules: TypeRule[] = [],
   disabledBuiltinTypes: ContentType[] = [],
   imageProp = "image",
-  excalidrawRendering = false
+  excalidrawRendering = false,
+  iconImageProp = "icon-image"
 ): ParsedNote {
+  // A per-note icon-image override (`![[x]]`, `[[x]]`, a bare path, or a URL),
+  // normalized to its src here; whether it resolves to a REAL image is decided
+  // at render time (with vault access), falling back to the glyph if not.
+  const iconImageRaw = readFmProp(frontmatter, iconImageProp);
+  const iconImage = iconImageRaw != null ? normalizeImageRef(iconImageRaw).src : undefined;
+
   // An Excalidraw drawing note (`.excalidraw.md`, detected by its
   // `excalidraw-plugin` frontmatter): its markdown body is just the plugin's
   // "Switch to EXCALIDRAW VIEW" banner plus the drawing JSON sealed in a hidden
@@ -817,6 +824,7 @@ export function parseNote(
       type: "image",
       icon,
       iconSet,
+      iconImage,
       summary: name !== "" ? name : "Excalidraw drawing",
       meta: [],
       blocks: [{ t: "excalidraw" }],
@@ -923,6 +931,7 @@ export function parseNote(
     type,
     icon,
     iconSet,
+    iconImage,
     summary: lead.text,
     summaryKind: lead.kind,
     summaryNote: lead.note,

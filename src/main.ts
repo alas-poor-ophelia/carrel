@@ -44,6 +44,8 @@ export default class CarrelPlugin extends Plugin {
       let prevTypes = this.store.customTypes();
       let prevCategoryProp = this.store.categoryProp();
       let prevTypeProp = this.store.typeProp();
+      let prevImageProp = this.store.imageProp();
+      let prevIconImageProp = this.store.iconImageProp();
       let prevTypeRules = this.store.typeRules();
       let prevDisabled = this.store.disabledBuiltinTypes();
       let prevExcalidraw = this.store.excalidrawRendering();
@@ -52,6 +54,8 @@ export default class CarrelPlugin extends Plugin {
           const ct = this.store.customTypes();
           const categoryProp = this.store.categoryProp();
           const typeProp = this.store.typeProp();
+          const imageProp = this.store.imageProp();
+          const iconImageProp = this.store.iconImageProp();
           const typeRules = this.store.typeRules();
           const disabled = this.store.disabledBuiltinTypes();
           const excalidraw = this.store.excalidrawRendering();
@@ -59,6 +63,8 @@ export default class CarrelPlugin extends Plugin {
             ct !== prevTypes ||
             categoryProp !== prevCategoryProp ||
             typeProp !== prevTypeProp ||
+            imageProp !== prevImageProp ||
+            iconImageProp !== prevIconImageProp ||
             typeRules !== prevTypeRules ||
             disabled !== prevDisabled ||
             excalidraw !== prevExcalidraw
@@ -66,6 +72,8 @@ export default class CarrelPlugin extends Plugin {
             prevTypes = ct;
             prevCategoryProp = categoryProp;
             prevTypeProp = typeProp;
+            prevImageProp = imageProp;
+            prevIconImageProp = iconImageProp;
             prevTypeRules = typeRules;
             prevDisabled = disabled;
             prevExcalidraw = excalidraw;

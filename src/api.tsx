@@ -25,9 +25,7 @@ export class CarrelApiImpl implements CarrelApi {
   constructor(private readonly plugin: CarrelPlugin) {}
 
   mountReferences(el: HTMLElement, opts: ReferenceMountOptions): ReferenceHandle {
-    const root = activeDocument.createElement("div");
-    root.className = "carrel-embed-root";
-    el.appendChild(root);
+    const root = el.createDiv({ cls: "carrel-embed-root" });
 
     const draw = (characterId: string): void => {
       const nookId = this.ensureCharacterNook(characterId);
