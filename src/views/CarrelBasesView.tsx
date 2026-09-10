@@ -20,22 +20,36 @@ class CarrelBasesView extends BasesView {
   readonly type = "carrel";
   private readonly index: CarrelIndex;
   private root: HTMLElement | null = null;
+  private rendered = false;
   private nookId = "";
 
   constructor(
     controller: QueryController,
-    private readonly containerEl: HTMLElement,
+    containerEl: HTMLElement,
     private readonly plugin: CarrelPlugin
   ) {
     super(controller);
     this.index = new CarrelIndex(plugin);
+    // Mount the (still empty) root IMMEDIATELY. Obsidian hides an embedded
+    // Bases view whose container is `:empty` (`.bases-embed .bases-view:empty
+    // { display: none }`), and its query loop waits for the container to be
+    // shown before it processes a single file — so a view that builds no DOM
+    // until its first onDataUpdated() deadlocks inside a note embed: empty →
+    // hidden → never queried → never rendered. The board itself still waits
+    // for the first data (config is only attached after construction).
+    // MUST carry `carrel-pane-root` — ALL of Carrel's CSS (tokens, variables,
+    // pane layout/columns, block + icon sizing) is scoped to that root class.
+    // Without it the board renders unstyled (giant SVGs, no columns).
+    containerEl.empty();
+    this.root = containerEl.createDiv({ cls: "carrel-pane-root carrel-bases-root" });
   }
 
   onunload(): void {
     if (this.root) {
-      render(null, this.root);
+      if (this.rendered) render(null, this.root);
       this.root.remove();
       this.root = null;
+      this.rendered = false;
     }
   }
 
@@ -57,12 +71,8 @@ class CarrelBasesView extends BasesView {
     // the docs signal updates when it resolves and the board re-renders.
     void this.index.indexFiles(this.data.data.map((e) => e.file));
 
-    if (!this.root) {
-      this.containerEl.empty();
-      // MUST carry `carrel-pane-root` — ALL of Carrel's CSS (tokens, variables,
-      // pane layout/columns, block + icon sizing) is scoped to that root class.
-      // Without it the board renders unstyled (giant SVGs, no columns).
-      this.root = this.containerEl.createDiv({ cls: "carrel-pane-root carrel-bases-root" });
+    if (this.root && !this.rendered) {
+      this.rendered = true;
       render(
         <PaneBoard plugin={this.plugin} boardNookId={this.nookId} index={this.index} />,
         this.root

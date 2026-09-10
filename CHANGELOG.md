@@ -4,6 +4,18 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.4.1
+
+Embedded Bases fix plus a routine toolchain refresh.
+
+### Fixed
+
+- **Carrel view inside an embedded base now renders.** Embedding a `.base` in a note (`![[My.base]]` or a `base` code block) with the Carrel view selected showed only the Bases header — the board never appeared, so there was nothing to scroll. Obsidian hides an embedded view whose container is empty and defers the query until the container is shown; Carrel built no DOM until its first data arrived, so the embed deadlocked. The board root is now mounted immediately. Full-pane Bases leaves were unaffected.
+
+### Internal
+
+- Dev toolchain refreshed: `eslint-plugin-obsidianmd` 0.4.2 (the store's ruleset), typescript-eslint 8.70, `eslint-plugin-react-hooks` 7, `vitest` 5, `node-html-parser` 9, `sass` 1.104, `@preact/signals` 2.11.2; `bun audit` clean (fast-uri, js-yaml, @vitest/mocker advisories resolved); `actions/checkout` v7 in the release workflow.
+
 ## 1.4.0
 
 **Requires Obsidian 1.13.0+** (minAppVersion raised from 1.10.0).

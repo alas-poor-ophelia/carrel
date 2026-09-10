@@ -12,10 +12,17 @@
  * The recommended set wires the TS parser but leaves `parserOptions.project` to
  * the consumer; the type-aware rules need it, so the Carrel override block below
  * points it at tsconfig.json (which includes src/ and tests/).
+ *
+ * ONE typescript-eslint copy only: obsidianmd depends on `typescript-eslint`
+ * (a range) and pins its own `typescript`. If bun ever nests a second copy
+ * under eslint-plugin-obsidianmd, its rules load a different TypeScript than
+ * our parser and crash mid-lint ("Cannot read properties of undefined
+ * (reading 'at')" in unbound-method — SyntaxKind numbering differs across TS
+ * versions). package.json `overrides` pin typescript-eslint/@typescript-eslint
+ * and typescript to the root versions; a clean `bun install` hoists them.
  */
 
 import tsparser from "@typescript-eslint/parser";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
@@ -68,8 +75,12 @@ export default [
       // esbuild define (see esbuild.config.mjs) — a compile-time injected global.
       globals: { __BUILD_STAMP__: "readonly" },
     },
+    // `@typescript-eslint` is already registered by the obsidianmd recommended
+    // config above; registering it AGAIN with a second plugin instance is a
+    // hard ConfigError ("Cannot redefine plugin") whenever the copy nested
+    // under `typescript-eslint` (the plugin's peer) drifts from ours. Our
+    // rules below reference it by name, so no re-registration is needed.
     plugins: {
-      "@typescript-eslint": tsPlugin,
       "react-hooks": reactHooksPlugin,
     },
     rules: {
@@ -128,9 +139,6 @@ export default [
         ecmaVersion: 2022,
         sourceType: "module",
       },
-    },
-    plugins: {
-      "@typescript-eslint": tsPlugin,
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
