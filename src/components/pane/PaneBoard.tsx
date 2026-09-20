@@ -53,6 +53,21 @@ function contentWeight(doc: RuleDoc): number {
   return w;
 }
 
+/** Interactive controls a natively rendered preview can contain: links, task
+ *  checkboxes, plugin inputs (a Meta Bind toggle is a `.checkbox-container`).
+ *  The collapsed card's whole box is its expand target, so a click that lands
+ *  on one of these must activate the control WITHOUT also toggling the card. */
+const PREVIEW_CONTROL =
+  "a, button, input, select, textarea, label, .checkbox-container, [role=button], [contenteditable]";
+
+function stopPreviewControlClick(e: MouseEvent): void {
+  const t = e.target;
+  const box = e.currentTarget;
+  if (!(t instanceof Element) || !(box instanceof Node)) return;
+  const hit = t.closest(PREVIEW_CONTROL);
+  if (hit && box.contains(hit)) e.stopPropagation();
+}
+
 /** The first image block on a doc (drives the collapsed-card thumbnail). */
 function firstImageBlock(doc: RuleDoc): Extract<RuleBlock, { t: "image" }> | undefined {
   return doc.blocks.find((b): b is Extract<RuleBlock, { t: "image" }> => b.t === "image");
@@ -233,7 +248,7 @@ export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, on
         // by CSS) — not a hand-parsed excerpt — so inline marks, links, lists,
         // callouts and plugin syntax all read exactly as in the note. Search
         // matches are painted by the Custom Highlight API (it walks .cr-region).
-        <div class="cr-card__sum">
+        <div class="cr-card__sum" onClick={stopPreviewControlClick}>
           {doc.summaryKind && <SummaryBadge kind={doc.summaryKind} note={doc.summaryNote} />}
           {doc.leadMd !== "" && (
             <NativeRegion plugin={plugin} path={doc.path} md={doc.leadMd} extraClass="cr-region--preview" />
