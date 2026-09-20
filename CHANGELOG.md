@@ -6,7 +6,7 @@ headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
 ## 1.5.0
 
-Previews and card bodies now render through Obsidian end to end — no hand-parsed markdown surface remains.
+Previews and card bodies now render through Obsidian end to end — no hand-parsed markdown surface remains, and Bases views follow the base. Also carries the 1.4.1 changes below, which were prepared but never published.
 
 ### Changed
 
