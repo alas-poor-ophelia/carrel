@@ -6,8 +6,10 @@
        [[wikilinks]], embeds and footnotes resolve natively (no hand-rolled inline
        parsing).
      - a WIDGET: one interactive block (dice / rolltable / lookuptable / flow /
-       checklist / image) rendered bespoke, retaining its original block index so
-       the per-nook checklist key (`${path}#${blockIndex}`) stays stable. */
+       checklist / excalidraw, plus the front-matter cover image) rendered
+       bespoke, retaining its original block index so the per-nook checklist
+       key (`${path}#${blockIndex}`) stays stable. Body image embeds are NOT
+       widgets: they stay in the native region so Obsidian draws them. */
 import type { RuleBlock } from "./model";
 import { isWidgetBlock } from "./model";
 

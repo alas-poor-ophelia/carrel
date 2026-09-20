@@ -167,7 +167,13 @@ export function MetaChips({ meta }: { meta: RuleDoc["meta"] }): JSX.Element | nu
  *  footnotes all resolve exactly the way Obsidian renders them. No hand-rolled
  *  inline parsing, and no per-block re-render on search (the markdown DOM is
  *  stable across `q`; search matches are painted by the Custom Highlight API —
- *  see useSearchHighlight). */
+ *  see useSearchHighlight).
+ *
+ *  The container carries Obsidian's `markdown-rendered` class: themes scope most
+ *  of their reading-view rules under it (image alt-args like `|right`, callout
+ *  metadata, table looks), so without it a theme silently skips the card body.
+ *  `markdown-preview-view` is deliberately NOT added — its base rule makes the
+ *  element a full-height scroll box with file margins. */
 function NativeRegion({ plugin, path, md }: { plugin: CarrelPlugin; path: string; md: string }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -186,7 +192,7 @@ function NativeRegion({ plugin, path, md }: { plugin: CarrelPlugin; path: string
     });
     return () => child.unload();
   }, [md, path, plugin.app]);
-  return <div class="cr-region" ref={ref} />;
+  return <div class="cr-region markdown-rendered" ref={ref} />;
 }
 
 /** A table cell rendered through Obsidian's MarkdownRenderer so links,
@@ -213,7 +219,7 @@ function CellMarkdown({ plugin, path, md }: { plugin: CarrelPlugin; path: string
     });
     return () => child.unload();
   }, [md, path, plugin.app]);
-  return <div class="cr-cell-md" ref={ref} />;
+  return <div class="cr-cell-md markdown-rendered" ref={ref} />;
 }
 
 
@@ -480,7 +486,7 @@ function LookupTableBlock({
         <div class={"r-lookup__out" + (spin ? " is-spin" : "")}>
           <span class="r-lookup__num">{hit.num}</span>
           <span class="r-lookup__arrow">→</span>
-          <span class="r-lookup__val" ref={resRef} />
+          <span class="r-lookup__val markdown-rendered" ref={resRef} />
         </div>
       )}
     </div>

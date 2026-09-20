@@ -376,7 +376,7 @@ describe("parseNote — image cards", () => {
       image: "portrait.png",
     });
     expect(p.type).toBe("image");
-    expect(p.blocks[0]).toEqual({ t: "image", src: "portrait.png", isEmbed: true });
+    expect(p.blocks[0]).toEqual({ t: "image", src: "portrait.png", isEmbed: true, cover: true });
   });
 
   it("dedupes an explicit image property against the same picture already in the body", () => {
@@ -388,7 +388,7 @@ describe("parseNote — image cards", () => {
   it("honors a configurable image property name and a `[[wikilink]]` value", () => {
     const p = parseNote("plain prose.", { cover: "[[banner.jpg]]" }, [], "type", "", [], [], [], "cover");
     expect(p.type).toBe("image");
-    expect(p.blocks[0]).toEqual({ t: "image", src: "banner.jpg", isEmbed: true });
+    expect(p.blocks[0]).toEqual({ t: "image", src: "banner.jpg", isEmbed: true, cover: true });
   });
 
   it("disabling the image built-in suppresses both inference and the explicit property", () => {

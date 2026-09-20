@@ -60,8 +60,12 @@ export type RuleBlock =
    *  raw linktext/path as written; resolution to a vault resource URL happens at
    *  render time (needs the owning note's path). `isEmbed` distinguishes a
    *  `[[wikilink]]` embed from a markdown/external path. `scale` is the note's
-   *  resolved `imageScaleType` (absent → treated as `auto` at render). */
-  | { t: "image"; src: string; alt?: string; isEmbed: boolean; scale?: ImageScaleType }
+   *  resolved `imageScaleType` (absent → treated as `auto` at render).
+   *  `cover` marks the block injected from the configurable image front-matter
+   *  property: it has no body source, so it renders as the CardImage widget.
+   *  Body image embeds are NOT covers — they stay in the native region so
+   *  Obsidian draws them (theme alt-args, size hints and anchors all apply). */
+  | { t: "image"; src: string; alt?: string; isEmbed: boolean; scale?: ImageScaleType; cover?: boolean }
   /** An Excalidraw drawing — a `.excalidraw.md` note (detected by its
    *  `excalidraw-plugin` frontmatter) whose markdown body is only the plugin's
    *  banner + hidden JSON. Rendered as the exported SVG via the Excalidraw
@@ -75,9 +79,12 @@ export type RuleBlock =
  *  layer groups runs of non-widget blocks into one native-markdown region so
  *  links, highlights, embeds and footnotes resolve exactly as Obsidian renders
  *  them (no hand-rolled inline parsing). */
-export const WIDGET_BLOCK_TYPES = ["dice", "rolltable", "lookuptable", "flow", "checklist", "image", "excalidraw"] as const;
+export const WIDGET_BLOCK_TYPES = ["dice", "rolltable", "lookuptable", "flow", "checklist", "excalidraw"] as const;
 
+/** Widgets, plus the front-matter cover image (a body image embed is ordinary
+ *  markdown and renders natively; see the `image` block doc). */
 export function isWidgetBlock(b: RuleBlock): boolean {
+  if (b.t === "image") return b.cover === true;
   return (WIDGET_BLOCK_TYPES as readonly string[]).includes(b.t);
 }
 

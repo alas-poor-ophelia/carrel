@@ -35,6 +35,21 @@ describe("buildRenderItems", () => {
     expect(native[1].md).toContain("[^1]: the note");
   });
 
+  it("keeps a body image embed in the native region so Obsidian draws it (theme alt-args apply)", () => {
+    const img: RuleBlock = { t: "image", src: "pic.png", alt: "right", isEmbed: true };
+    const items = buildRenderItems([p("a"), img, p("b")], ["a", "![[pic.png|right]]", "b"]);
+    expect(items).toEqual([{ kind: "native", md: "a\n\n![[pic.png|right]]\n\nb" }]);
+  });
+
+  it("emits the front-matter cover image as a widget (it has no body source)", () => {
+    const cover: RuleBlock = { t: "image", src: "cover.png", isEmbed: true, cover: true };
+    const items = buildRenderItems([cover, p("a")], ["", "a"]);
+    expect(items).toEqual([
+      { kind: "widget", block: cover, index: 0 },
+      { kind: "native", md: "a" },
+    ]);
+  });
+
   it("returns nothing for an empty block list", () => {
     expect(buildRenderItems([], [])).toEqual([]);
   });

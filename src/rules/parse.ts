@@ -423,9 +423,11 @@ function parseBlocks(text: string): { blocks: RuleBlock[]; sources: string[] } {
     }
     // A standalone image embed (or a run of stacked ones) becomes image
     // block(s). Sits ABOVE the generic grouper so a lone `![[pic.png]]` is
-    // promoted rather than swallowed into a prose paragraph; an image MIXED with
-    // adjacent prose (no blank line between) is left to the grouper, where
-    // Obsidian's renderer draws it inline. Only when no block type is forced.
+    // recognised (type inference, collapsed thumbnail) rather than swallowed
+    // into a prose paragraph. It is NOT a widget: its verbatim source still
+    // renders through Obsidian in the native region. An image MIXED with
+    // adjacent prose (no blank line between) is left to the grouper.
+    // Only when no block type is forced.
     if (pending?.type === undefined && matchImageLine(line)) {
       while (i < lines.length) {
         const im = matchImageLine(lines[i]);
@@ -879,13 +881,14 @@ export function parseNote(
   if (explicitImage != null) {
     const ref = normalizeImageRef(explicitImage);
     if (!blocks.some((b) => b.t === "image" && sameImageSrc(b.src, ref.src))) {
-      blocks.unshift({ t: "image", src: ref.src, alt: ref.alt, isEmbed: ref.isEmbed });
+      blocks.unshift({ t: "image", src: ref.src, alt: ref.alt, isEmbed: ref.isEmbed, cover: true });
       blockSources.unshift("");
     }
   }
 
-  // `imageScaleType` is note-wide: stamp the resolved mode onto every image block
-  // (front-matter cover + body embeds) so CardImage can fit each one accordingly.
+  // `imageScaleType` is note-wide: stamp the resolved mode onto every image block.
+  // It governs the CardImage widget (front-matter cover, collapsed thumbnail);
+  // body embeds render natively and follow Obsidian's own size hints instead.
   const imageScale = readImageScale(frontmatter);
   if (imageScale != null) {
     for (const b of blocks) if (b.t === "image") b.scale = imageScale;
