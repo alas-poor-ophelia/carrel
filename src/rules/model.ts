@@ -105,11 +105,17 @@ export interface ParsedNote {
    *  When it resolves to a real image at render time it replaces the glyph in
    *  the card's icon box; unresolvable refs fall back to icon/iconSet. */
   iconImage?: string;
+  /** Plain-text form of the preview lead. Used ONLY as search-index text —
+   *  the collapsed card itself renders `leadMd` through Obsidian. */
   summary: string;
   /** Badge kind for a non-prose preview lead (see SummaryKind). */
   summaryKind?: SummaryKind;
   /** Kind-specific badge detail: the code language/plugin id, or table dims. */
   summaryNote?: string;
+  /** Verbatim markdown of the note's lead block(s): what the collapsed card
+   *  renders natively through Obsidian's MarkdownRenderer (clamped by CSS).
+   *  Empty when there is nothing to show beyond the badge. */
+  leadMd: string;
   meta: RuleMeta[];
   blocks: RuleBlock[];
   /** The verbatim source markdown each block was parsed from, aligned 1:1 with
@@ -130,11 +136,14 @@ export interface RuleDoc {
   iconSet: "lucide" | "rpg";
   /** Per-note icon-image override (see ParsedNote.iconImage). */
   iconImage?: string;
+  /** Plain-text preview lead — search-index text only (see ParsedNote.summary). */
   summary: string;
   /** Badge kind for a non-prose preview lead (see SummaryKind). */
   summaryKind?: SummaryKind;
   /** Kind-specific badge detail: the code language/plugin id, or table dims. */
   summaryNote?: string;
+  /** Verbatim lead markdown the collapsed card renders natively (see ParsedNote.leadMd). */
+  leadMd: string;
   meta: RuleMeta[];
   blocks: RuleBlock[];
   blockSources: string[];

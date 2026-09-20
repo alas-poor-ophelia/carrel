@@ -174,7 +174,18 @@ export function MetaChips({ meta }: { meta: RuleDoc["meta"] }): JSX.Element | nu
  *  metadata, table looks), so without it a theme silently skips the card body.
  *  `markdown-preview-view` is deliberately NOT added — its base rule makes the
  *  element a full-height scroll box with file margins. */
-function NativeRegion({ plugin, path, md }: { plugin: CarrelPlugin; path: string; md: string }): JSX.Element {
+export function NativeRegion({
+  plugin,
+  path,
+  md,
+  extraClass,
+}: {
+  plugin: CarrelPlugin;
+  path: string;
+  md: string;
+  /** Extra class on the region (e.g. the collapsed-card preview variant). */
+  extraClass?: string;
+}): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -192,7 +203,7 @@ function NativeRegion({ plugin, path, md }: { plugin: CarrelPlugin; path: string
     });
     return () => child.unload();
   }, [md, path, plugin.app]);
-  return <div class="cr-region markdown-rendered" ref={ref} />;
+  return <div class={"cr-region markdown-rendered" + (extraClass != null ? " " + extraClass : "")} ref={ref} />;
 }
 
 /** A table cell rendered through Obsidian's MarkdownRenderer so links,

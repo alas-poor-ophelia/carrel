@@ -18,6 +18,7 @@ function doc(p: Partial<RuleDoc> & { path: string; title: string }): RuleDoc {
     icon: "",
     iconSet: "rpg",
     summary: "",
+    leadMd: "",
     meta: [],
     blocks: [],
     blockSources: [],

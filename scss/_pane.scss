@@ -240,7 +240,22 @@
   .cr-card__sum {
     margin: 9px 0 1px; font-family: var(--f-body); font-size: 14.5px; line-height: 1.4; color: #a7a7ac;
     display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+    // the line clamp only counts lines in its own box; a block child (a callout,
+    // a list) escapes it, so a hard height bound of the same four lines backs it up
+    max-height: calc(4 * 1.4em);
     overflow-wrap: break-word; word-break: break-word;
+    // the badge floats so the natively rendered lead wraps beside it (inline look)
+    .cr-card__kind { float: left; }
+    // the preview is a native region: inherit the summary's quieter type, keep
+    // block rhythm tight so the 4-line clamp reads as one excerpt
+    .cr-region--preview {
+      font-family: inherit; font-size: inherit; line-height: inherit; color: inherit;
+      > * { margin: 0; }
+      > * + * { margin-top: 0.35em; }
+      ul, ol { gap: 2px; }
+      li { color: inherit; line-height: inherit; }
+      blockquote, .callout { padding: 4px 8px; }
+    }
   }
   // A typed lead badge for previews derived from an opaque/structural block
   // (code/plugin fence, note embed, table) — reads "Meta Bind" / "Table 3×5" /

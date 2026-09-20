@@ -24,7 +24,7 @@ import { GlyphIcon } from "../common/GlyphIcon";
 import { DragGrip, STAR_PATH } from "../common/glyphs";
 import { useDragScroll } from "../common/useDragScroll";
 import { CreateNookModal, NookSettingsModal } from "../../modals";
-import { Blocks, CardImage, MetaChips, StarButton, TypeBadge, hlFuzzy, inlineMd, resolveImageUrl } from "./blocks";
+import { Blocks, CardImage, MetaChips, NativeRegion, StarButton, TypeBadge, hlFuzzy, resolveImageUrl } from "./blocks";
 import { useMasonryPack, type Section } from "./hooks/useMasonryPack";
 import { useRailDrag } from "./hooks/useRailDrag";
 import { useCardDrag } from "./hooks/useCardDrag";
@@ -229,10 +229,16 @@ export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, on
       ) : thumb ? (
         <CardImage plugin={plugin} path={doc.path} block={thumb} variant="thumb" />
       ) : (
-        <p class="cr-card__sum">
+        // The preview is Obsidian's own render of the note's lead blocks (clamped
+        // by CSS) — not a hand-parsed excerpt — so inline marks, links, lists,
+        // callouts and plugin syntax all read exactly as in the note. Search
+        // matches are painted by the Custom Highlight API (it walks .cr-region).
+        <div class="cr-card__sum">
           {doc.summaryKind && <SummaryBadge kind={doc.summaryKind} note={doc.summaryNote} />}
-          {inlineMd(doc.summary, q)}
-        </p>
+          {doc.leadMd !== "" && (
+            <NativeRegion plugin={plugin} path={doc.path} md={doc.leadMd} extraClass="cr-region--preview" />
+          )}
+        </div>
       )}
     </div>
   );

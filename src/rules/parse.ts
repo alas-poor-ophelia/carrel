@@ -644,10 +644,18 @@ function plainLead(raw: string): string {
 }
 
 interface SummaryLead {
+  /** Plain text (search index only). */
   text: string;
+  /** Verbatim markdown the collapsed card renders natively. */
+  md: string;
   kind?: SummaryKind;
   note?: string;
 }
+
+/** Front-matter key that opts a note's collapsed preview into rendering its
+ *  opening blocks natively even when they are opaque (a plugin/code fence, an
+ *  embed) and would be badged by default. Value: `render`. */
+const PREVIEW_PROP = "carrel-preview";
 
 /** Derive the collapsed-card preview from a note's blocks. Prefers the opening
  *  RUN of prose paragraphs (so a short lead line like a "Source:" citation
@@ -655,7 +663,7 @@ interface SummaryLead {
  *  a typed, labeled lead for the first opaque/structural block — a code/plugin
  *  fence, a note embed, or a table — so the card shows a clear badge instead of
  *  raw source or a blank. */
-function firstProseText(blocks: RuleBlock[]): SummaryLead {
+function firstProseText(blocks: RuleBlock[], sources: string[]): SummaryLead {
   // A code fence or a bare embed is a `p` block but carries no readable prose,
   // so it must not win the prose gather — it's handled as a typed fallback.
   const isProseLead = (b: RuleBlock): b is { t: "p"; term?: string; text: string } =>
@@ -666,8 +674,12 @@ function firstProseText(blocks: RuleBlock[]): SummaryLead {
     embedTarget(b) === null;
   const proseText = (b: { t: "p"; term?: string; text: string }): string =>
     (b.term != null && b.term !== "" ? b.term + " — " : "") + b.text;
+  const src = (i: number): string => (sources[i] ?? "").trim();
+  const joinMd = (parts: string[]): string => parts.filter((s) => s !== "").join("\n\n");
   let raw = "";
-  for (const b of blocks) {
+  const mdParts: string[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
     if (!isProseLead(b)) {
       if (raw !== "") break;
       // A note that OPENS with a code/plugin fence should read as that block (a
@@ -677,25 +689,30 @@ function firstProseText(blocks: RuleBlock[]): SummaryLead {
       continue;
     }
     raw = raw !== "" ? raw + " " + proseText(b) : proseText(b);
+    mdParts.push(src(i));
     if (raw.length >= SUMMARY_MAX * 2) break; // enough to fill the budget
   }
-  if (raw !== "") return { text: truncateInline(plainLead(raw), SUMMARY_MAX) };
+  if (raw !== "") return { text: truncateInline(plainLead(raw), SUMMARY_MAX), md: joinMd(mdParts) };
 
   // Prose gathered from ANYWHERE in the note (not just the lead run) — used to
   // give a typed fallback (e.g. a code fence) a real prose preview when the note
   // opens with an opaque block but has prose below it.
-  const proseAnywhere = (): string => {
+  const proseAnywhere = (): { text: string; md: string } => {
     let out = "";
-    for (const b of blocks) {
+    const parts: string[] = [];
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
       if (!isProseLead(b)) continue;
       out = out !== "" ? out + " " + proseText(b) : proseText(b);
+      parts.push(src(i));
       if (out.length >= SUMMARY_MAX * 2) break;
     }
-    return out;
+    return { text: out, md: joinMd(parts) };
   };
 
   // No prose lead — derive a typed lead from the first structural/opaque block.
-  for (const b of blocks) {
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
     if (b.t === "p") {
       const lang = codeFenceLang(b);
       if (lang !== null) {
@@ -705,15 +722,17 @@ function firstProseText(blocks: RuleBlock[]): SummaryLead {
         return {
           kind: "code",
           note: lang,
-          text: prose !== "" ? truncateInline(plainLead(prose), SUMMARY_MAX) : "",
+          text: prose.text !== "" ? truncateInline(plainLead(prose.text), SUMMARY_MAX) : "",
+          md: prose.md,
         };
       }
       const tgt = embedTarget(b);
-      if (tgt !== null) return { kind: "embed", text: tgt };
+      if (tgt !== null) return { kind: "embed", text: tgt, md: tgt };
     }
     if (b.t === "table") {
       const dims = `${b.cols.length}×${b.rows.length}`;
-      return { kind: "table", note: dims, text: truncateInline(plainLead(blockPreviewText(b)), SUMMARY_MAX) };
+      const text = truncateInline(plainLead(blockPreviewText(b)), SUMMARY_MAX);
+      return { kind: "table", note: dims, text, md: text };
     }
     if (b.t === "lookuptable") {
       // A dice-roller table: badge the formula ("Roll d6") and excerpt the
@@ -722,19 +741,40 @@ function firstProseText(blocks: RuleBlock[]): SummaryLead {
         .map((r) => r[r.length - 1] ?? "")
         .filter((s) => s !== "")
         .join(" · ");
-      return { kind: "roll", note: b.formula, text: truncateInline(plainLead(results), SUMMARY_MAX) };
+      const text = truncateInline(plainLead(results), SUMMARY_MAX);
+      return { kind: "roll", note: b.formula, text, md: text };
     }
     if (b.t === "dice") {
       const expr = b.mod != null && b.mod !== 0 ? `${b.expr}${b.mod >= 0 ? "+" : ""}${b.mod}` : b.expr;
-      return { kind: "roll", note: expr, text: b.label != null ? truncateInline(plainLead(b.label), SUMMARY_MAX) : "" };
+      const text = b.label != null ? truncateInline(plainLead(b.label), SUMMARY_MAX) : "";
+      return { kind: "roll", note: expr, text, md: text };
     }
     if (b.t === "rolltable") {
-      return { kind: "roll", note: b.label ?? b.ref, text: "" };
+      return { kind: "roll", note: b.label ?? b.ref, text: "", md: "" };
     }
+    // A structural lead (list, quote, callout, checklist…): the search text is
+    // its stripped form; the card renders the block's verbatim source natively.
     const lead = blockPreviewText(b);
-    if (lead !== "") return { text: truncateInline(plainLead(lead), SUMMARY_MAX) };
+    if (lead !== "") return { text: truncateInline(plainLead(lead), SUMMARY_MAX), md: src(i) };
   }
-  return { text: "" };
+  return { text: "", md: "" };
+}
+
+/** `carrel-preview: render` — the note's opening blocks, verbatim and untyped,
+ *  regardless of what they are (a Meta Bind fence, an embed, a table…). The
+ *  author owns the rendered height; the card's CSS clamp still bounds it. */
+function forcedLeadMd(blocks: RuleBlock[], sources: string[]): string {
+  const parts: string[] = [];
+  let len = 0;
+  for (let i = 0; i < blocks.length; i++) {
+    if (isHeadingProse(blocks[i])) continue;
+    const s = (sources[i] ?? "").trim();
+    if (s === "") continue;
+    parts.push(s);
+    len += s.length;
+    if (len >= SUMMARY_MAX * 2) break;
+  }
+  return parts.join("\n\n");
 }
 
 const HEADING_RE = /^\s*#{1,6}\s+.*(?:\r?\n|$)/;
@@ -828,6 +868,7 @@ export function parseNote(
       iconSet,
       iconImage,
       summary: name !== "" ? name : "Excalidraw drawing",
+      leadMd: name !== "" ? name : "Excalidraw drawing",
       meta: [],
       blocks: [{ t: "excalidraw" }],
       blockSources: [""],
@@ -928,7 +969,13 @@ export function parseNote(
   // plain prose — no badge. Otherwise derive a (possibly typed) lead from blocks.
   const fmSummary = typeof frontmatter.summary === "string" ? frontmatter.summary : undefined;
   const explicit = fmSummary ?? attr(refAttrs, "summary");
-  const lead = explicit != null ? { text: explicit } : firstProseText(blocks);
+  const forceRender = readFmProp(frontmatter, PREVIEW_PROP)?.toLowerCase() === "render";
+  const lead: SummaryLead =
+    explicit != null
+      ? { text: explicit, md: explicit }
+      : forceRender
+        ? { text: firstProseText(blocks, blockSources).text, md: forcedLeadMd(blocks, blockSources) }
+        : firstProseText(blocks, blockSources);
 
   return {
     type,
@@ -938,6 +985,7 @@ export function parseNote(
     summary: lead.text,
     summaryKind: lead.kind,
     summaryNote: lead.note,
+    leadMd: lead.md,
     meta,
     blocks,
     blockSources,
