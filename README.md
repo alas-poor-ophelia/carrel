@@ -52,11 +52,13 @@ A **nook** is a saved board that reads from one or more vault folders. You can k
 
 ### Cards and the column-balancing board
 
-Each note is rendered as a **card**. Closed, a card shows its icon, type badge, title, and a one-line summary. The board lays cards out as a **column-balancing masonry** — it fits as many columns as your pane is wide (roughly one per 330px) and drops each card into the shortest column so the wall stays even instead of leaving ragged gaps.
+Each note is rendered as a **card**. Closed, a card shows its icon, type badge, title, and a short preview of the note's opening blocks — rendered by Obsidian itself, so inline marks, links, lists and callouts read exactly as they do in the note (clamped to four lines). The board lays cards out as a **column-balancing masonry** — it fits as many columns as your pane is wide (roughly one per 330px) and drops each card into the shortest column so the wall stays even instead of leaving ragged gaps.
 
 Click a card to **expand** it in place. The full note renders inline (wikilinks, embeds, and markdown all work), and the card claims **one to three columns** depending on how much content it holds — a one-line note stays narrow; a multi-paragraph entry with a table widens out and flows into reading-width text columns. Opening a card slides its neighbors out of the way; you can have any number open at once and clear them all with **Collapse**. (Prefer your categories laid out as columns instead of a balanced wall? Switch the nook to the [Kanban layout](#kanban-layout).)
 
 ![Two expanded cards on the board — a table and a flowchart rendered inline](docs/images/expanded-cards.png)
+
+A note that *opens* with something opaque — a code or plugin block, a note embed, a table, a roll block — shows a small typed badge in its preview instead of the block, plus the prose around it. To render those opening blocks as-is in the preview (a Meta Bind input, an embed, …), add `carrel-preview: render` to the note's front matter; the preview is still clamped to four lines, so keep such blocks small. A `summary` front-matter property always wins and is rendered as markdown.
 
 ### Typed cards
 
@@ -147,7 +149,7 @@ When you don't declare one, Carrel chooses a type from the note's blocks, in thi
 
 ### Image cards
 
-A note that's **mostly a picture** — an image embed or two with little other text — renders as an **image card**: a cover-cropped thumbnail when collapsed, and the full image, bounds-contained, when expanded. Handy for maps, character art, reference shots, and mood boards.
+A note that's **mostly a picture** — an image embed or two with little other text — renders as an **image card**: a cover-cropped thumbnail when collapsed. Expanded, the body renders through Obsidian exactly as reading view does, so image alt-arguments — theme positioning like `|right`, size hints like `|300` — all apply. Handy for maps, character art, reference shots, and mood boards.
 
 You can also give any note a **cover image** with a front-matter property, which forces an image card and supplies the thumbnail even when the note has other content:
 
@@ -157,7 +159,7 @@ image: "[[ser-aldric.png]]"
 ---
 ```
 
-The property defaults to `image`, and its name is configurable (Settings → Carrel). It accepts an embed (`![[pic.png]]`), a wikilink (`[[pic.png]]`), a bare path or filename, or an external URL — and it doubles as the cover mapping for [Bases](#bases-view) views, so a Base of notes with cover images renders as a wall of image cards.
+The property defaults to `image`, and its name is configurable (Settings → Carrel). It accepts an embed (`![[pic.png]]`), a wikilink (`[[pic.png]]`), a bare path or filename, or an external URL — and it doubles as the cover mapping for [Bases](#bases-view) views, so a Base of notes with cover images renders as a wall of image cards. A cover that isn't also embedded in the body renders bounds-contained at the top of the expanded card; `imageScaleType` in front matter (`auto`, `contain`, `cover`, …) controls how the cover and the thumbnail fit.
 
 ### Typed blocks
 
@@ -373,6 +375,13 @@ None of this is required — Carrel is fully standalone. The integration simply 
 - Display, label, and body fonts.
 - Inline embed maximum height (200–1200px).
 - Kanban column width (150–460px).
+
+**Per-note front matter**
+- `image` (configurable name) — cover image; forces an image card.
+- `icon-image` (configurable name) — replaces the card's corner glyph.
+- `imageScaleType` — how the cover / thumbnail fits.
+- `summary` — the preview text (markdown), instead of the note's opening blocks.
+- `carrel-preview: render` — render the opening blocks in the preview even when they are opaque (plugin block, embed, table).
 
 **Commands**
 - Carrel: Open Carrel pane

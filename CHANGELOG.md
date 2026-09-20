@@ -4,6 +4,20 @@ All notable changes to Carrel are documented here. The release workflow publishe
 the section matching each pushed tag as that GitHub release's notes, so keep the
 headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
+## 1.5.0
+
+Previews and card bodies now render through Obsidian end to end — no hand-parsed markdown surface remains.
+
+### Changed
+
+- **Collapsed-card previews are rendered by Obsidian.** The preview is the note's opening block(s) handed verbatim to `MarkdownRenderer` and clamped to four lines, instead of a regex excerpt painted by a hand-rolled inline-mark renderer. Inline marks, links, highlights, lists, callouts and plugin syntax now read exactly as in the note; list markers and callout headers no longer leak as raw text. The badge for notes that open with a code/plugin block, embed, table or roll block is unchanged.
+- **Body images render natively.** A standalone image embed in a note body was lifted out of the card's native render as a bespoke image element, so theme alt-arguments (`![[pic.png|right]]`, `|center`, size hints) and embed anchors never applied. Body images now stay in Obsidian's render; only the front-matter cover image remains Carrel's own element, and `imageScaleType` governs that cover and the collapsed thumbnail.
+- **Card bodies carry Obsidian's `markdown-rendered` class.** Themes scope most reading-view rules under it (ITS callout and image positioning, table looks, …); those rules previously skipped Carrel cards silently.
+
+### Added
+
+- **`carrel-preview: render`** front-matter key: render a note's opening blocks in its collapsed preview even when they are opaque — a Meta Bind input, an embed, a table — instead of the typed badge. The preview stays clamped; the author owns the height.
+
 ## 1.4.1
 
 Embedded Bases fix plus a routine toolchain refresh.
