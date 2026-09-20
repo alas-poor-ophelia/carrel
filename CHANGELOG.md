@@ -6,19 +6,29 @@ headings as `## <version>` (matching the tag exactly, no `v` prefix).
 
 ## 1.5.0
 
-Previews and card bodies now render through Obsidian end to end — no hand-parsed markdown surface remains, and Bases views follow the base. Also carries the 1.4.1 changes below, which were prepared but never published.
+Carrel now renders previews and card bodies the way Obsidian does everywhere else, so your theme applies to cards the same way it does to a note, and Bases views follow the base instead of second-guessing it. This release also carries everything from 1.4.1, which was prepared but never actually published.
 
-### Changed
+### Rendering
 
-- **Collapsed-card previews are rendered by Obsidian.** The preview is the note's opening block(s) handed verbatim to `MarkdownRenderer` and clamped to four lines, instead of a regex excerpt painted by a hand-rolled inline-mark renderer. Inline marks, links, highlights, lists, callouts and plugin syntax now read exactly as in the note; list markers and callout headers no longer leak as raw text. The badge for notes that open with a code/plugin block, embed, table or roll block is unchanged.
-- **Body images render natively.** A standalone image embed in a note body was lifted out of the card's native render as a bespoke image element, so theme alt-arguments (`![[pic.png|right]]`, `|center`, size hints) and embed anchors never applied. Body images now stay in Obsidian's render; only the front-matter cover image remains Carrel's own element, and `imageScaleType` governs that cover and the collapsed thumbnail.
-- **Card bodies carry Obsidian's `markdown-rendered` class.** Themes scope most reading-view rules under it (ITS callout and image positioning, table looks, …); those rules previously skipped Carrel cards silently.
+Collapsed-card previews come straight from Obsidian's renderer now. They show your note's opening block(s) exactly as they appear in the note, clamped to four lines. Inline marks, links, highlights, lists, callouts and plugin syntax all render properly instead of leaking raw markdown. Notes that start with a code or plugin block, an embed, a table or a roll block still get the small typed badge.
 
-### Added
+Body images render natively too. A standalone image embed in a note used to be pulled out of the render as Carrel's own image element, which is why theme alt-arguments (`![[pic.png|right]]`, `|center`, size hints) and embed anchors never applied inside a card. They do now. Only the front-matter cover image stays as Carrel's own element, and `imageScaleType` governs that cover and the collapsed thumbnail.
 
-- **Bases views follow the base.** A Carrel Bases view now renders the query result in the order the Bases engine delivers it: the view's sort is the card order and its Group by is the section grouping (new `Sort: Base` / `Group: Base` board modes, the default for Bases-backed nooks; existing Bases nooks still on the old defaults move over once). Carrel no longer re-sorts a base A–Z.
-- **Carrel inputs from Bases properties and formulas.** The view's options gain a *Carrel* group with Image, Icon image, Type and Category property pickers. Each can point at any Bases property, including a formula (`link(...)`, `image(...)`, or anything else); the engine evaluates it per note and Carrel reads the result — a computed cover image per card, for instance. Unset pickers leave the note's front matter in charge.
-- **`carrel-preview: render`** front-matter key: render a note's opening blocks in its collapsed preview even when they are opaque — a Meta Bind input, an embed, a table — instead of the typed badge. The preview stays clamped; the author owns the height.
+Card bodies now carry Obsidian's `markdown-rendered` class. A lot of theme rules only apply under that class (ITS callout and image positioning, table styling, and so on), and they were silently skipping Carrel cards before.
+
+### Bases
+
+Bases views now sort and group the way your base does. The card order is the base's sort and the sections are its Group by. You get `Sort: Base` and `Group: Base` in the board toolbar, and they're the default for Bases nooks. If you have an existing Bases nook that was still on the old defaults, it moves over to these once; anything you changed yourself stays as you set it.
+
+You can also feed Carrel from Bases data. The view's options have a new Carrel group with pickers for Image, Icon image, Type and Category. Point any of them at a Bases property or a formula (`link(...)`, `image(...)`, whatever you like) and Carrel uses the evaluated result for each note, for example a computed cover image per card. Pickers you leave empty fall back to the note's front matter.
+
+### Previews of plugin blocks
+
+Add `carrel-preview: render` to a note's front matter and its collapsed preview will render the opening blocks even when they're opaque, like a Meta Bind input, an embed or a table, instead of showing the badge. The preview is still clamped to four lines, so keep those blocks small.
+
+### From 1.4.1
+
+The Carrel view inside a base embedded in a note now renders instead of showing only the Bases header. Also a routine refresh of the dev toolchain.
 
 ## 1.4.1
 
