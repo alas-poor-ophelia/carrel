@@ -139,11 +139,18 @@ export class CarrelStore {
     };
     // Per-nook objects don't get the top-level spread-merge, so backfill any
     // fields added in a later schema (tweaks.groupBy/sort, cardOrder).
-    merged.nooks = (merged.nooks ?? []).map((n) => ({
-      ...n,
-      cardOrder: n.cardOrder ?? {},
-      tweaks: { ...DEFAULT_TWEAKS, ...(n.tweaks ?? {}) },
-    }));
+    const from = typeof raw?.schemaVersion === "number" ? raw.schemaVersion : 0;
+    merged.nooks = (merged.nooks ?? []).map((n) => {
+      const tweaks = { ...DEFAULT_TWEAKS, ...(n.tweaks ?? {}) };
+      // v6: Bases-backed nooks follow the base's own sort/Group by. A nook still
+      // on the pre-v6 defaults (group: type, sort: A–Z — never a deliberate
+      // choice on a base) moves over once; anything the user changed is kept.
+      if (from < 6 && n.kind === "bases" && tweaks.groupBy === "type" && tweaks.sort === "az") {
+        tweaks.groupBy = "bases";
+        tweaks.sort = "bases";
+      }
+      return { ...n, cardOrder: n.cardOrder ?? {}, tweaks };
+    });
     // Prune type config that references types no longer present or invalid: a
     // since-removed custom type (orphan rule), `reference`, or a stray token.
     merged.disabledBuiltinTypes = (merged.disabledBuiltinTypes ?? []).filter(
@@ -266,7 +273,9 @@ export class CarrelStore {
       pins: [],
       pinOrder: [],
       checklist: {},
-      tweaks: { ...DEFAULT_TWEAKS, groupBy: "type" },
+      // A Bases-backed nook follows the base: its view's own sort and Group by
+      // are the UI, and Carrel renders the result as delivered.
+      tweaks: { ...DEFAULT_TWEAKS, groupBy: "bases", sort: "bases" },
       cardOrder: {},
     };
     this.commit({ ...d, nooks: [...d.nooks, nook] });

@@ -23,6 +23,9 @@ export interface CarrelBridge {
   indexStats(): { folders: string[]; count: number; titles: string[] };
   /** Parsed RuleDoc for a path (for verifying the parser end-to-end). */
   getDoc(path: string): RuleDoc | null;
+  /** The most recently updated Carrel Bases view (a BasesView), for probing
+   *  entries/values/config from an eval. Dev tooling only. */
+  lastBasesView?: unknown;
 }
 
 declare global {

@@ -124,6 +124,24 @@ export interface ParsedNote {
   blockSources: string[];
 }
 
+/** What the Bases engine already decided about a doc (Bases-backed nooks
+ *  only): its position in the view's presorted result and the group it landed
+ *  in. Carrel renders these as delivered — it never re-sorts or re-groups. */
+export interface BasesDocMeta {
+  /** Index in `BasesQueryResult.data` (user-configured sort + limit applied). */
+  order: number;
+  /** The group's key as text ("" for the keyless group). */
+  group: string;
+  /** Index of the group in `BasesQueryResult.groupedData`. */
+  groupIndex: number;
+  /** Values the Bases engine evaluated for this entry (a note property, a
+   *  formula, a file property — whatever the view's Carrel options point at),
+   *  keyed by Carrel's configured front-matter property names. Merged over the
+   *  note's own front matter before parsing, so the existing image / icon /
+   *  type / category readers see them with no second code path. */
+  props?: Record<string, string>;
+}
+
 export interface RuleDoc {
   path: string;
   title: string;
@@ -147,4 +165,6 @@ export interface RuleDoc {
   meta: RuleMeta[];
   blocks: RuleBlock[];
   blockSources: string[];
+  /** Present only when the doc came from a Bases query (see BasesDocMeta). */
+  bases?: BasesDocMeta;
 }

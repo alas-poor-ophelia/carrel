@@ -5,7 +5,7 @@ import type CarrelPlugin from "../main";
 import { parseNote, readFmProp } from "./parse";
 
 export type { RuleDoc } from "./model";
-import type { RuleDoc } from "./model";
+import type { RuleDoc, BasesDocMeta } from "./model";
 
 /** Union of a note's frontmatter `tags:` and inline `#tags` from the metadata
  *  cache — `#`-stripped, lowercased, deduped. The note body is never scanned. */
@@ -127,26 +127,34 @@ export class CarrelIndex {
    *  parsing each note exactly like the watched-folder path — so Bases cards are
    *  real Carrel cards (types, flowcharts, colors, rules). Respects the rebuild
    *  generation guard so a superseded call drops its partial work. */
-  async indexFiles(files: TFile[]): Promise<void> {
+  async indexFiles(files: TFile[], bases?: Map<string, BasesDocMeta>): Promise<void> {
     const gen = ++this.rebuildGen;
     try {
       const docs: RuleDoc[] = [];
       for (const file of files) {
-        const doc = await this.indexFile(file);
+        const meta = bases?.get(file.path);
+        const doc = await this.indexFile(file, meta?.props);
         if (gen !== this.rebuildGen) return;
-        docs.push(doc);
+        docs.push(meta ? { ...doc, bases: meta } : doc);
       }
-      docs.sort((a, b) => a.title.localeCompare(b.title));
+      // A Bases result is already in the engine's order — keep it. Anything
+      // else gets the neutral A–Z the board's presets build on.
+      if (!bases) docs.sort((a, b) => a.title.localeCompare(b.title));
       this.docs.value = docs;
     } catch (e) {
       console.error("Carrel: bases index failed", e);
     }
   }
 
-  private async indexFile(file: TFile): Promise<RuleDoc> {
+  /** `overrides` (Bases-backed nooks): engine-evaluated values keyed by Carrel's
+   *  configured property names, laid over the note's front matter. */
+  private async indexFile(file: TFile, overrides?: Record<string, string>): Promise<RuleDoc> {
     const cache = this.app.metadataCache.getFileCache(file);
     const headings = cache?.headings?.map((h) => h.heading) ?? [];
-    const category = readFmProp(cache?.frontmatter, this.plugin.store.categoryProp()) ?? "General";
+    const frontmatter: Record<string, unknown> = overrides
+      ? { ...(cache?.frontmatter ?? {}), ...overrides }
+      : (cache?.frontmatter ?? {});
+    const category = readFmProp(frontmatter, this.plugin.store.categoryProp()) ?? "General";
     const raw = await this.app.vault.cachedRead(file);
     // strip frontmatter from the body we render/search via the supported
     // Obsidian API (CRLF-safe; the old hand-rolled `\n`-only regex left the
@@ -160,7 +168,7 @@ export class CarrelIndex {
     const tags = normalizeTags(cache);
     const parsed = parseNote(
       body,
-      cache?.frontmatter ?? {},
+      frontmatter,
       this.plugin.store.customTypes(),
       this.plugin.store.typeProp(),
       title,

@@ -16,6 +16,8 @@ Previews and card bodies now render through Obsidian end to end — no hand-pars
 
 ### Added
 
+- **Bases views follow the base.** A Carrel Bases view now renders the query result in the order the Bases engine delivers it: the view's sort is the card order and its Group by is the section grouping (new `Sort: Base` / `Group: Base` board modes, the default for Bases-backed nooks; existing Bases nooks still on the old defaults move over once). Carrel no longer re-sorts a base A–Z.
+- **Carrel inputs from Bases properties and formulas.** The view's options gain a *Carrel* group with Image, Icon image, Type and Category property pickers. Each can point at any Bases property, including a formula (`link(...)`, `image(...)`, or anything else); the engine evaluates it per note and Carrel reads the result — a computed cover image per card, for instance. Unset pickers leave the note's front matter in charge.
 - **`carrel-preview: render`** front-matter key: render a note's opening blocks in its collapsed preview even when they are opaque — a Meta Bind input, an embed, a table — instead of the typed badge. The preview stays clamped; the author owns the height.
 
 ## 1.4.1

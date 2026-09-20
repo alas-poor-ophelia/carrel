@@ -515,6 +515,7 @@ export function PaneBoard({
                   title="Group cards by"
                   onChange={(e) => store.setNookGroupBy(nook.id, (e.target as HTMLSelectElement).value as GroupBy)}
                 >
+                  {nook.kind === "bases" && <option value="bases">Group: Base</option>}
                   <option value="category">Group: Category</option>
                   <option value="type">Group: Type</option>
                   <option value="folder">Group: Folder</option>
@@ -527,6 +528,7 @@ export function PaneBoard({
                 title="Sort cards within each group"
                 onChange={(e) => store.setNookSort(nook.id, (e.target as HTMLSelectElement).value as SortMode)}
               >
+                {nook.kind === "bases" && <option value="bases">Sort: Base</option>}
                 <option value="az">Sort: A–Z</option>
                 <option value="za">Sort: Z–A</option>
                 <option value="type">Sort: Type</option>

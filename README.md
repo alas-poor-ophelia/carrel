@@ -289,7 +289,18 @@ It still updates live as the underlying notes change, and you can expand cards a
 
 ![A `.base` file in the Carrel view: filtered notes rendered as the column-balancing board, grouped into type sections, with a flowchart card expanded](docs/images/bases-view.png)
 
-To use it, open a `.base` file, add or open a view, and choose **Carrel** as the view type. The board updates live as you change the Base's filters and formulas or edit the underlying notes. Each Carrel Bases view keeps its own grouping, sort, and pins (stored with the view), and the usual board controls — search, filter chips, density, theme — are on its toolbar.
+To use it, open a `.base` file, add or open a view, and choose **Carrel** as the view type. The board updates live as you change the Base's filters and formulas or edit the underlying notes. The usual board controls — search, filter chips, density, theme — are on its toolbar, and each Carrel Bases view keeps its own pins and settings (stored with the view).
+
+**The base drives the board.** Carrel renders the query result exactly as the Bases engine delivers it: the view's **sort** (the Bases sort toolbar) is the card order, and its **Group by** is the section grouping — pick a property or a formula there and the board follows. That's the default for a Carrel Bases view (`Sort: Base`, `Group: Base` in the board toolbar); Carrel's own presets remain available if you want to override the base.
+
+**Carrel inputs from Bases properties and formulas.** In the view's options (the ⚙ menu → *Carrel* group), you can point each of Carrel's per-note inputs at any Bases property — a note property, a file property, or a **formula**:
+
+- **Image property** — the card's cover / thumbnail
+- **Icon image property** — the card's corner icon
+- **Type property** — the card type
+- **Category property** — the card category
+
+The engine evaluates the property per note; Carrel reads the result. So a formula such as `link("Admin/Clock Images/" + segments + "segment/" + ticked + ".png")` picked as the image property gives every card a computed cover, and an `image(...)` formula works the same way. Unset options leave the note's own front matter in charge. (Formulas are evaluated by Bases inside a view, so this is available for Bases-backed nooks only.)
 
 Carrel renders the *notes'* content here, not the Base's columns, so reach for it when you want to **read** a filtered slice of your vault as cards; use the built-in Table or Cards views when you want the property grid.
 

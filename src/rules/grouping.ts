@@ -51,6 +51,8 @@ export function groupKeyOf(doc: RuleDoc, groupBy: GroupBy): string {
       return folderOf(doc.path);
     case "none":
       return "all";
+    case "bases":
+      return doc.bases?.group ?? "";
   }
 }
 
@@ -90,14 +92,25 @@ function labelFor(key: string, groupBy: GroupBy, customTypes: CustomType[]): str
   }
   if (groupBy === "folder") return key === "" ? "Vault root" : key;
   if (groupBy === "none") return "All notes";
+  if (groupBy === "bases") return key === "" ? "Ungrouped" : key;
   return key; // category name as-is
 }
 
-/** Comparator over section KEYS for a grouping dimension. */
+/** Comparator over section KEYS for a grouping dimension. `basesGroupIndex`
+ *  (bases grouping only) is the engine's own group order, keyed by group. */
 function keyComparator(
   groupBy: GroupBy,
-  opts: GroupOpts
+  opts: GroupOpts,
+  basesGroupIndex?: Map<string, number>
 ): (a: string, b: string) => number {
+  if (groupBy === "bases") {
+    const ix = basesGroupIndex ?? new Map<string, number>();
+    return (a, b) => {
+      const ia = ix.has(a) ? (ix.get(a) as number) : END;
+      const ib = ix.has(b) ? (ix.get(b) as number) : END;
+      return ia !== ib ? ia - ib : a.localeCompare(b);
+    };
+  }
   if (groupBy === "category") return categoryComparator(opts.categories);
   if (groupBy === "type") {
     const ranks = typeRanks(opts.customTypes, opts.disabledBuiltinTypes);
@@ -120,6 +133,12 @@ export function sortDocs(
 ): RuleDoc[] {
   const az = (a: RuleDoc, b: RuleDoc): number => a.title.localeCompare(b.title);
   if (sort === "az") return [...docs].sort(az);
+  if (sort === "bases") {
+    // the engine's presorted position; docs without one (a folder nook that
+    // somehow carries this mode) fall back to A–Z
+    const pos = (d: RuleDoc): number => d.bases?.order ?? END;
+    return [...docs].sort((a, b) => pos(a) - pos(b) || az(a, b));
+  }
   if (sort === "za") return [...docs].sort((a, b) => b.title.localeCompare(a.title));
   if (sort === "type") {
     const ranks = typeRanks(opts.customTypes, opts.disabledBuiltinTypes);
@@ -146,13 +165,19 @@ export function buildSections(
   opts: GroupOpts
 ): GroupedSection[] {
   const groups = new Map<string, RuleDoc[]>();
+  const basesGroupIndex = new Map<string, number>();
   for (const d of docs) {
     const key = groupKeyOf(d, groupBy);
     const arr = groups.get(key);
     if (arr) arr.push(d);
     else groups.set(key, [d]);
+    if (groupBy === "bases" && d.bases) {
+      const gi = d.bases.groupIndex;
+      const cur = basesGroupIndex.get(key);
+      if (cur === undefined || gi < cur) basesGroupIndex.set(key, gi);
+    }
   }
-  const cmp = keyComparator(groupBy, opts);
+  const cmp = keyComparator(groupBy, opts, basesGroupIndex);
   return [...groups.keys()].sort(cmp).map((key) => ({
     key,
     label: labelFor(key, groupBy, opts.customTypes),

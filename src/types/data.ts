@@ -3,12 +3,15 @@
 
 import type { ContentType } from "../rules/model";
 
-/** How the board groups cards into sections. */
-export type GroupBy = "category" | "type" | "folder" | "none";
+/** How the board groups cards into sections. `bases` (Bases-backed nooks only)
+ *  uses the groups the Bases engine already computed from the view's Group by. */
+export type GroupBy = "category" | "type" | "folder" | "none" | "bases";
 
 /** How cards are ordered within a section. `custom` reads the nook's
- *  per-section `cardOrder` (drag-arranged); the rest are computed presets. */
-export type SortMode = "az" | "za" | "type" | "custom";
+ *  per-section `cardOrder` (drag-arranged); `bases` (Bases-backed nooks only)
+ *  keeps the order the Bases engine delivered — the view's own sort toolbar
+ *  is the sort UI; the rest are computed presets. */
+export type SortMode = "az" | "za" | "type" | "custom" | "bases";
 
 /** The board's render path. `board` is the column-balancing masonry (default);
  *  `kanban` lays categories out as horizontal swimlanes (see `kanbanColumns`). */
@@ -163,7 +166,7 @@ export function defaultStoragePath(mode: StorageMode): string {
   return mode === "vault-yaml" ? "carrel-data.yaml" : "carrel-data.json";
 }
 
-export const CARREL_SCHEMA_VERSION = 5;
+export const CARREL_SCHEMA_VERSION = 6;
 
 /** Built-in defaults for the configurable front-matter property names. */
 export const DEFAULT_CATEGORY_PROP = "category";
