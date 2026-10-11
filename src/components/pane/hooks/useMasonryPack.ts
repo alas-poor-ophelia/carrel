@@ -12,6 +12,7 @@
    keyboard navigator reads them too. */
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { RuleDoc } from "../../../rules/model";
+import type { ColumnCount } from "../../../types/data";
 import { RENDERED_EVENT } from "../blocks";
 
 export interface Section {
@@ -24,6 +25,10 @@ export interface Section {
 
 const DEFAULT_GAP = 14;
 const COL_STEP = 330; // ~one column per 330px of width
+// Below this board width two columns are too narrow to read (~180px a card),
+// so an auto board drops to one.
+const ONE_COL_BELOW = 450;
+const MIN_COL_W = 140; // the narrowest a pinned column may get
 const SPRING = "cubic-bezier(.33,1.32,.5,1)";
 
 interface MasonryRefs {
@@ -42,6 +47,11 @@ export function useMasonryPack(
   query: string,
   spanOf: Map<string, number>,
   sections: Section[],
+  /** The board's column setting: a number pins the count. */
+  columns: ColumnCount,
+  /** Auto never drops below two columns (the ~321px sheet sidebar is designed
+   *  two-up). */
+  twoUpFloor: boolean,
 ): { regSection: (name: string) => (el: HTMLElement | null) => void } {
   const { appRef, scrollRef, cells, lastToggled } = refs;
   const sectionEls = useRef(new Map<string, HTMLElement>());
@@ -67,7 +77,8 @@ export function useMasonryPack(
     if (!el) return;
     const calc = (): void => {
       const w = el.clientWidth - 2 * 36;
-      setAutoCols(Math.max(2, Math.min(5, Math.floor(w / COL_STEP))));
+      const floor = twoUpFloor || el.clientWidth >= ONE_COL_BELOW ? 2 : 1;
+      setAutoCols(Math.max(floor, Math.min(5, Math.floor(w / COL_STEP))));
       force((x) => x + 1);
     };
     calc();
@@ -84,7 +95,7 @@ export function useMasonryPack(
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [scrollRef]);
+  }, [scrollRef, twoUpFloor]);
 
   // The column-balancing pack + reflow. Runs after every render so async prose
   // growth (cr-rendered → force) and open/close both re-pack; only an open/close
@@ -93,7 +104,10 @@ export function useMasonryPack(
     const app = appRef.current;
     if (!app) return;
     const gap = parseFloat(getComputedStyle(app).getPropertyValue("--gap")) || DEFAULT_GAP;
-    const cols = autoCols;
+    // A pinned count still yields to a host too narrow for it — the same nook
+    // can show in a wide pane and in the ~321px sheet sidebar.
+    const fit = Math.max(1, Math.floor((scrollRef.current?.clientWidth ?? Infinity) / MIN_COL_W));
+    const cols = columns === "auto" ? autoCols : Math.min(columns, fit);
     // Fold the doc order into the key so a reorder (drag, sort change) animates
     // the slide, not just open/close. During a card drag the dragged cell stays
     // in flow as a highlighted placeholder slot; a floating clone is the ghost.

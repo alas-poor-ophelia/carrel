@@ -1,6 +1,15 @@
 import { type App, FuzzySuggestModal, Modal, Notice, Setting } from "obsidian";
 import type CarrelPlugin from "./main";
-import type { Nook, NookTweaks } from "./types/data";
+import {
+  COLUMN_CHOICES,
+  COVER_ASPECT_RANGE,
+  COVER_FIT_CHOICES,
+  COVER_MAX_HEIGHT_RANGE,
+  DENSITY_CHOICES,
+  THEME_CHOICES,
+  toColumnCount,
+} from "./types/data";
+import type { ColumnCount, CoverFit, Nook, NookTweaks } from "./types/data";
 import { listVaultFolders } from "./util/folders";
 
 /** Create a nook by naming it and selecting one or more source folders to
@@ -106,8 +115,7 @@ export class NookSettingsModal extends Modal {
       .setDesc("Ember uses the warm brand palette; Obsidian inherits your active theme.")
       .addDropdown((d) =>
         d
-          .addOption("brand", "Ember")
-          .addOption("obsidian", "Obsidian")
+          .addOptions(THEME_CHOICES)
           .setValue(nook.theme)
           .onChange((v) => this.plugin.store.updateNook(nook.id, { theme: v as Nook["theme"] }))
       );
@@ -133,12 +141,20 @@ export class NookSettingsModal extends Modal {
 
     new Setting(contentEl).setName("Density").addDropdown((d) =>
       d
-        .addOption("compact", "Compact")
-        .addOption("regular", "Regular")
-        .addOption("comfy", "Comfortable")
+        .addOptions(DENSITY_CHOICES)
         .setValue(nook.tweaks.density)
         .onChange((v) => this.setTweak("density", v as NookTweaks["density"]))
     );
+
+    new Setting(contentEl)
+      .setName("Columns")
+      .setDesc("Auto fits the number of columns to the board's width.")
+      .addDropdown((d) =>
+        d
+          .addOptions(COLUMN_CHOICES)
+          .setValue(String(nook.tweaks.columns))
+          .onChange((v) => this.setTweak("columns", toColumnCount(v as `${ColumnCount}`)))
+      );
 
     new Setting(contentEl).setName("Pinned rail").addToggle((t) =>
       t.setValue(nook.tweaks.showRail).onChange((v) => this.setTweak("showRail", v))
@@ -149,6 +165,40 @@ export class NookSettingsModal extends Modal {
     new Setting(contentEl).setName("Reflow animation").addToggle((t) =>
       t.setValue(nook.tweaks.animations).onChange((v) => this.setTweak("animations", v))
     );
+
+    new Setting(contentEl)
+      .setName("Image fit")
+      .setDesc("How a cover image fills its box on a collapsed card. Auto crops wide images and shrinks square or tall ones to fit.")
+      .addDropdown((d) =>
+        d
+          .addOptions(COVER_FIT_CHOICES)
+          .setValue(nook.tweaks.coverFit)
+          .onChange((v) => this.setTweak("coverFit", v as CoverFit))
+      );
+    new Setting(contentEl)
+      .setName("Image aspect ratio")
+      .setDesc("The shape of the cover box, as height ÷ width: 0.75 is 4:3, 1 is square.")
+      .addSlider((s) =>
+        s
+          .setLimits(COVER_ASPECT_RANGE.min, COVER_ASPECT_RANGE.max, COVER_ASPECT_RANGE.step)
+          .setValue(nook.tweaks.coverAspect)
+          .onChange((v) => this.setTweak("coverAspect", v))
+      );
+    new Setting(contentEl)
+      .setName("Image max height")
+      .setDesc("The tallest a cover gets, in pixels.")
+      .addSlider((s) =>
+        s
+          .setLimits(COVER_MAX_HEIGHT_RANGE.min, COVER_MAX_HEIGHT_RANGE.max, COVER_MAX_HEIGHT_RANGE.step)
+          .setValue(nook.tweaks.coverMaxHeight)
+          .onChange((v) => this.setTweak("coverMaxHeight", v))
+      );
+    new Setting(contentEl)
+      .setName("Preview under cover")
+      .setDesc("Show a note's preview beneath a cover that comes from its image property.")
+      .addToggle((t) =>
+        t.setValue(nook.tweaks.coverPreview).onChange((v) => this.setTweak("coverPreview", v))
+      );
 
     new Setting(contentEl)
       .setName("Delete this nook")
@@ -235,7 +285,9 @@ export class InsertNookBlockModal extends FuzzySuggestModal<PickItem> {
   }
 
   getItems(): PickItem[] {
-    return [{ kind: "new" }, ...this.plugin.store.nooks().map((nook) => ({ kind: "nook" as const, nook }))];
+    // A Bases view's hidden nook has no folders of its own to embed.
+    const nooks = this.plugin.store.nooks().filter((n) => n.kind !== "bases");
+    return [{ kind: "new" }, ...nooks.map((nook) => ({ kind: "nook" as const, nook }))];
   }
 
   getItemText(item: PickItem): string {

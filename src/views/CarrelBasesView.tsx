@@ -2,24 +2,44 @@
    and render its filtered notes as the column-balancing typed-card board. We
    hand the bare CarrelIndex the FILES from the Bases query and let it parse each
    note exactly like the main pane (real types, flowcharts, colors, rules). It is
-   driven by a hidden, persisted "bases" nook so grouping/sort/pins/theme survive
-   across sessions (the nook id is stored in the view's own config).
+   driven by a hidden, persisted "bases" nook so grouping/sort/pins survive
+   across sessions (the nook id is stored in the view's own config). How the
+   board LOOKS is configured where Bases keeps a view's settings — the view's
+   options — and stored in the `.base` file with the view.
 
    Gated behind a feature-detect on registerBasesView, so older Obsidian builds
    (no Bases) simply never register the view — no hard dependency. */
-import { BasesView, type QueryController } from "obsidian";
+import {
+  BasesView,
+  type BasesAllOptions,
+  type BasesPropertyOption,
+  type BasesViewConfig,
+  type QueryController,
+} from "obsidian";
 import { render } from "preact";
+import { signal } from "@preact/signals";
 import type CarrelPlugin from "../main";
 import { CarrelIndex } from "../rules/index";
 import type { BasesDocMeta } from "../rules/model";
+import {
+  COLUMN_CHOICES,
+  COVER_ASPECT_RANGE,
+  COVER_FIT_CHOICES,
+  COVER_MAX_HEIGHT_RANGE,
+  DEFAULT_TWEAKS,
+  DENSITY_CHOICES,
+  THEME_CHOICES,
+  toColumnCount,
+} from "../types/data";
+import type { BoardDisplay } from "../types/data";
 import { PaneBoard } from "../components/pane/PaneBoard";
 import { genId } from "../util/id";
 
 const NOOK_ID_KEY = "carrelNookId";
 
-/** View options (the base's own "Carrel" settings group): which Bases property
- *  — a note property, a formula, a file property — supplies each of Carrel's
- *  per-note inputs. Unset options leave the note's front matter in charge. */
+/** View options: which Bases property — a note property, a formula, a file
+ *  property — supplies each of Carrel's per-note inputs. Unset options leave
+ *  the note's front matter in charge. */
 const PROP_OPTIONS = [
   { key: "carrelImage", displayName: "Image property", store: "imageProp" },
   { key: "carrelIconImage", displayName: "Icon image property", store: "iconImageProp" },
@@ -27,9 +47,89 @@ const PROP_OPTIONS = [
   { key: "carrelCategory", displayName: "Category property", store: "categoryProp" },
 ] as const;
 
+function propOption(key: (typeof PROP_OPTIONS)[number]["key"]): BasesPropertyOption {
+  const o = PROP_OPTIONS.find((p) => p.key === key);
+  return { type: "property", key, displayName: o?.displayName ?? key, placeholder: "Note front matter" };
+}
+
+/** The view's options menu. Display settings sit beside the property pickers,
+ *  named as Bases' own layouts name theirs (Image fit, Image aspect ratio). */
+function viewOptions(plugin: CarrelPlugin, config: BasesViewConfig): BasesAllOptions[] {
+  // Until a view sets an option, its board uses the hidden nook's value (where
+  // these settings lived before they moved here) — so that is the default shown.
+  const nook = plugin.store.nooks().find((n) => n.id === config.get(NOOK_ID_KEY));
+  const base: BoardDisplay = { ...DEFAULT_TWEAKS, theme: nook?.theme ?? "obsidian", ...nook?.tweaks };
+  return [
+    {
+      type: "group",
+      displayName: "Display",
+      items: [
+        { type: "dropdown", key: "carrelTheme", displayName: "Theme", default: base.theme, options: THEME_CHOICES },
+        { type: "dropdown", key: "carrelDensity", displayName: "Density", default: base.density, options: DENSITY_CHOICES },
+        { type: "dropdown", key: "carrelColumns", displayName: "Columns", default: String(base.columns), options: COLUMN_CHOICES },
+        { type: "toggle", key: "carrelShowRail", displayName: "Pinned rail", default: base.showRail },
+        { type: "toggle", key: "carrelShowBadges", displayName: "Type badges & meta", default: base.showBadges },
+        { type: "toggle", key: "carrelAnimations", displayName: "Reflow animation", default: base.animations },
+      ],
+    },
+    {
+      type: "group",
+      displayName: "Images",
+      items: [
+        propOption("carrelImage"),
+        propOption("carrelIconImage"),
+        { type: "dropdown", key: "carrelImageFit", displayName: "Image fit", default: base.coverFit, options: COVER_FIT_CHOICES },
+        { type: "slider", key: "carrelImageAspect", displayName: "Image aspect ratio", default: base.coverAspect, ...COVER_ASPECT_RANGE },
+        { type: "slider", key: "carrelImageMaxHeight", displayName: "Image max height", default: base.coverMaxHeight, ...COVER_MAX_HEIGHT_RANGE },
+        { type: "toggle", key: "carrelCoverPreview", displayName: "Preview under cover", default: base.coverPreview },
+      ],
+    },
+    {
+      type: "group",
+      displayName: "Properties",
+      items: [propOption("carrelType"), propOption("carrelCategory")],
+    },
+  ];
+}
+
+/** The display settings this view has set in its options. An option the user
+ *  hasn't touched (or a value that isn't one of its choices) is left out, so
+ *  the nook's value shows through. */
+function readDisplay(config: BasesViewConfig): Partial<BoardDisplay> {
+  const choice = <T extends string>(key: string, choices: Record<T, string>): T | undefined => {
+    // A numeric choice ("2" columns) can come back from the file's YAML as a number.
+    const raw = config.get(key);
+    const v = typeof raw === "number" ? String(raw) : raw;
+    return typeof v === "string" && Object.prototype.hasOwnProperty.call(choices, v) ? (v as T) : undefined;
+  };
+  const num = (key: string, range: { min: number; max: number }): number | undefined => {
+    const v = config.get(key);
+    return typeof v === "number" && Number.isFinite(v) ? Math.min(range.max, Math.max(range.min, v)) : undefined;
+  };
+  const bool = (key: string): boolean | undefined => {
+    const v = config.get(key);
+    return typeof v === "boolean" ? v : undefined;
+  };
+  const columns = choice("carrelColumns", COLUMN_CHOICES);
+  const all: { [K in keyof BoardDisplay]: BoardDisplay[K] | undefined } = {
+    theme: choice("carrelTheme", THEME_CHOICES),
+    density: choice("carrelDensity", DENSITY_CHOICES),
+    columns: columns != null ? toColumnCount(columns) : undefined,
+    showRail: bool("carrelShowRail"),
+    showBadges: bool("carrelShowBadges"),
+    animations: bool("carrelAnimations"),
+    coverFit: choice("carrelImageFit", COVER_FIT_CHOICES),
+    coverAspect: num("carrelImageAspect", COVER_ASPECT_RANGE),
+    coverMaxHeight: num("carrelImageMaxHeight", COVER_MAX_HEIGHT_RANGE),
+    coverPreview: bool("carrelCoverPreview"),
+  };
+  return Object.fromEntries(Object.entries(all).filter(([, v]) => v !== undefined));
+}
+
 class CarrelBasesView extends BasesView {
   readonly type = "carrel";
   private readonly index: CarrelIndex;
+  private readonly display = signal<Partial<BoardDisplay>>({});
   private root: HTMLElement | null = null;
   private rendered = false;
   private nookId = "";
@@ -78,6 +178,12 @@ class CarrelBasesView extends BasesView {
       if (id !== stored) this.config.set(NOOK_ID_KEY, id);
     }
 
+    // A change in the view's options arrives here too; hand the board its new
+    // display settings only when they differ, so plain data updates don't
+    // re-render it twice.
+    const display = readDisplay(this.config);
+    if (JSON.stringify(display) !== JSON.stringify(this.display.value)) this.display.value = display;
+
     // Parse every note in the Bases result set into a real Carrel card. Async;
     // the docs signal updates when it resolves and the board re-renders.
     // The engine has already applied the view's filters, sort, limit and
@@ -114,7 +220,7 @@ class CarrelBasesView extends BasesView {
     if (this.root && !this.rendered) {
       this.rendered = true;
       render(
-        <PaneBoard plugin={this.plugin} boardNookId={this.nookId} index={this.index} />,
+        <PaneBoard plugin={this.plugin} boardNookId={this.nookId} index={this.index} display={this.display} />,
         this.root
       );
     }
@@ -128,17 +234,6 @@ export function registerCarrelBasesView(plugin: CarrelPlugin): void {
     name: "Carrel",
     icon: "book-open",
     factory: (controller, containerEl) => new CarrelBasesView(controller, containerEl, plugin),
-    options: () => [
-      {
-        type: "group",
-        displayName: "Carrel",
-        items: PROP_OPTIONS.map((o) => ({
-          type: "property" as const,
-          key: o.key,
-          displayName: o.displayName,
-          placeholder: "Note front matter",
-        })),
-      },
-    ],
+    options: (config) => viewOptions(plugin, config),
   });
 }

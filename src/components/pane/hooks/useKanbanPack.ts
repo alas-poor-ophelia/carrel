@@ -3,7 +3,7 @@
    are placed by `transform: translate(colX, y)` exactly like the masonry pack,
    which is what lets an OPENED card span sideways across column boundaries.
 
-   Unlike masonry (which fits 2–5 columns to the container width), kanban columns
+   Unlike masonry (which fits 1–5 columns to the container width), kanban columns
    are FIXED width (COL_W) and the strip scrolls horizontally; the column count is
    the number of visible categories, not a function of width. Each card has a
    HOME column (its category). Opening a card widens it to span N columns and

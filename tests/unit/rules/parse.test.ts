@@ -429,6 +429,23 @@ describe("parseNote — image cards", () => {
     const img = p.blocks.find((b): b is Extract<RuleBlock, { t: "image" }> => b.t === "image");
     expect(img?.scale).toBeUndefined();
   });
+
+  it("accepts contain / cover as names for fit / fill", () => {
+    const scaleOf = (v: string): string | undefined =>
+      parseNote("![[a.png]]", { imageScaleType: v }).blocks.find(
+        (b): b is Extract<RuleBlock, { t: "image" }> => b.t === "image"
+      )?.scale;
+    expect(scaleOf("contain")).toBe("fit");
+    expect(scaleOf("Cover")).toBe("fill");
+    expect(scaleOf("fit")).toBe("fit");
+    expect(scaleOf("stretch")).toBe("stretch");
+  });
+
+  it("reads imageScaleType whatever the key's letter case", () => {
+    const p = parseNote("![[a.png]]", { imagescaletype: "contain" });
+    const img = p.blocks.find((b): b is Extract<RuleBlock, { t: "image" }> => b.t === "image");
+    expect(img?.scale).toBe("fit");
+  });
 });
 
 describe("parseNote — summary & icon", () => {

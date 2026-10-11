@@ -22,7 +22,8 @@ function sourceSummary(folders: string[]): string {
 export function NooksSection({ plugin }: { plugin: CarrelPlugin }): JSX.Element {
   const store = plugin.store;
   const data = store.data.value; // reading .value subscribes this section to nook changes
-  const nooks = data.nooks;
+  // A Bases view's hidden nook is configured from the view's own options.
+  const nooks = data.nooks.filter((n) => n.kind !== "bases");
   const activeId = data.activeNookId;
 
   const remove = (id: string): void => {

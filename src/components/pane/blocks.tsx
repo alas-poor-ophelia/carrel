@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ComponentChildren, JSX, VNode } from "preact";
 import type CarrelPlugin from "../../main";
 import type { CustomType } from "../../types/data";
-import type { RuleBlock, RuleDoc } from "../../rules/model";
+import type { ImageScaleType, RuleBlock, RuleDoc } from "../../rules/model";
 import { buildRenderItems } from "../../rules/regions";
 import { resolveType } from "../../rules/registry";
 import { getRollEngine, type RollResult } from "../../rules/rollEngine";
@@ -578,17 +578,21 @@ export function CardImage({
   path,
   block,
   variant,
+  defaultScale = "auto",
 }: {
   plugin: CarrelPlugin;
   path: string;
   block: Extract<RuleBlock, { t: "image" }>;
   variant: "thumb" | "full";
+  /** The fit used when the note sets no `imageScaleType` (the board's Image fit). */
+  defaultScale?: ImageScaleType;
 }): JSX.Element {
   const url = resolveImageUrl(plugin, block.src, path);
-  const scale = block.scale ?? "auto";
-  // For `auto`, the fit depends on orientation (portrait → contain so nothing is
-  // cropped, landscape → cover); we only know that once the image reports its
-  // natural size, so we set it on load. Explicit modes are governed purely by CSS.
+  const scale = block.scale ?? defaultScale;
+  // For `auto`, the fit depends on orientation (square or portrait → contain so
+  // nothing is cropped, landscape → cover); we only know that once the image
+  // reports its natural size, so we set it on load. Explicit modes are governed
+  // purely by CSS.
   const [orient, setOrient] = useState<"portrait" | "landscape" | null>(null);
   const cls =
     "cr-image cr-image--" + variant + " cr-image--scale-" + scale;
@@ -610,8 +614,10 @@ export function CardImage({
         decoding="async"
         onLoad={(e) => {
           const img = e.currentTarget;
-          if (scale === "auto" && img.naturalWidth > 0) {
-            setOrient(img.naturalHeight > img.naturalWidth ? "portrait" : "landscape");
+          // Recorded whatever the mode, so a later switch to `auto` (the board's
+          // Image fit) has it without the image loading again.
+          if (img.naturalWidth > 0) {
+            setOrient(img.naturalHeight >= img.naturalWidth ? "portrait" : "landscape");
           }
           img.dispatchEvent(new CustomEvent(RENDERED_EVENT, { bubbles: true }));
         }}

@@ -17,13 +17,28 @@ export type SortMode = "az" | "za" | "type" | "custom" | "bases";
  *  `kanban` lays categories out as horizontal swimlanes (see `kanbanColumns`). */
 export type LayoutMode = "board" | "kanban";
 
+/** Masonry column count: `auto` fits columns to the board width; a number pins it. */
+export type ColumnCount = "auto" | 1 | 2 | 3 | 4;
+
+/** How a collapsed card's cover image fills its box when the note doesn't say
+ *  (`imageScaleType`): `auto` picks by orientation, the others force a fit. */
+export type CoverFit = "auto" | "contain" | "cover";
+
 /** Per-nook display tweaks (surfaced as Style Settings / UI in Phase 7). */
 export interface NookTweaks {
-  columns: "auto" | 2 | 3 | 4;
+  columns: ColumnCount;
   density: "compact" | "regular" | "comfy";
   showRail: boolean;
   showBadges: boolean;
   animations: boolean;
+  coverFit: CoverFit;
+  /** Collapsed cover box shape as height ÷ width (0.75 = 4:3, 1 = square). */
+  coverAspect: number;
+  /** Height cap, in px, of the collapsed cover box. */
+  coverMaxHeight: number;
+  /** Show the note's preview under a cover that comes from the image property
+   *  (a note that IS its picture has no other text, so it stays cover-only). */
+  coverPreview: boolean;
   groupBy: GroupBy;
   sort: SortMode;
   /** Masonry board vs. kanban swimlanes — a parallel render path, not a
@@ -180,10 +195,50 @@ export const DEFAULT_TWEAKS: NookTweaks = {
   showRail: true,
   showBadges: true,
   animations: true,
+  coverFit: "auto",
+  coverAspect: 0.75,
+  coverMaxHeight: 220,
+  coverPreview: true,
   groupBy: "category",
   sort: "az",
   layout: "board",
 };
+
+/** The choices (value → label) and slider ranges behind each display setting,
+ *  shared by the two places they are edited: the nook settings modal and a
+ *  Bases view's own options. */
+export const THEME_CHOICES: Record<Nook["theme"], string> = { brand: "Ember", obsidian: "Obsidian" };
+export const DENSITY_CHOICES: Record<NookTweaks["density"], string> = {
+  compact: "Compact",
+  regular: "Regular",
+  comfy: "Comfortable",
+};
+export const COLUMN_CHOICES: Record<`${ColumnCount}`, string> = { auto: "Auto", 1: "1", 2: "2", 3: "3", 4: "4" };
+export const COVER_FIT_CHOICES: Record<CoverFit, string> = { auto: "Auto", contain: "Contain", cover: "Cover" };
+export const COVER_ASPECT_RANGE = { min: 0.25, max: 2, step: 0.05 };
+export const COVER_MAX_HEIGHT_RANGE = { min: 60, max: 480, step: 10 };
+
+/** A column choice as a dropdown delivers it (`"auto"`, `"1"`…) → the setting. */
+export function toColumnCount(choice: `${ColumnCount}`): ColumnCount {
+  return choice === "auto" ? "auto" : (Number(choice) as ColumnCount);
+}
+
+/** The display settings a board renders with. A folder nook supplies all of
+ *  them (its theme + tweaks); a Bases view supplies them from its own view
+ *  options, with the hidden nook's values as the fallback. */
+export type BoardDisplay = Pick<Nook, "theme"> &
+  Pick<
+    NookTweaks,
+    | "columns"
+    | "density"
+    | "showRail"
+    | "showBadges"
+    | "animations"
+    | "coverFit"
+    | "coverAspect"
+    | "coverMaxHeight"
+    | "coverPreview"
+  >;
 
 export const DEFAULT_DATA: CarrelData = {
   schemaVersion: CARREL_SCHEMA_VERSION,

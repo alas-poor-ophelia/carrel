@@ -376,6 +376,7 @@
     border: 1px solid color-mix(in srgb, var(--bc) 38%, transparent);
   }
   .cr-railcard__ic svg { width: 18px; height: 18px; }
+  .cr-railcard__ic img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
   .cr-railcard__main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .cr-railcard__title { font-family: var(--f-title); font-size: 13.5px; letter-spacing: 0.01em; color: #efe9df; line-height: 1.12; overflow-wrap: anywhere; }
   .cr-railcard__type { font: 700 9px/1 var(--f-ui); letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--bc) 80%, #fff 10%); }

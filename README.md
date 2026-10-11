@@ -52,7 +52,7 @@ A **nook** is a saved board that reads from one or more vault folders. You can k
 
 ### Cards and the column-balancing board
 
-Each note is rendered as a **card**. Closed, a card shows its icon, type badge, title, and a short preview of the note's opening blocks — rendered by Obsidian itself, so inline marks, links, lists and callouts read exactly as they do in the note (clamped to four lines). The board lays cards out as a **column-balancing masonry** — it fits as many columns as your pane is wide (roughly one per 330px) and drops each card into the shortest column so the wall stays even instead of leaving ragged gaps.
+Each note is rendered as a **card**. Closed, a card shows its icon, type badge, title, and a short preview of the note's opening blocks — rendered by Obsidian itself, so inline marks, links, lists and callouts read exactly as they do in the note (clamped to four lines). The board lays cards out as a **column-balancing masonry** — it fits as many columns as your pane is wide (roughly one per 330px, down to a single column in a narrow sidebar pane; or pin the count in the nook's settings) and drops each card into the shortest column so the wall stays even instead of leaving ragged gaps.
 
 Click a card to **expand** it in place. The full note renders inline (wikilinks, embeds, and markdown all work), and the card claims **one to three columns** depending on how much content it holds — a one-line note stays narrow; a multi-paragraph entry with a table widens out and flows into reading-width text columns. Opening a card slides its neighbors out of the way; you can have any number open at once and clear them all with **Collapse**. (Prefer your categories laid out as columns instead of a balanced wall? Switch the nook to the [Kanban layout](#kanban-layout).)
 
@@ -62,7 +62,7 @@ A note that *opens* with something opaque — a code or plugin block, a note emb
 
 ### Typed cards
 
-Every card has a **type** that sets its icon, accent color, and how its content renders when expanded. Most types are inferred from the note's structure — write normal Markdown and Carrel recognizes a table, a checklist, a flowchart, and so on. Type badges double as filter chips. See [Card types](#card-types) below for the full list and how to structure each kind of content.
+Every card has a **type** that sets its badge, icon, and accent color. Most types are inferred from the note's structure — write normal Markdown and Carrel recognizes a table, a checklist, a flowchart, and so on. Type badges double as filter chips. See [Card types](#card-types) below for the full list and how to structure each kind of content.
 
 ### Categories
 
@@ -121,17 +121,21 @@ Kanban reads and writes the same `category` property as the rest of Carrel, so a
 
 Most card types are **inferred** from a note's structure — you write ordinary Markdown and Carrel recognizes it. A few are **declared** explicitly in front matter.
 
+A type is a **label, not a renderer.** It sets the card's badge, icon, accent color, and filter chip, and its section when you group by type. It does not change how the note's content is drawn: a table renders as a table and a callout as a callout whatever the card is called, so two cards that differ only in type show the same preview and the same body. The one exception is `image`, which shows a cover thumbnail when collapsed.
+
 ### Declaring a type (optional)
 
 Set `type:` in front matter to force a card's type, regardless of its content:
 
 ```yaml
 ---
-type: ability
+type: process
 ---
 ```
 
-The full set is `ability`, `deed`, `trait`, `flowchart`, `table`, `formula`, `process`, `lore`, `image`, and `reference`. The first three plus `lore` carry Carrel's character-sheet heritage — handy for RPG and worldbuilding vaults — but any vault can use them. The rest are usually left to inference (or, for `image`, to a cover property — see [Image cards](#image-cards)).
+The built-in types are `flowchart`, `table`, `formula`, `lookup` (shown as **Roll Table**), `process`, `quote`, `image`, and `reference`. They are usually left to inference (or, for `image`, to a cover property — see [Image cards](#image-cards)).
+
+For a name of your own — `ability`, `npc`, `clue` — add a **custom type** in **Settings → Carrel → Types**, with its own color and icon, then declare it the same way (`type: npc`). A `type:` value that is neither a built-in nor one of your custom types is ignored, and the note falls back to inference.
 
 ### How a type is inferred
 
@@ -139,17 +143,18 @@ When you don't declare one, Carrel chooses a type from the note's blocks, in thi
 
 | Type | Inferred when the note… |
 | --- | --- |
-| **Flowchart** | contains a `ref-flow` block |
-| **Formula** | contains a dice block |
 | **Image** | is mostly a picture — one or more image embeds and little other text |
-| **Lore** | opens with a blockquote (callout) |
+| **Flowchart** | contains a `ref-flow` block |
+| **Roll Table** | contains a Dice Roller lookup table — a table whose first header cell is a `dice:` formula |
+| **Formula** | contains a dice block |
+| **Quote** | opens with a plain blockquote (`> text`). An Obsidian callout (`> [!note]`) does not count |
 | **Process** | contains a checklist or a numbered list |
 | **Table** | contains tables, and at least as many tables as prose paragraphs |
 | **Reference** | none of the above — the neutral fallback |
 
 ### Image cards
 
-A note that's **mostly a picture** — an image embed or two with little other text — renders as an **image card**: a cover-cropped thumbnail when collapsed. Expanded, the body renders through Obsidian exactly as reading view does, so image alt-arguments — theme positioning like `|right`, size hints like `|300` — all apply. Handy for maps, character art, reference shots, and mood boards.
+A note that's **mostly a picture** — an image embed or two with little other text — renders as an **image card**: a cover thumbnail when collapsed. Expanded, the body renders through Obsidian exactly as reading view does, so image alt-arguments — theme positioning like `|right`, size hints like `|300` — all apply. Handy for maps, character art, reference shots, and mood boards.
 
 You can also give any note a **cover image** with a front-matter property, which forces an image card and supplies the thumbnail even when the note has other content:
 
@@ -159,7 +164,19 @@ image: "[[ser-aldric.png]]"
 ---
 ```
 
-The property defaults to `image`, and its name is configurable (Settings → Carrel). It accepts an embed (`![[pic.png]]`), a wikilink (`[[pic.png]]`), a bare path or filename, or an external URL — and it doubles as the cover mapping for [Bases](#bases-view) views, so a Base of notes with cover images renders as a wall of image cards. A cover that isn't also embedded in the body renders bounds-contained at the top of the expanded card; `imageScaleType` in front matter (`auto`, `contain`, `cover`, …) controls how the cover and the thumbnail fit.
+The property defaults to `image`, and its name is configurable (Settings → Carrel). It accepts an embed (`![[pic.png]]`), a wikilink (`[[pic.png]]`), a bare path or filename, or an external URL — and it doubles as the cover mapping for [Bases](#bases-view) views, so a Base of notes with cover images renders as a wall of image cards. A cover that isn't also embedded in the body renders bounds-contained at the top of the expanded card.
+
+**Fitting the cover.** By default (`auto`) a wide image is cropped to fill the cover box, and a square or tall one is shrunk to fit so nothing is cut off. To choose for one note, set `imageScaleType` in its front matter: `contain` (shrink to fit), `cover` (crop to fill), `stretch`, or `auto`. (`fit` and `fill` are accepted as older names for `contain` and `cover`.)
+
+**Sizing the covers on a board.** Each board has three settings for the cover's fit and size — in a nook's settings, or in the view options of a [Bases](#bases-view) view:
+
+- **Image fit** — Auto, Contain, or Cover, for every note that doesn't set `imageScaleType` itself.
+- **Image aspect ratio** — the shape of the cover box as height ÷ width, from wide and short to tall. The default is 0.75 (4:3); 1 is square.
+- **Image max height** — a cap on the cover's height, so covers stay small on a wide or single-column board.
+
+**Preview under the cover.** When the cover comes from the image property (or a Bases formula) rather than from the note's body, the collapsed card shows the note's usual preview beneath it. A `carrel-preview: render` preview works there too, so a Meta Bind button can sit under a computed image. Turn this off per board with **Preview under cover**. A note that is itself a picture has no other text to show and stays cover-only.
+
+**From CSS.** A snippet can change the defaults for every board by setting `--cr-cover-aspect` (for example `1 / 1`) and `--cr-cover-max-height` (for example `140px`) on `body`. A board whose own setting has been changed keeps its own value.
 
 ### Typed blocks
 
@@ -289,11 +306,20 @@ It still updates live as the underlying notes change, and you can expand cards a
 
 ![A `.base` file in the Carrel view: filtered notes rendered as the column-balancing board, grouped into type sections, with a flowchart card expanded](docs/images/bases-view.png)
 
-To use it, open a `.base` file, add or open a view, and choose **Carrel** as the view type. The board updates live as you change the Base's filters and formulas or edit the underlying notes. The usual board controls — search, filter chips, density, theme — are on its toolbar, and each Carrel Bases view keeps its own pins and settings (stored with the view).
+To use it, open a `.base` file, add or open a view, and choose **Carrel** as the view type. The board updates live as you change the Base's filters and formulas or edit the underlying notes.
+
+**Where the settings are.** A Carrel view is configured the way any Bases view is:
+
+- **What appears, and in what order** — the Base's own toolbar: filters, sort, group, and result limit.
+- **How the board looks** — the view's options (click the view's name, then the arrow beside it), saved in the `.base` file with the view:
+  - *Display* — theme, density, columns, pinned rail, type badges & meta, reflow animation. A new Carrel view starts in the Obsidian theme so it matches the rest of the Base; pick Ember here for the brand look.
+  - *Images* — image and icon image properties, image fit, aspect ratio and max height, preview under cover.
+  - *Properties* — type and category properties.
+- **What you're looking at right now** — the board's own toolbar: search, the pinned / category / type filter chips, and the Layout, Group and Sort presets. Search and chips reset when the view reloads; pins, card order and the presets are kept per view.
 
 **The base drives the board.** Carrel renders the query result exactly as the Bases engine delivers it: the view's **sort** (the Bases sort toolbar) is the card order, and its **Group by** is the section grouping — pick a property or a formula there and the board follows. That's the default for a Carrel Bases view (`Sort: Base`, `Group: Base` in the board toolbar); Carrel's own presets remain available if you want to override the base.
 
-**Carrel inputs from Bases properties and formulas.** In the view's options (the ⚙ menu → *Carrel* group), you can point each of Carrel's per-note inputs at any Bases property — a note property, a file property, or a **formula**:
+**Carrel inputs from Bases properties and formulas.** In the view's options (the *Images* and *Properties* groups), you can point each of Carrel's per-note inputs at any Bases property — a note property, a file property, or a **formula**:
 
 - **Image property** — the card's cover / thumbnail
 - **Icon image property** — the card's corner icon
@@ -379,7 +405,8 @@ None of this is required — Carrel is fully standalone. The integration simply 
 
 **Nooks** (Settings → Carrel)
 - Create a nook from selected folders; set the active nook; edit or delete.
-- Per nook: **name**, **theme** (Ember / Obsidian), **source folders**, **density** (Compact / Regular / Comfortable), **pinned rail** on/off, **type badges & meta** on/off, **reflow animation** on/off.
+- Per nook: **name**, **theme** (Ember / Obsidian), **source folders**, **density** (Compact / Regular / Comfortable), **columns** (Auto, or 1–4), **pinned rail** on/off, **type badges & meta** on/off, **reflow animation** on/off, and the cover settings — **image fit**, **image aspect ratio**, **image max height**, **preview under cover**.
+- A Bases view has the same display settings in its own view options instead (see [Bases view](#bases-view)).
 
 **Style Settings** (if the Style Settings plugin is installed)
 - Primary accent (red), secondary accent (gold).
@@ -390,7 +417,7 @@ None of this is required — Carrel is fully standalone. The integration simply 
 **Per-note front matter**
 - `image` (configurable name) — cover image; forces an image card.
 - `icon-image` (configurable name) — replaces the card's corner glyph.
-- `imageScaleType` — how the cover / thumbnail fits.
+- `imageScaleType` — how the cover / thumbnail fits: `auto`, `contain`, `cover`, or `stretch`.
 - `summary` — the preview text (markdown), instead of the note's opening blocks.
 - `carrel-preview: render` — render the opening blocks in the preview even when they are opaque (plugin block, embed, table).
 

@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 import type { JSX } from "preact";
 import type CarrelPlugin from "../../main";
 import type { RuleDoc } from "../../rules/model";
-import type { Category, CustomType, Nook, SortMode } from "../../types/data";
+import type { Category, CoverFit, CustomType, Nook, SortMode } from "../../types/data";
 import type { CarrelStore } from "../../state/store";
 import { categoryComparator, sortDocs } from "../../rules/grouping";
 import { PromptModal } from "../../modals";
@@ -51,6 +51,8 @@ export interface KanbanBoardProps {
   focusId: string | null;
   cardDragId: string | null;
   setCardDragId: (id: string | null) => void;
+  coverFit: CoverFit;
+  coverPreview: boolean;
   // shared refs owned by the board (ghost host + the card-cell map + last toggled)
   appRef: { current: HTMLDivElement | null };
   cells: { current: Map<string, HTMLElement> };
@@ -63,7 +65,7 @@ export function KanbanBoard(props: KanbanBoardProps): JSX.Element {
     plugin, store, nook, nookRef, embed, docs, docByPath, categories, customTypes,
     disabledBuiltins, cardOrder, sortMode, spanOf, query, open, toggle, pins, togglePin,
     checklist, onToggleCheck, titlePos, focusId, cardDragId, setCardDragId,
-    appRef, cells, lastToggled, regCell,
+    coverFit, coverPreview, appRef, cells, lastToggled, regCell,
   } = props;
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -260,6 +262,8 @@ export function KanbanBoard(props: KanbanBoardProps): JSX.Element {
                     checklistState={checklist}
                     onToggleCheck={onToggleCheck}
                     onGripDown={!embed ? (e) => onCardDown(e, d.path) : undefined}
+                    coverFit={coverFit}
+                    coverPreview={coverPreview}
                   />
                 </div>
               ))}

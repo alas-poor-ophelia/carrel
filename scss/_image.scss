@@ -19,11 +19,14 @@
   // tall portrait can't make a collapsed card absurdly tall. The container
   // reserves its box via aspect-ratio so the masonry measures the right height
   // before the image loads (CardImage also re-packs on load as a safety net).
+  // Shape + cap follow the board's own setting (`--cover-*`, written inline on
+  // .cr-app only when changed), then the public `--cr-cover-*` seam a snippet
+  // can set, then the default.
   .cr-image--thumb {
     margin-top: 8px;
     width: 100%;
-    aspect-ratio: 4 / 3;
-    max-height: 220px;
+    aspect-ratio: var(--cover-aspect, var(--cr-cover-aspect, 4 / 3));
+    max-height: var(--cover-max-h, var(--cr-cover-max-height, 220px));
     overflow: hidden;
     border-radius: 6px;
     background: color-mix(in srgb, var(--text) 6%, transparent);
@@ -35,8 +38,8 @@
       object-fit: cover;
     }
 
-    // Explicit scale modes and resolved `auto` orientation. The thumbnail box is
-    // fixed 4:3, so object-fit governs directly.
+    // Explicit scale modes and resolved `auto` orientation. The thumbnail box
+    // has a fixed shape, so object-fit governs directly.
     &.cr-image--scale-fit .cr-image__img { object-fit: contain; }
     &.cr-image--scale-fill .cr-image__img { object-fit: cover; }
     &.cr-image--scale-stretch .cr-image__img { object-fit: fill; }

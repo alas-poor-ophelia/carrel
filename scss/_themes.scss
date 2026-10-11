@@ -29,6 +29,11 @@
   --f-deco: var(--font-interface);
   --f-body: var(--font-text, var(--font-interface));
 
+  // The root paints `background: var(--bg)` from ITS OWN (brand) token — the
+  // remap above only reaches descendants — so repaint here, over the root, or
+  // the area behind the cards stays brand-dark under a vault theme.
+  background: var(--bg);
+
   // drop the brand display treatment for a neutral, theme-native read
   .cr-cat { text-transform: none; letter-spacing: 0.01em; font-weight: 650; }
   .cr-card__title { letter-spacing: 0; }

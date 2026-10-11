@@ -810,15 +810,28 @@ export function readFmProp(
   return s !== "" ? s : undefined;
 }
 
-const IMAGE_SCALES: readonly ImageScaleType[] = ["auto", "fit", "fill", "stretch"];
+/** Accepted `imageScaleType` values → the scale mode. `contain`/`cover` are the
+ *  documented names (CSS's, and Bases' own "Image fit"); `fit`/`fill` are the
+ *  original spellings and stay valid. */
+const IMAGE_SCALES: Record<string, ImageScaleType> = {
+  auto: "auto",
+  contain: "fit",
+  fit: "fit",
+  cover: "fill",
+  fill: "fill",
+  stretch: "stretch",
+};
 
 /** Read the note-wide `imageScaleType` front-matter value, validated against the
  *  known modes. An unset or unrecognized value returns `undefined` (render then
- *  treats it as `auto`), so a typo never silently distorts an image. */
+ *  treats it as `auto`), so a typo never silently distorts an image. The key is
+ *  matched whatever its letter case — it is the one camelCase property Carrel
+ *  reads, and `imagescaletype` is the natural thing to type. */
 function readImageScale(frontmatter: Record<string, unknown>): ImageScaleType | undefined {
-  const raw = readFmProp(frontmatter, "imageScaleType")?.toLowerCase();
-  return raw != null && (IMAGE_SCALES as readonly string[]).includes(raw)
-    ? (raw as ImageScaleType)
+  const key = Object.keys(frontmatter).find((k) => k.toLowerCase() === "imagescaletype");
+  const raw = key != null ? readFmProp(frontmatter, key)?.toLowerCase() : undefined;
+  return raw != null && Object.prototype.hasOwnProperty.call(IMAGE_SCALES, raw)
+    ? IMAGE_SCALES[raw]
     : undefined;
 }
 

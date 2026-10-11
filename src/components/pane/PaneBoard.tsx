@@ -12,10 +12,12 @@
    Phase 5 persists pins/order/checklist per nook. */
 import { useCallback, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
+import type { ReadonlySignal } from "@preact/signals";
 import type CarrelPlugin from "../../main";
 import type { CarrelIndex } from "../../rules/index";
-import type { RuleBlock, RuleDoc, SummaryKind } from "../../rules/model";
-import type { CustomType, GroupBy, LayoutMode, SortMode } from "../../types/data";
+import type { ImageScaleType, RuleBlock, RuleDoc, SummaryKind } from "../../rules/model";
+import { DEFAULT_TWEAKS } from "../../types/data";
+import type { BoardDisplay, CoverFit, CustomType, GroupBy, LayoutMode, SortMode } from "../../types/data";
 import { searchRules } from "../../rules/search";
 import { FILTERABLE_TYPES, customTypeToken, resolveType } from "../../rules/registry";
 import { buildSections, categoryComparator } from "../../rules/grouping";
@@ -137,7 +139,14 @@ export interface CardProps {
   checklistState: Record<string, boolean>;
   onToggleCheck: (key: string, value: boolean) => void;
   onGripDown?: (e: PointerEvent) => void;
+  /** The board's Image fit, for a cover whose note sets no `imageScaleType`. */
+  coverFit?: CoverFit;
+  /** Show the preview under a cover that comes from the image property. */
+  coverPreview?: boolean;
 }
+
+/** The board's Image fit → the scale mode the cover renders with. */
+const COVER_SCALE: Record<CoverFit, ImageScaleType> = { auto: "auto", contain: "fit", cover: "fill" };
 
 const KIND_ICON: Record<SummaryKind, string> = { code: "code", table: "table", embed: "file-symlink", roll: "dices" };
 const KIND_LABEL: Record<SummaryKind, string> = { code: "Code", table: "Table", embed: "Embed", roll: "Roll" };
@@ -170,11 +179,16 @@ function CardIcon({ plugin, doc }: { plugin: CarrelPlugin; doc: RuleDoc }): JSX.
   return <img src={url} alt="" onError={() => setFailedSrc(src ?? null)} />;
 }
 
-export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck, onGripDown }: CardProps): JSX.Element {
+export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, onToggle, onPin, checklistState, onToggleCheck, onGripDown, coverFit = "auto", coverPreview = true }: CardProps): JSX.Element {
   const t = resolveType(doc.type, customTypes);
-  // An image card shows a cover-cropped thumbnail in place of the summary when
-  // collapsed; the expanded body renders the full image via the block dispatcher.
+  // An image card shows a cover thumbnail when collapsed; the expanded body
+  // renders the full image via the block dispatcher.
   const thumb = !isOpen && doc.type === "image" ? firstImageBlock(doc) : undefined;
+  // A cover supplied by the image property sits on a note with text of its own,
+  // so the preview shows under it. A note that IS its picture has only the
+  // picture to preview, and stays cover-only.
+  const showSum =
+    !thumb || (coverPreview && thumb.cover === true && (doc.summaryKind != null || doc.leadMd !== ""));
   return (
     <div
       class={"cr-card" + (isOpen ? " is-open" : "") + (doc.type === "image" ? " is-image" : "")}
@@ -241,19 +255,24 @@ export function Card({ plugin, doc, customTypes, isOpen, q, titlePos, pinned, on
           <MetaChips meta={doc.meta} />
           <Blocks plugin={plugin} doc={doc} q={q} checklistState={checklistState} onToggleCheck={onToggleCheck} />
         </div>
-      ) : thumb ? (
-        <CardImage plugin={plugin} path={doc.path} block={thumb} variant="thumb" />
       ) : (
-        // The preview is Obsidian's own render of the note's lead blocks (clamped
-        // by CSS) — not a hand-parsed excerpt — so inline marks, links, lists,
-        // callouts and plugin syntax all read exactly as in the note. Search
-        // matches are painted by the Custom Highlight API (it walks .cr-region).
-        <div class="cr-card__sum" onClick={stopPreviewControlClick}>
-          {doc.summaryKind && <SummaryBadge kind={doc.summaryKind} note={doc.summaryNote} />}
-          {doc.leadMd !== "" && (
-            <NativeRegion plugin={plugin} path={doc.path} md={doc.leadMd} extraClass="cr-region--preview" />
+        <>
+          {thumb && (
+            <CardImage plugin={plugin} path={doc.path} block={thumb} variant="thumb" defaultScale={COVER_SCALE[coverFit]} />
           )}
-        </div>
+          {showSum && (
+            // The preview is Obsidian's own render of the note's lead blocks (clamped
+            // by CSS) — not a hand-parsed excerpt — so inline marks, links, lists,
+            // callouts and plugin syntax all read exactly as in the note. Search
+            // matches are painted by the Custom Highlight API (it walks .cr-region).
+            <div class="cr-card__sum" onClick={stopPreviewControlClick}>
+              {doc.summaryKind && <SummaryBadge kind={doc.summaryKind} note={doc.summaryNote} />}
+              {doc.leadMd !== "" && (
+                <NativeRegion plugin={plugin} path={doc.path} md={doc.leadMd} extraClass="cr-region--preview" />
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -266,6 +285,7 @@ export function PaneBoard({
   boardNookId,
   chromeless = false,
   index,
+  display,
 }: {
   plugin: CarrelPlugin;
   embed?: boolean;
@@ -280,6 +300,9 @@ export function PaneBoard({
   /** Index override (the inline embed runs its own per-nook index so it can show
    *  a nook other than the active one). Defaults to the plugin's shared index. */
   index?: CarrelIndex;
+  /** Display settings supplied by the host in place of the nook's own — the
+   *  Bases view's options. Anything it leaves unset falls back to the nook. */
+  display?: ReadonlySignal<Partial<BoardDisplay>>;
 }): JSX.Element {
   const [query, setQuery] = useState("");
   const [cats, setCats] = useState<Set<string>>(() => new Set());
@@ -401,8 +424,21 @@ export function PaneBoard({
     setFocusId(id);
   }, []);
 
+  // The settings the board renders with: the nook's theme + tweaks, under
+  // whatever the host supplies (a Bases view's own options).
+  const disp: BoardDisplay = {
+    ...DEFAULT_TWEAKS,
+    theme: nook?.theme ?? "brand",
+    ...nook?.tweaks,
+    ...display?.value,
+  };
+
   // the three self-contained subsystems
-  const { regSection } = useMasonryPack({ appRef, scrollRef, cells, lastToggled }, open, query, spanOf, sections);
+  // The sheet sidebar embed is designed two-up at ~321px; every other host lets
+  // an auto board fall to a single column when it gets too narrow for two.
+  const { regSection } = useMasonryPack(
+    { appRef, scrollRef, cells, lastToggled }, open, query, spanOf, sections, disp.columns, embed && !chromeless
+  );
   const { regRail, onPinDown } = useRailDrag({ store, nookRef, pinOrder, dragId, setDragId });
   const { onCardDown } = useCardDrag({ store, nookRef, sectionsRef, cells, appRef, setDragId: setCardDragId });
   useCardKeyboard({ appRef, scrollRef, cells, lastToggled, focusId, setFocusId, open, setOpen, visibleIds, toggle });
@@ -438,16 +474,20 @@ export function PaneBoard({
 
   const pinnedDocs = pinOrder.map((p) => docByPath.get(p)).filter((d): d is RuleDoc => !!d);
 
-  // per-nook theme + density + tweak classes on the board root
-  const tw = nook?.tweaks;
+  // theme + density + tweak classes on the board root
   const appClass =
     "cr-app" +
     (embed ? " is-embed" : "") +
-    " theme-" + (nook?.theme ?? "brand") +
-    " dense-" + (tw?.density ?? "regular") +
-    (tw && tw.animations === false ? " anim-off" : "") +
-    (tw && tw.showBadges === false ? " no-badges" : "");
-  const showRail = !tw || tw.showRail !== false;
+    " theme-" + disp.theme +
+    " dense-" + disp.density +
+    (disp.animations ? "" : " anim-off") +
+    (disp.showBadges ? "" : " no-badges");
+  // The cover box shape + cap, written only when changed from the default so a
+  // snippet's `--cr-cover-*` still applies to an untouched board (see _image).
+  const coverStyle: Record<string, string> = {};
+  if (disp.coverAspect !== DEFAULT_TWEAKS.coverAspect) coverStyle["--cover-aspect"] = "1 / " + disp.coverAspect;
+  if (disp.coverMaxHeight !== DEFAULT_TWEAKS.coverMaxHeight) coverStyle["--cover-max-h"] = disp.coverMaxHeight + "px";
+  const showRail = disp.showRail;
   // wheel + drag-to-pan for the pinned rail (acts only when it overflows — the
   // nowrap embed; the wrapped full-pane rail never overflows, so this no-ops).
   // Keyed on the rail's render conditions: pins load after first render, so an
@@ -458,7 +498,7 @@ export function PaneBoard({
   return (
     // tabIndex makes the board focusable so the keyboard navigator can scope its
     // keydown to the pane (it receives focus when the user clicks into it).
-    <div class={appClass} ref={appRef} tabIndex={-1}>
+    <div class={appClass} style={coverStyle} ref={appRef} tabIndex={-1}>
       {!chromeless && (
       <div class="cr-top">
         <div class="cr-topbar">
@@ -496,7 +536,8 @@ export function PaneBoard({
             >
               {embed ? <CollapseGlyph /> : <>Collapse{open.size ? " " + open.size : ""}</>}
             </button>
-            {nook && (
+            {/* A Bases view's display settings live in its own view options. */}
+            {nook && nook.kind !== "bases" && (
               <button class="cr-tbtn cr-tbtn--icon" title="Nook settings" onClick={() => new NookSettingsModal(plugin, nook.id).open()}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="3" />
@@ -633,7 +674,7 @@ export function PaneBoard({
                       <DragGrip />
                     </span>
                     <span class="cr-railcard__ic">
-                      <GlyphIcon iconSet={d.iconSet} icon={d.icon} />
+                      <CardIcon plugin={plugin} doc={d} />
                     </span>
                     <span class="cr-railcard__main">
                       <span class="cr-railcard__title">{d.title}</span>
@@ -693,6 +734,8 @@ export function PaneBoard({
               focusId={focusId}
               cardDragId={cardDragId}
               setCardDragId={setCardDragId}
+              coverFit={disp.coverFit}
+              coverPreview={disp.coverPreview}
               appRef={appRef}
               cells={cells}
               lastToggled={lastToggled}
@@ -731,6 +774,8 @@ export function PaneBoard({
                         checklistState={checklist}
                         onToggleCheck={onToggleCheck}
                         onGripDown={!embed && !sec.results ? (e) => onCardDown(e, d.path) : undefined}
+                        coverFit={disp.coverFit}
+                        coverPreview={disp.coverPreview}
                       />
                     </div>
                   ))}

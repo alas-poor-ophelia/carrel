@@ -268,7 +268,9 @@ export class CarrelStore {
       name: name || "Bases",
       folders: [],
       kind: "bases",
-      theme: "brand",
+      // A view inside a Base starts out matching the vault's theme, like the
+      // Base's other views; Ember is one option away (the view's Display group).
+      theme: "obsidian",
       characterId: null,
       pins: [],
       pinOrder: [],
